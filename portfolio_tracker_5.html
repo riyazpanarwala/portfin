@@ -1,0 +1,1920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portfolio Tracker — Personal Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0d1117;--bg2:#161b22;--bg3:#1c2330;--bg4:#21262d;
+  --border:#30363d;--border2:#3d444d;
+  --text:#e6edf3;--muted:#7d8590;--muted2:#484f58;
+  --gold:#d4a843;--gold2:#f0c060;
+  --green:#3fb950;--green-dim:#1a4a26;--green-bg:#0d2818;
+  --red:#f85149;--red-dim:#5a1e1e;--red-bg:#2d1414;
+  --blue:#58a6ff;--blue-bg:#0d2040;
+  --amber:#e3b341;--amber-bg:#2d1f00;
+  --mono:'DM Mono',monospace;--sans:'Syne',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13px;line-height:1.6;min-height:100vh}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.03) 2px,rgba(0,0,0,.03) 4px);pointer-events:none;z-index:9999}
+.shell{display:flex;min-height:100vh}
+.sidebar{width:200px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;overflow-y:auto}
+.main{margin-left:200px;flex:1;min-width:0}
+.logo-area{padding:20px 16px 16px;border-bottom:1px solid var(--border)}
+.logo{font-family:var(--sans);font-size:15px;font-weight:700;color:var(--gold);display:flex;align-items:center;gap:8px}
+.logo-dot{width:8px;height:8px;background:var(--gold);border-radius:50%;animation:pulse-gold 2s infinite}
+@keyframes pulse-gold{0%,100%{box-shadow:0 0 0 0 rgba(212,168,67,.6)}50%{box-shadow:0 0 0 6px rgba(212,168,67,0)}}
+.logo-sub{font-size:10px;color:var(--muted);margin-top:3px;letter-spacing:.05em;text-transform:uppercase}
+.nav{padding:12px 0;flex:1}
+.nav-section{padding:8px 16px 4px;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2)}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 16px;color:var(--muted);cursor:pointer;font-size:12px;border-left:2px solid transparent;transition:all .15s;user-select:none}
+.nav-item:hover{color:var(--text);background:var(--bg3)}
+.nav-item.active{color:var(--gold);border-left-color:var(--gold);background:var(--bg3)}
+.nav-icon{font-size:14px;width:16px;text-align:center}
+.sidebar-stats{padding:14px 16px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px}
+.ss-row{display:flex;justify-content:space-between;align-items:center}
+.ss-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.ss-val{font-size:12px;font-weight:500}
+.cat-strip{display:flex;gap:1px;height:3px;border-radius:2px;overflow:hidden;margin-top:8px}
+.ticker{background:var(--bg3);border-bottom:1px solid var(--border);padding:6px 0;overflow:hidden;font-size:11px}
+.ticker-inner{display:flex;gap:32px;white-space:nowrap;animation:scroll-left 50s linear infinite}
+@keyframes scroll-left{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.tick-item{display:inline-flex;gap:8px;align-items:center}
+.tick-name{color:var(--muted)}.tick-price{color:var(--text);font-weight:500}
+.tick-chg.up{color:var(--green)}.tick-chg.dn{color:var(--red)}
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:0;z-index:50}
+.topbar-title{font-family:var(--sans);font-size:16px;font-weight:600;color:var(--text)}
+.topbar-meta{font-size:11px;color:var(--muted)}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:4px;font-size:10px;font-weight:500;letter-spacing:.04em}
+.badge-g{background:var(--green-bg);color:var(--green);border:1px solid var(--green-dim)}
+.badge-r{background:var(--red-bg);color:var(--red);border:1px solid var(--red-dim)}
+.badge-a{background:var(--amber-bg);color:var(--amber);border:1px solid #4a3500}
+.page{padding:24px;display:none;animation:fadein .2s ease}
+.page.active{display:block}
+@keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px}
+.kpi-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:16px;position:relative;overflow:hidden;transition:border-color .2s}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--accent,var(--gold))}
+.kpi-card:hover{border-color:var(--border2)}
+.kpi-label{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.kpi-value{font-family:var(--sans);font-size:22px;font-weight:700;color:var(--text);line-height:1;margin-bottom:6px}
+.kpi-sub{font-size:11px;color:var(--muted)}
+.kpi-sub.up{color:var(--green)}.kpi-sub.dn{color:var(--red)}.kpi-sub.gold{color:var(--gold)}
+.sec-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.sec-title{font-family:var(--sans);font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:8px}
+.sec-title::before{content:'';display:inline-block;width:3px;height:14px;background:var(--gold);border-radius:2px}
+.controls{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;align-items:center}
+.ctrl-label{font-size:10px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-right:2px}
+.chip{padding:5px 12px;border-radius:4px;font-size:11px;font-family:var(--mono);border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all .15s}
+.chip:hover{border-color:var(--border2);color:var(--text)}
+.chip.on{background:var(--gold);color:#0d1117;border-color:var(--gold);font-weight:500}
+.tbl-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden;overflow-x:auto;margin-bottom:20px}
+table{width:100%;border-collapse:collapse;min-width:700px}
+thead{background:var(--bg3)}
+th{padding:10px 14px;text-align:left;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none}
+th:hover{color:var(--text)}th.sorted{color:var(--gold)}
+td{padding:11px 14px;border-bottom:1px solid var(--border);font-size:12px;white-space:nowrap;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--bg3)}
+.td-up{color:var(--green);font-weight:500}.td-dn{color:var(--red);font-weight:500}
+.td-muted{color:var(--muted)}.td-gold{color:var(--gold);font-weight:500}
+.pill{display:inline-block;padding:2px 8px;border-radius:3px;font-size:9px;font-weight:500;letter-spacing:.05em;white-space:nowrap}
+.pill-h{background:var(--red-bg);color:var(--red);border:1px solid var(--red-dim)}
+.pill-m{background:var(--amber-bg);color:var(--amber);border:1px solid #4a3500}
+.pill-l{background:var(--green-bg);color:var(--green);border:1px solid var(--green-dim)}
+.bar-wrap{display:flex;align-items:center;gap:8px}
+.bar-track{flex:1;height:4px;background:var(--bg4);border-radius:2px;overflow:hidden;min-width:60px}
+.bar-fill{height:100%;border-radius:2px;transition:width .4s}
+.bar-fill.up{background:var(--green)}.bar-fill.dn{background:var(--red)}
+.bar-pct{font-size:11px;font-weight:500;min-width:58px;text-align:right;white-space:nowrap}
+.bar-pct.up{color:var(--green)}.bar-pct.dn{color:var(--red)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px}
+@media(max-width:800px){.grid2{grid-template-columns:1fr}}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:16px}
+.donut-wrap{display:flex;align-items:center;gap:16px}
+.donut-legend{flex:1;display:flex;flex-direction:column;gap:6px}
+.legend-row{display:flex;align-items:center;gap:7px;font-size:11px}
+.legend-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+.legend-name{color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.legend-pct{color:var(--text);font-weight:500;min-width:32px;text-align:right}
+.alert-box{background:var(--red-bg);border:1px solid var(--red-dim);border-radius:8px;padding:14px 16px;margin-bottom:20px}
+.alert-title{font-size:11px;font-weight:600;color:var(--red);margin-bottom:10px;letter-spacing:.06em;text-transform:uppercase}
+.alert-row{display:flex;gap:10px;margin-bottom:6px;font-size:11px;align-items:flex-start}
+.alert-name{color:var(--red);font-weight:500;min-width:140px;flex-shrink:0}
+.alert-msg{color:#d0a0a0}
+.rec-box{background:var(--amber-bg);border:1px solid #4a3500;border-radius:8px;padding:14px 16px;margin-bottom:20px}
+.rec-title{font-size:11px;font-weight:600;color:var(--amber);margin-bottom:10px;letter-spacing:.06em;text-transform:uppercase}
+.rec-row{display:flex;gap:10px;margin-bottom:7px;align-items:flex-start}
+.rec-tag{font-size:9px;font-weight:600;padding:2px 7px;border-radius:3px;flex-shrink:0;letter-spacing:.05em}
+.tag-exit{background:var(--red-bg);color:var(--red);border:1px solid var(--red-dim)}
+.tag-reduce{background:var(--amber-bg);color:var(--amber);border:1px solid #5a3d00}
+.tag-hold{background:var(--blue-bg);color:var(--blue);border:1px solid #1a4060}
+.tag-add{background:var(--green-bg);color:var(--green);border:1px solid var(--green-dim)}
+.tag-switch{background:#1a2040;color:#9ab8ff;border:1px solid #2a3a70}
+.rec-text{font-size:11px;color:#c0b080;line-height:1.5}
+.stat-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);gap:10px}
+.stat-row:last-child{border-bottom:none}
+.stat-label{font-size:11px;color:var(--muted)}
+.stat-note{font-size:10px;color:var(--muted2)}
+.stat-val{font-size:13px;font-weight:500;text-align:right}
+.chart-box{position:relative;width:100%;height:200px}
+.drop-zone{border:1px dashed var(--border2);border-radius:8px;padding:20px;text-align:center;color:var(--muted);cursor:pointer;transition:all .2s;background:var(--bg3);margin-bottom:16px}
+.drop-zone:hover{border-color:var(--gold);color:var(--gold);background:#1a1a00}
+/* ── Health Score ── */
+.health-gauge{position:relative;width:110px;height:110px;flex-shrink:0}
+.health-gauge svg{transform:rotate(-90deg)}
+.health-gauge-val{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.health-score-num{font-family:var(--sans);font-size:28px;font-weight:700;line-height:1}
+.health-score-lbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
+.health-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.health-bar-name{font-size:10px;color:var(--muted);min-width:110px}
+.health-bar-track{flex:1;height:6px;background:var(--bg4);border-radius:3px;overflow:hidden}
+.health-bar-fill{height:100%;border-radius:3px;transition:width .6s}
+.health-bar-pts{font-size:10px;font-weight:600;min-width:30px;text-align:right}
+/* ── Drill-down ── */
+.drill-row{background:var(--bg3);border-top:1px solid var(--border)}
+.drill-row td{padding:0!important;border:none!important}
+.drill-inner{padding:0 14px 12px;overflow-x:auto}
+.drill-table{width:100%;border-collapse:collapse;min-width:500px;margin-top:8px}
+.drill-table th{font-size:8px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted2);padding:4px 8px;border-bottom:1px solid var(--border2);white-space:nowrap;text-align:left}
+.drill-table td{font-size:11px;padding:6px 8px;border-bottom:1px solid var(--border2);white-space:nowrap}
+.drill-table tr:last-child td{border-bottom:none}
+.drill-table tr:hover td{background:var(--bg4)}
+.ltcg-badge{display:inline-block;padding:1px 6px;border-radius:3px;font-size:8px;font-weight:600;background:var(--green-bg);color:var(--green);border:1px solid var(--green-dim)}
+.stcg-badge{display:inline-block;padding:1px 6px;border-radius:3px;font-size:8px;font-weight:600;background:var(--amber-bg);color:var(--amber);border:1px solid #5a3d00}
+.expand-btn{cursor:pointer;color:var(--muted);font-size:11px;user-select:none;transition:color .15s}
+.expand-btn:hover{color:var(--gold)}
+/* ── Tax ── */
+.tax-kpi{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:10px 12px}
+.tax-kpi-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px}
+.tax-kpi-val{font-family:var(--sans);font-size:16px;font-weight:700}
+.harvest-tag{display:inline-block;padding:1px 6px;border-radius:3px;font-size:8px;font-weight:600;background:var(--blue-bg);color:var(--blue);border:1px solid #1a4060;white-space:nowrap}
+/* ── Goal ── */
+.goal-scenario-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)}
+.goal-scenario-row:last-child{border-bottom:none}
+.goal-scen-rate{font-size:11px;color:var(--muted);min-width:100px}
+.goal-scen-sip{font-family:var(--sans);font-size:15px;font-weight:700;color:var(--gold);min-width:80px}
+.goal-scen-bar{flex:1;height:6px;background:var(--bg4);border-radius:3px;overflow:hidden}
+.goal-scen-fill{height:100%;border-radius:3px;background:var(--gold);transition:width .5s}
+.goal-scen-note{font-size:10px;color:var(--muted);min-width:130px;text-align:right}
+.milestone-row{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border)}
+.milestone-row:last-child{border-bottom:none}
+.milestone-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.milestone-year{font-size:11px;font-weight:600;min-width:40px}
+.milestone-corpus{font-size:11px;color:var(--text);flex:1}
+.milestone-status{font-size:10px;min-width:90px;text-align:right}
+
+.tl-cell{border-radius:2px;cursor:pointer;transition:transform .1s,filter .1s;position:relative}
+.tl-cell:hover{transform:scale(1.15);filter:brightness(1.3);z-index:2}
+.tl-cell-empty{background:var(--bg4);border-radius:2px}
+.tl-month-label{font-size:9px;color:var(--muted);text-align:center;padding-top:2px}
+.tl-year-label{font-size:9px;color:var(--muted2);writing-mode:vertical-rl;text-align:center;padding-right:4px;letter-spacing:.06em;text-transform:uppercase}
+.tl-tooltip{position:fixed;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:8px 12px;font-size:11px;pointer-events:none;z-index:1000;display:none;max-width:200px}
+.tl-tooltip strong{color:var(--gold);display:block;margin-bottom:3px}
+.yr-bar-wrap{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.yr-bar-label{font-size:10px;color:var(--muted);min-width:36px;text-align:right}
+.yr-bar-track{flex:1;height:16px;background:var(--bg4);border-radius:3px;overflow:hidden;position:relative}
+.yr-bar-fill{height:100%;border-radius:3px;transition:width .5s}
+.yr-bar-val{font-size:10px;color:var(--text);font-weight:500;min-width:52px;text-align:right}
+.insight-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;position:relative;overflow:hidden}
+.insight-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--ic-accent,var(--gold))}
+.insight-label{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.insight-value{font-family:var(--sans);font-size:19px;font-weight:700;margin-bottom:3px}
+.insight-note{font-size:10px;color:var(--muted)}
+
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--muted2)}
+</style>
+</head>
+<body>
+<div class="shell">
+<aside class="sidebar">
+  <div class="logo-area">
+    <div class="logo"><span class="logo-dot"></span>PORTFIN</div>
+    <div class="logo-sub">Personal Dashboard</div>
+  </div>
+  <nav class="nav">
+    <div class="nav-section">Views</div>
+    <div class="nav-item active" onclick="switchPage('overview')"><span class="nav-icon">◈</span>Overview</div>
+    <div class="nav-item" onclick="switchPage('mf')"><span class="nav-icon">◎</span>Mutual Funds</div>
+    <div class="nav-item" onclick="switchPage('stocks')"><span class="nav-icon">◐</span>Equity Stocks</div>
+    <div class="nav-item" onclick="switchPage('analytics')"><span class="nav-icon">◉</span>Analytics</div>
+    <div class="nav-item" onclick="switchPage('timeline')"><span class="nav-icon">◫</span>Timeline</div>
+    <div class="nav-item" onclick="switchPage('goals')"><span class="nav-icon">◎</span>Goal Planner</div>
+    <div class="nav-section" style="margin-top:12px">Tools</div>
+    <div class="nav-item" onclick="switchPage('upload')"><span class="nav-icon">↑</span>Import Excel</div>
+  </nav>
+  <div class="sidebar-stats">
+    <div class="ss-row"><span class="ss-label">Total Value</span><span id="sb-total-val" class="ss-val" style="color:var(--gold)">—</span></div>
+    <div class="ss-row"><span class="ss-label">Overall P&L</span><span id="sb-pnl" class="ss-val" style="color:var(--green)">—</span></div>
+    <div class="ss-row"><span class="ss-label">MF CAGR</span><span id="sb-cagr" class="ss-val" style="color:var(--gold)">—</span></div>
+    <div class="ss-row"><span class="ss-label">As of</span><span id="sb-date" class="ss-val" style="color:var(--muted)">—</span></div>
+    <div class="cat-strip" id="cat-strip"></div>
+  </div>
+</aside>
+
+<div class="main">
+<div class="ticker"><div class="ticker-inner" id="ticker-inner"></div></div>
+
+<div class="topbar">
+  <div>
+    <div class="topbar-title" id="page-title">Portfolio Overview</div>
+    <div class="topbar-meta" id="topbar-meta">Upload your Excel files to load live data</div>
+  </div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap" id="topbar-badges"></div>
+</div>
+
+<!-- OVERVIEW -->
+<div class="page active" id="page-overview">
+  <div class="kpi-grid" id="kpi-overview"></div>
+  <div class="grid2">
+    <div class="card">
+      <div class="sec-head"><div class="sec-title">MF vs Stocks allocation</div></div>
+      <div id="alloc-split"></div>
+    </div>
+    <div class="card">
+      <div class="sec-head"><div class="sec-title">MF category mix</div></div>
+      <div class="donut-wrap">
+        <svg id="donut-mf" width="110" height="110" viewBox="0 0 110 110"></svg>
+        <div class="donut-legend" id="legend-mf"></div>
+      </div>
+    </div>
+  </div>
+  <div class="grid2">
+    <div class="card"><div class="sec-head"><div class="sec-title">Top MF performers</div></div><div id="top-mf"></div></div>
+    <div class="card"><div class="sec-head"><div class="sec-title">Top stock gainers</div></div><div id="top-st"></div></div>
+  </div>
+  <div class="alert-box">
+    <div class="alert-title">⚠ Risk concentration alerts</div>
+    <div id="risk-alerts"></div>
+  </div>
+  <!-- Health Score -->
+  <div class="grid2" id="health-score-wrap">
+    <div class="card">
+      <div class="sec-head"><div class="sec-title">Portfolio health score</div></div>
+      <div id="health-score-display" style="display:flex;align-items:center;gap:24px"></div>
+    </div>
+    <div class="card">
+      <div class="sec-head"><div class="sec-title">Score breakdown</div></div>
+      <div id="health-score-breakdown"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MUTUAL FUNDS -->
+<div class="page" id="page-mf">
+  <div class="kpi-grid" id="kpi-mf"></div>
+  <div class="controls" id="mf-filters"></div>
+  <div class="controls" id="mf-sorts"></div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th onclick="sortMF('name')">Fund name</th>
+        <th onclick="sortMF('Category')">Category</th>
+        <th onclick="sortMF('Lots')">Lots</th>
+        <th onclick="sortMF('Invested')">Invested</th>
+        <th onclick="sortMF('Current')">Current value</th>
+        <th onclick="sortMF('Gain')">Gain / Loss</th>
+        <th onclick="sortMF('RetPct')">Return %</th>
+        <th onclick="sortMF('CAGR')">CAGR</th>
+        <th onclick="sortMF('holdDays')">Holding</th>
+      </tr></thead>
+      <tbody id="mf-tbody"></tbody>
+    </table>
+  </div>
+  <div class="grid3" id="mf-cats"></div>
+</div>
+
+<!-- STOCKS -->
+<div class="page" id="page-stocks">
+  <div class="kpi-grid" id="kpi-stocks"></div>
+  <div class="controls" id="st-filters"></div>
+  <div class="controls" id="st-sorts"></div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th onclick="sortST('name')">Stock</th>
+        <th onclick="sortST('Sector')">Sector</th>
+        <th>Risk</th>
+        <th onclick="sortST('Qty')">Quantity</th>
+        <th onclick="sortST('Latest_Price')">CMP (₹)</th>
+        <th onclick="sortST('Invested')">Invested</th>
+        <th onclick="sortST('Current')">Market value</th>
+        <th onclick="sortST('Gain')">P&amp;L</th>
+        <th onclick="sortST('RetPct')">Return %</th>
+        <th onclick="sortST('CAGR')">CAGR</th>
+        <th onclick="sortST('holdDays')">Holding</th>
+      </tr></thead>
+      <tbody id="st-tbody"></tbody>
+    </table>
+  </div>
+  <div class="rec-box">
+    <div class="rec-title">◈ Analyst actions</div>
+    <div id="recommendations"></div>
+  </div>
+  <!-- Tax Harvesting -->
+  <div class="card" style="margin-bottom:20px">
+    <div class="sec-head">
+      <div class="sec-title">Tax harvesting assistant</div>
+      <div style="font-size:10px;color:var(--muted)">FY Indian equity tax — LTCG 12.5% (held &gt;1yr, gains &gt;₹1.25L) · STCG 20% (held &lt;1yr)</div>
+    </div>
+    <div id="tax-kpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px"></div>
+    <div id="tax-table"></div>
+  </div>
+</div>
+
+<!-- ANALYTICS -->
+<div class="page" id="page-analytics">
+  <div class="grid2">
+    <div class="card">
+      <div class="sec-head"><div class="sec-title">Monthly MF investment flow</div></div>
+      <div class="chart-box"><canvas id="chart-monthly"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="sec-head"><div class="sec-title">Stock sector P&L</div></div>
+      <div id="sector-pl"></div>
+    </div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <div class="sec-head"><div class="sec-title">Portfolio ratios</div></div>
+      <div id="ratios"></div>
+    </div>
+    <div class="card">
+      <div class="sec-head"><div class="sec-title">XIRR estimate</div></div>
+      <p style="font-size:11px;color:var(--muted);line-height:1.7;margin-bottom:10px">Money-weighted return computed from your actual lot dates and amounts:</p>
+      <div id="xirr-display"></div>
+    </div>
+  </div>
+</div>
+
+<!-- TIMELINE -->
+<div class="page" id="page-timeline">
+
+  <!-- KPI strip -->
+  <div class="kpi-grid" id="tl-kpis"></div>
+
+  <!-- Year filter chips -->
+  <div class="controls" id="tl-year-filter" style="margin-bottom:16px"></div>
+
+  <!-- Heatmap calendar -->
+  <div class="card" style="margin-bottom:16px">
+    <div class="sec-head">
+      <div class="sec-title">Monthly investment heatmap</div>
+      <div id="tl-heatmap-legend" style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--muted)"></div>
+    </div>
+    <div id="tl-heatmap" style="overflow-x:auto"></div>
+  </div>
+
+  <!-- Yearly summary bars + monthly table side by side -->
+  <div class="grid2">
+    <div class="card">
+      <div class="sec-head"><div class="sec-title">Yearly investment totals</div></div>
+      <div id="tl-yearly-bars"></div>
+    </div>
+    <div class="card">
+      <div class="sec-head">
+        <div class="sec-title">Monthly breakdown</div>
+        <div id="tl-month-select" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+      </div>
+      <div id="tl-monthly-table"></div>
+    </div>
+  </div>
+
+  <!-- Cumulative invested line chart -->
+  <div class="card" style="margin-bottom:16px">
+    <div class="sec-head"><div class="sec-title">Cumulative invested over time (MF + Stocks)</div></div>
+    <div class="chart-box" style="height:220px"><canvas id="chart-cumulative"></canvas></div>
+  </div>
+
+  <!-- Insights row -->
+  <div class="grid3" id="tl-insights"></div>
+
+</div>
+
+<!-- GOAL PLANNER -->
+<div class="page" id="page-goals">
+  <div class="kpi-grid" id="goal-summary-kpis"></div>
+  <div class="grid2">
+    <div class="card">
+      <div class="sec-head"><div class="sec-title">Set your goal</div></div>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div>
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Target corpus</div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <input type="range" id="goal-corpus" min="500000" max="100000000" step="500000" value="10000000"
+              oninput="updateGoal()" style="flex:1;accent-color:var(--gold)">
+            <span id="goal-corpus-val" style="font-family:var(--sans);font-size:16px;font-weight:700;color:var(--gold);min-width:72px;text-align:right"></span>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Target year</div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <input type="range" id="goal-year" min="2025" max="2055" step="1" value="2035"
+              oninput="updateGoal()" style="flex:1;accent-color:var(--gold)">
+            <span id="goal-year-val" style="font-family:var(--sans);font-size:16px;font-weight:700;color:var(--gold);min-width:48px;text-align:right"></span>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Expected annual return (%)</div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <input type="range" id="goal-rate" min="6" max="24" step="0.5" value="12"
+              oninput="updateGoal()" style="flex:1;accent-color:var(--gold)">
+            <span id="goal-rate-val" style="font-family:var(--sans);font-size:16px;font-weight:700;color:var(--gold);min-width:48px;text-align:right"></span>
+          </div>
+        </div>
+        <div id="goal-result-box" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px;margin-top:4px"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="sec-head"><div class="sec-title">Wealth projection</div></div>
+      <div class="chart-box" style="height:260px"><canvas id="chart-goal"></canvas></div>
+    </div>
+  </div>
+  <!-- Scenario comparison -->
+  <div class="card" style="margin-bottom:16px">
+    <div class="sec-head"><div class="sec-title">SIP scenarios — monthly amount needed to reach goal</div></div>
+    <div id="goal-scenarios"></div>
+  </div>
+  <!-- Milestone tracker -->
+  <div class="card">
+    <div class="sec-head"><div class="sec-title">Milestone tracker</div></div>
+    <div id="goal-milestones"></div>
+  </div>
+</div>
+
+<!-- IMPORT -->
+<div class="page" id="page-upload">
+  <div style="max-width:640px;margin:0 auto;padding-top:10px">
+    <div class="sec-head"><div class="sec-title">Import new Excel data</div></div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:20px;line-height:1.8">Drop your broker-exported Excel files below — the dashboard updates instantly with no Python or server required.</p>
+    <div class="card" style="margin-bottom:16px"><div id="steps-list"></div></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+      <div>
+        <div style="font-size:10px;color:var(--gold);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">① Mutual Funds file</div>
+        <div class="drop-zone" id="drop-zone-mf">
+          <div style="font-size:24px;margin-bottom:8px">📊</div>
+          <div style="font-size:12px;margin-bottom:4px">Drop MF Excel file here</div>
+          <div style="font-size:10px" class="upload-status">or click to browse — .xlsx / .xls</div>
+          <input type="file" id="file-input-mf" accept=".xlsx,.xls" style="display:none">
+        </div>
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--blue);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">② Stocks file</div>
+        <div class="drop-zone" id="drop-zone-st">
+          <div style="font-size:24px;margin-bottom:8px">📈</div>
+          <div style="font-size:12px;margin-bottom:4px">Drop Stocks Excel file here</div>
+          <div style="font-size:10px" class="upload-status">or click to browse — .xlsx / .xls</div>
+          <input type="file" id="file-input-st" accept=".xlsx,.xls" style="display:none">
+        </div>
+      </div>
+    </div>
+    <div id="apply-msg" style="display:none;border-radius:6px;padding:10px 14px;font-size:12px;margin-bottom:16px"></div>
+  </div>
+</div>
+
+</div><!-- /main -->
+</div><!-- /shell -->
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+// ══════════════════════════════════════════════════════════════
+// DATA — seed / fallback; fully replaced when Excel uploaded
+// ══════════════════════════════════════════════════════════════
+const DATA = {
+  kpis:{totalInvested:0,totalValue:0,totalGain:0,totalReturn:0,
+        mfInvested:0,mfValue:0,mfGain:0,mfReturn:0,mfCAGR:0,
+        stInvested:0,stValue:0,stGain:0,stReturn:0,
+        earliestMF:'', earliestST:''},
+  funds:[], mfCategories:[], stocks:[], sectors:[],
+  monthlyMF:[],
+  mfLots:[], stLots:[]   // raw lot arrays for XIRR
+};
+
+// ── Helpers ───────────────────────────────────────────────────
+const fmtL = n => { const a=Math.abs(n),s=n<0?'−':''; return a>=1e7?s+'₹'+(a/1e7).toFixed(2)+' Cr':a>=1e5?s+'₹'+(a/1e5).toFixed(1)+' L':s+'₹'+Math.round(a).toLocaleString('en-IN'); };
+const fmtN = n => n.toLocaleString('en-IN');
+const fmtP = n => (n>=0?'+':'')+n.toFixed(1)+'%';
+const cls  = n => n>=0?'td-up':'td-dn';
+const pSign= n => n>=0?'+':'';
+
+const CAT_CLR = {Value:'#d4a843','Large Cap':'#58a6ff','Mid Cap':'#3fb950','Small Cap':'#f0883e','Flexi Cap':'#a371f7',ELSS:'#e3b341',Index:'#79c0ff',Other:'#7d8590'};
+const SEC_CLR = {Defence:'#58a6ff','Energy/PSU':'#3fb950',Speculative:'#f85149',Renewables:'#56d364','Finance/PSU':'#a371f7',FMCG:'#e3b341','Metals/Mining':'#d4a843',Banking:'#f0883e','Infra/PSU':'#79c0ff','Commodities ETF':'#7d8590','Index ETF':'#484f58',Other:'#7d8590'};
+const gc = (k,m) => m[k]||'#7d8590';
+
+function miniBar(pct, max) {
+  const w = Math.min(100,max>0?Math.abs(pct)/max*100:0), up=pct>=0;
+  return `<div class="bar-wrap"><div class="bar-track"><div class="bar-fill ${up?'up':'dn'}" style="width:${w}%"></div></div><span class="bar-pct ${up?'up':'dn'}">${fmtP(pct)}</span></div>`;
+}
+function riskBadge(s) {
+  if(s.Sector==='Speculative'||s.RetPct<-30) return '<span class="pill pill-h">HIGH RISK</span>';
+  if(s.RetPct<-10) return '<span class="pill pill-m">WATCH</span>';
+  return '<span class="pill pill-l">SAFE</span>';
+}
+function donut(svgId, legId, data, colorMap) {
+  const svg=document.getElementById(svgId), leg=document.getElementById(legId);
+  if(!svg||!leg) return;
+  const total=data.reduce((s,d)=>s+d.v,0); if(!total) return;
+  let angle=-90; const cx=55,cy=55,r=42; let paths='';
+  data.forEach(d=>{
+    const pct=d.v/total,a1=angle,a2=angle+pct*360; angle=a2;
+    const tr=deg=>deg*Math.PI/180;
+    const x1=cx+r*Math.cos(tr(a1)),y1=cy+r*Math.sin(tr(a1));
+    const x2=cx+r*Math.cos(tr(a2)),y2=cy+r*Math.sin(tr(a2));
+    const lg=a2-a1>180?1:0;
+    paths+=`<path d="M${cx} ${cy} L${x1.toFixed(1)} ${y1.toFixed(1)} A${r} ${r} 0 ${lg} 1 ${x2.toFixed(1)} ${y2.toFixed(1)}Z" fill="${gc(d.k,colorMap)}" opacity=".9"/>`;
+  });
+  paths+=`<circle cx="${cx}" cy="${cy}" r="26" fill="#161b22"/>`;
+  svg.innerHTML=paths;
+  leg.innerHTML=data.map(d=>`<div class="legend-row"><div class="legend-dot" style="background:${gc(d.k,colorMap)}"></div><span class="legend-name">${d.k}</span><span class="legend-pct">${Math.round(d.v/total*100)}%</span></div>`).join('');
+}
+function fmtDate(d){ return d?new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}):'—'; }
+function fmtMonthYear(d){ return d?new Date(d).toLocaleDateString('en-IN',{month:'short',year:'numeric'}):'—'; }
+
+// ── XIRR via Newton-Raphson ───────────────────────────────────
+function calcXIRR(cashflows, dates) {
+  // cashflows: array of numbers (negative=outflow, positive=inflow)
+  // dates: array of Date objects, same length
+  if(!cashflows.length) return null;
+  const base = dates[0];
+  const t = dates.map(d=>(d-base)/(365.25*24*3600*1000));
+  let r = 0.1;
+  for(let iter=0;iter<100;iter++){
+    let f=0,df=0;
+    for(let i=0;i<cashflows.length;i++){
+      const v=cashflows[i]*Math.pow(1+r,-t[i]);
+      f+=v; df+=(-t[i])*cashflows[i]*Math.pow(1+r,-t[i]-1);
+    }
+    if(Math.abs(df)<1e-12) break;
+    const rn=r-f/df;
+    if(Math.abs(rn-r)<1e-8){r=rn;break;}
+    r=rn;
+    if(r<-0.9) r=-0.5;
+  }
+  return isFinite(r)?parseFloat((r*100).toFixed(1)):null;
+}
+
+// ── State ─────────────────────────────────────────────────────
+let mfSort='RetPct',mfAsc=false,mfFil='All';
+let stSort='RetPct',stAsc=false,stFil='All';
+let chartInst=null;
+
+// ── Ticker ────────────────────────────────────────────────────
+function buildTicker() {
+  if(!DATA.stocks.length && !DATA.funds.length){
+    document.getElementById('ticker-inner').innerHTML=
+      '<span class="tick-item"><span class="tick-name">Upload your Excel files</span><span class="tick-price" style="color:var(--gold)">→ Import Excel tab</span></span>'.repeat(6);
+    return;
+  }
+  const stItems=DATA.stocks.filter(s=>s.Latest_Price>0).map(s=>
+    `<span class="tick-item"><span class="tick-name">${s.name}</span><span class="tick-price">₹${s.Latest_Price.toLocaleString('en-IN')}</span><span class="tick-chg ${s.Gain>=0?'up':'dn'}">${fmtP(s.RetPct)}</span></span>`);
+  const mfItems=DATA.funds.slice(0,6).map(f=>
+    `<span class="tick-item"><span class="tick-name">${f.name.split(' ').slice(0,2).join(' ')}</span><span class="tick-price">${fmtL(f.Current)}</span><span class="tick-chg ${f.Gain>=0?'up':'dn'}">${fmtP(f.RetPct)}</span></span>`);
+  const all=[...stItems,...mfItems].join('');
+  document.getElementById('ticker-inner').innerHTML=all+all;
+}
+
+function buildStrip() {
+  const tot=DATA.mfCategories.reduce((s,c)=>s+c.Invested,0);
+  if(!tot){document.getElementById('cat-strip').innerHTML='';return;}
+  document.getElementById('cat-strip').innerHTML=DATA.mfCategories.map(c=>
+    `<div style="background:${CAT_CLR[c.Category]||'#444'};flex:${c.Invested/tot*100}"></div>`).join('');
+}
+
+// ── Update topbar + sidebar ───────────────────────────────────
+function updateChrome() {
+  const k=DATA.kpis;
+  // Sidebar
+  document.getElementById('sb-total-val').textContent = k.totalValue?fmtL(k.totalValue):'—';
+  const pnlEl=document.getElementById('sb-pnl');
+  pnlEl.textContent = k.totalReturn?(pSign(k.totalReturn)+k.totalReturn.toFixed(1)+'%'):'—';
+  pnlEl.style.color = k.totalGain>=0?'var(--green)':'var(--red)';
+  document.getElementById('sb-cagr').textContent = k.mfCAGR?(k.mfCAGR.toFixed(1)+'% p.a.'):'—';
+  // Date: latest across both files
+  const dateStr = k.latestDate ? fmtDate(k.latestDate) : (k.totalValue?fmtDate(new Date()):'—');
+  document.getElementById('sb-date').textContent = dateStr;
+
+  // Topbar meta
+  const mfCount=DATA.funds.length, stCount=DATA.stocks.length;
+  if(mfCount||stCount){
+    const since = k.earliestMF?(' · Since '+fmtMonthYear(k.earliestMF)):'';
+    document.getElementById('topbar-meta').textContent =
+      `${mfCount} mutual funds · ${stCount} equity stocks${since}`;
+  }
+
+  // Topbar badges
+  const badges=[];
+  if(k.mfReturn!==undefined&&mfCount){
+    const bc=k.mfReturn>=0?'badge-g':'badge-r';
+    badges.push(`<span class="badge ${bc}">MF ${pSign(k.mfReturn)}${k.mfReturn.toFixed(1)}%</span>`);
+  }
+  if(k.stReturn!==undefined&&stCount){
+    const bc=k.stReturn>=0?'badge-g':'badge-r';
+    badges.push(`<span class="badge ${bc}">Stocks ${pSign(k.stReturn)}${k.stReturn.toFixed(1)}%</span>`);
+  }
+  if(k.totalReturn!==undefined&&(mfCount||stCount)){
+    badges.push(`<span class="badge badge-a">Combined ${pSign(k.totalReturn)}${k.totalReturn.toFixed(1)}%</span>`);
+  }
+  document.getElementById('topbar-badges').innerHTML=badges.join('');
+}
+
+// ── Overview ──────────────────────────────────────────────────
+function renderOverview() {
+  const k=DATA.kpis;
+  const sinceMF = k.earliestMF?('Since '+fmtMonthYear(k.earliestMF)):'All time';
+  document.getElementById('kpi-overview').innerHTML=[
+    {l:'Total Invested',  v:fmtL(k.totalInvested), s:'Capital deployed',     sc:'',   a:'#d4a843'},
+    {l:'Current Value',   v:fmtL(k.totalValue),    s:'Portfolio value',      sc:'',   a:'#58a6ff'},
+    {l:'Total Gain',      v:fmtL(k.totalGain),     s:fmtP(k.totalReturn),   sc:k.totalGain>=0?'up':'dn', a:'#3fb950'},
+    {l:'MF Return',       v:fmtP(k.mfReturn),      s:sinceMF,               sc:'up', a:'#d4a843'},
+    {l:'MF CAGR',         v:fmtP(k.mfCAGR),        s:'Compounded p.a.',     sc:'up', a:'#a371f7'},
+    {l:'Stock P&L',       v:fmtL(k.stGain),        s:fmtP(k.stReturn),      sc:k.stGain>=0?'up':'dn', a:'#f85149'},
+  ].map(c=>`<div class="kpi-card" style="--accent:${c.a}"><div class="kpi-label">${c.l}</div><div class="kpi-value">${c.v}</div><div class="kpi-sub ${c.sc}">${c.s}</div></div>`).join('');
+
+  const mfP=k.totalInvested?Math.round(k.mfInvested/k.totalInvested*100):0, stP=100-mfP;
+  document.getElementById('alloc-split').innerHTML=`
+    <div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px"><span style="color:#58a6ff">Mutual Funds</span><span style="color:#58a6ff">${mfP}% · ${fmtL(k.mfInvested)}</span></div><div class="bar-track" style="height:8px"><div class="bar-fill up" style="width:${mfP}%;background:#58a6ff;height:100%"></div></div></div>
+    <div style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px"><span style="color:#f0883e">Equity Stocks</span><span style="color:#f0883e">${stP}% · ${fmtL(k.stInvested)}</span></div><div class="bar-track" style="height:8px"><div class="bar-fill up" style="width:${stP}%;background:#f0883e;height:100%"></div></div></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div style="background:var(--bg3);border-radius:6px;padding:10px"><div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">MF gain</div><div style="font-size:16px;font-weight:600;color:var(--green);font-family:var(--sans)">${fmtL(k.mfGain)}</div><div style="font-size:11px;color:var(--green)">${fmtP(k.mfReturn)}</div></div>
+      <div style="background:var(--bg3);border-radius:6px;padding:10px"><div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Stock P&L</div><div style="font-size:16px;font-weight:600;color:${k.stGain>=0?'var(--green)':'var(--red)'};font-family:var(--sans)">${fmtL(k.stGain)}</div><div style="font-size:11px;color:${k.stGain>=0?'var(--green)':'var(--red)'}">${fmtP(k.stReturn)}</div></div>
+    </div>`;
+
+  donut('donut-mf','legend-mf',DATA.mfCategories.map(c=>({k:c.Category,v:c.Invested})),CAT_CLR);
+
+  const maxMF=Math.max(...DATA.funds.map(f=>Math.abs(f.RetPct)),1);
+  const maxST=Math.max(...DATA.stocks.map(s=>Math.abs(s.RetPct)),1);
+  document.getElementById('top-mf').innerHTML=DATA.funds.length
+    ?[...DATA.funds].sort((a,b)=>b.RetPct-a.RetPct).slice(0,4).map(f=>`<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px"><span style="font-weight:500">${f.name}</span><span style="color:var(--muted)">${fmtL(f.Gain)}</span></div>${miniBar(f.RetPct,maxMF)}</div>`).join('')
+    :'<div style="color:var(--muted);font-size:11px">Upload MF file to see data</div>';
+  document.getElementById('top-st').innerHTML=DATA.stocks.length
+    ?[...DATA.stocks].sort((a,b)=>b.RetPct-a.RetPct).slice(0,4).map(s=>`<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px"><span style="font-weight:500">${s.name}</span><span style="color:var(--muted)">${fmtL(s.Gain)}</span></div>${miniBar(s.RetPct,maxST)}</div>`).join('')
+    :'<div style="color:var(--muted);font-size:11px">Upload Stocks file to see data</div>';
+
+  // Dynamic risk alerts
+  const alerts=[];
+  const stTotalInv=DATA.stocks.reduce((a,s)=>a+s.Invested,0)||1;
+  DATA.stocks.forEach(s=>{
+    const conc=s.Invested/stTotalInv*100;
+    if(s.RetPct<-40) alerts.push([s.name,`${fmtP(s.RetPct)} return — strong EXIT candidate, no recovery thesis visible`]);
+    else if(conc>15&&s.RetPct<0) alerts.push([s.name,`${conc.toFixed(1)}% of stock portfolio, ${fmtP(s.RetPct)} return — high concentration risk, consider trimming`]);
+    else if(s.Sector==='Speculative'&&s.RetPct<-20) alerts.push([s.name,`${fmtP(s.RetPct)} in speculative sector — averaging down not advised; reduce to ≤5%`]);
+    else if(s.CAGR<-15&&s.Invested>30000) alerts.push([s.name,`CAGR ${fmtP(s.CAGR)}, ₹${Math.round(s.Invested/1000)}K invested — reassess thesis`]);
+  });
+  // Sector concentration
+  DATA.sectors.forEach(sec=>{
+    const secPct=stTotalInv?sec.Invested/stTotalInv*100:0;
+    if(secPct>30&&sec.Gain<0) alerts.push([sec.Sector+' Sector',`${secPct.toFixed(1)}% of stocks with ${fmtL(sec.Gain)} loss — over-concentrated`]);
+  });
+  document.getElementById('risk-alerts').innerHTML=alerts.length
+    ?alerts.map(([n,m])=>`<div class="alert-row"><span class="alert-name">${n}</span><span class="alert-msg">${m}</span></div>`).join('')
+    :'<div style="color:var(--green);font-size:11px">✓ No critical concentration alerts — portfolio looks balanced</div>';
+
+  renderHealthScore();
+}
+
+// ── Mutual Funds ──────────────────────────────────────────────
+function renderMF() {
+  const k=DATA.kpis;
+  const totalLots=DATA.funds.reduce((a,f)=>a+f.Lots,0);
+  const profitableMF=DATA.funds.filter(f=>f.Gain>0).length;
+  const sinceMF=k.earliestMF?('Since '+fmtMonthYear(k.earliestMF)):'';
+  document.getElementById('kpi-mf').innerHTML=[
+    {l:'MF Invested',    v:fmtL(k.mfInvested),  s:'',                      sc:'',   a:'#58a6ff'},
+    {l:'Current Value',  v:fmtL(k.mfValue),      s:'Market value',          sc:'up', a:'#3fb950'},
+    {l:'Total Gain',     v:fmtL(k.mfGain),       s:fmtP(k.mfReturn),       sc:k.mfGain>=0?'up':'dn', a:'#3fb950'},
+    {l:'CAGR',           v:fmtP(k.mfCAGR),       s:sinceMF,                sc:'up', a:'#a371f7'},
+    {l:'Total Lots',     v:totalLots.toLocaleString('en-IN'), s:DATA.funds.length+' active funds', sc:'', a:'#d4a843'},
+    {l:'Profitable',     v:profitableMF+'/'+DATA.funds.length, s:profitableMF===DATA.funds.length?'100% in green':profitableMF+' in profit', sc:profitableMF===DATA.funds.length?'up':'gold', a:'#3fb950'},
+  ].map(c=>`<div class="kpi-card" style="--accent:${c.a}"><div class="kpi-label">${c.l}</div><div class="kpi-value">${c.v}</div><div class="kpi-sub ${c.sc}">${c.s}</div></div>`).join('');
+
+  const cats=['All',...new Set(DATA.funds.map(f=>f.Category))];
+  document.getElementById('mf-filters').innerHTML='<span class="ctrl-label">Category:</span>'+cats.map(c=>`<button class="chip ${mfFil===c?'on':''}" onclick="setMfFil('${c}')">${c}</button>`).join('');
+  const sOpts=[['RetPct','Return'],['CAGR','CAGR'],['Current','Value'],['Gain','Gain'],['Invested','Invested'],['Lots','Lots']];
+  document.getElementById('mf-sorts').innerHTML='<span class="ctrl-label">Sort:</span>'+sOpts.map(([k,l])=>`<button class="chip ${mfSort===k?'on':''}" onclick="sortMF('${k}')">${l}${mfSort===k?(mfAsc?' ↑':' ↓'):''}</button>`).join('');
+
+  let funds=mfFil==='All'?DATA.funds:DATA.funds.filter(f=>f.Category===mfFil);
+  funds=[...funds].sort((a,b)=>mfAsc?a[mfSort]-b[mfSort]:b[mfSort]-a[mfSort]);
+  const maxR=Math.max(...DATA.funds.map(f=>Math.abs(f.RetPct)),1);
+
+  if(!funds.length){document.getElementById('mf-tbody').innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:30px">Upload your MF Excel file to see fund data</td></tr>';return;}
+  document.getElementById('mf-tbody').innerHTML=funds.map((f,i)=>{
+    const hold=fmtHoldPeriod(f.holdDays);
+    return `<tr style="cursor:pointer" onclick="toggleDrill('mf',${i})">
+    <td style="font-weight:500;max-width:180px;overflow:hidden;text-overflow:ellipsis">
+      <span class="expand-btn" id="drill-btn-mf-${i}">▶</span> ${f.name}
+    </td>
+    <td><span class="pill" style="background:${CAT_CLR[f.Category]||'#444'}22;color:${CAT_CLR[f.Category]||'#888'};border:1px solid ${CAT_CLR[f.Category]||'#444'}44">${f.Category}</span></td>
+    <td class="td-muted">${f.Lots}</td>
+    <td class="td-muted">${fmtL(f.Invested)}</td>
+    <td style="font-weight:500">${fmtL(f.Current)}</td>
+    <td class="${cls(f.Gain)}">${fmtL(f.Gain)}</td>
+    <td style="min-width:130px">${miniBar(f.RetPct,maxR)}</td>
+    <td class="${f.CAGR>=12?'td-up':f.CAGR>=8?'td-gold':'td-dn'}">${fmtP(f.CAGR)}</td>
+    <td class="td-muted" style="font-size:10px">${hold}</td>
+  </tr>
+  <tr class="drill-row" id="drill-mf-${i}" style="display:none">
+    <td colspan="9"><div class="drill-inner">${buildMFDrillHTML(f)}</div></td>
+  </tr>`;
+  }).join('');
+
+  const maxCat=Math.max(...DATA.mfCategories.map(c=>Math.abs(c.RetPct)),1);
+  document.getElementById('mf-cats').innerHTML=DATA.mfCategories.map(c=>`<div class="card" style="border-left:3px solid ${CAT_CLR[c.Category]||'#888'}"><div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">${c.Category}</div><div style="font-size:18px;font-weight:700;font-family:var(--sans);margin-bottom:4px">${fmtL(c.Current)}</div><div style="font-size:11px;color:var(--muted);margin-bottom:8px">${fmtL(c.Invested)} invested</div>${miniBar(c.RetPct,maxCat)}</div>`).join('');
+}
+function sortMF(k){if(mfSort===k)mfAsc=!mfAsc;else{mfSort=k;mfAsc=false;}renderMF();}
+function setMfFil(v){mfFil=v;renderMF();}
+
+// ── Stocks ────────────────────────────────────────────────────
+function renderStocks() {
+  const k=DATA.kpis;
+  const n=DATA.stocks.length;
+  const win=DATA.stocks.filter(s=>s.Gain>0).length;
+  const los=DATA.stocks.filter(s=>s.Gain<0).length;
+  const totalQty=DATA.stocks.reduce((s,x)=>s+x.Qty,0);
+  document.getElementById('kpi-stocks').innerHTML=[
+    {l:'Invested',       v:fmtL(k.stInvested), s:'',                sc:'',   a:'#58a6ff'},
+    {l:'Market Value',   v:fmtL(k.stValue),    s:'Current holdings',sc:'',   a:'#d4a843'},
+    {l:'Total P&L',      v:fmtL(k.stGain),     s:fmtP(k.stReturn), sc:k.stGain>=0?'up':'dn', a:'#f85149'},
+    {l:'Winners',        v:win+'/'+n,           s:'In profit',       sc:'up', a:'#3fb950'},
+    {l:'Losers',         v:los+'/'+n,           s:'In red',          sc:'dn', a:'#f85149'},
+    {l:'Total Quantity', v:fmtN(totalQty),      s:'Shares held',     sc:'',   a:'#7d8590'},
+  ].map(c=>`<div class="kpi-card" style="--accent:${c.a}"><div class="kpi-label">${c.l}</div><div class="kpi-value">${c.v}</div><div class="kpi-sub ${c.sc}">${c.s}</div></div>`).join('');
+
+  const secs=['All',...new Set(DATA.stocks.map(s=>s.Sector))];
+  document.getElementById('st-filters').innerHTML='<span class="ctrl-label">Sector:</span>'+secs.map(s=>`<button class="chip ${stFil===s?'on':''}" onclick="setStFil('${encodeURIComponent(s)}')">${s}</button>`).join('');
+  const sOpts=[['RetPct','Return'],['Gain','P&L'],['Qty','Qty'],['Invested','Invested'],['Current','Value'],['CAGR','CAGR'],['Latest_Price','CMP']];
+  document.getElementById('st-sorts').innerHTML='<span class="ctrl-label">Sort:</span>'+sOpts.map(([k,l])=>`<button class="chip ${stSort===k?'on':''}" onclick="sortST('${k}')">${l}${stSort===k?(stAsc?' ↑':' ↓'):''}</button>`).join('');
+
+  let stocks=stFil==='All'?DATA.stocks:DATA.stocks.filter(s=>s.Sector===stFil);
+  stocks=[...stocks].sort((a,b)=>stAsc?a[stSort]-b[stSort]:b[stSort]-a[stSort]);
+  const maxR=Math.max(...DATA.stocks.map(s=>Math.abs(s.RetPct)),1);
+
+  if(!stocks.length){document.getElementById('st-tbody').innerHTML='<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:30px">Upload your Stocks Excel file to see data</td></tr>';}
+  else {
+    document.getElementById('st-tbody').innerHTML=stocks.map((s,i)=>{
+      const hold=fmtHoldPeriod(s.holdDays);
+      return `<tr style="cursor:pointer" onclick="toggleDrill('st',${i})">
+      <td style="font-weight:500">
+        <span class="expand-btn" id="drill-btn-st-${i}">▶</span> ${s.name}
+      </td>
+      <td><span class="pill" style="background:${gc(s.Sector,SEC_CLR)}22;color:${gc(s.Sector,SEC_CLR)};border:1px solid ${gc(s.Sector,SEC_CLR)}44">${s.Sector}</span></td>
+      <td>${riskBadge(s)}</td>
+      <td class="td-gold">${fmtN(s.Qty)}</td>
+      <td>₹${s.Latest_Price>0?s.Latest_Price.toLocaleString('en-IN'):'—'}</td>
+      <td class="td-muted">${fmtL(s.Invested)}</td>
+      <td style="font-weight:500">${fmtL(s.Current)}</td>
+      <td class="${cls(s.Gain)}">${fmtL(s.Gain)}</td>
+      <td style="min-width:130px">${miniBar(s.RetPct,maxR)}</td>
+      <td class="${s.CAGR>=15?'td-up':s.CAGR>=0?'td-gold':'td-dn'}">${fmtP(s.CAGR)}</td>
+      <td class="td-muted" style="font-size:10px">${hold}</td>
+    </tr>
+    <tr class="drill-row" id="drill-st-${i}" style="display:none">
+      <td colspan="11"><div class="drill-inner">${buildSTDrillHTML(s)}</div></td>
+    </tr>`;
+    }).join('');
+  }
+
+  // Tax harvesting
+  renderTaxHarvesting();
+
+  // Dynamic rule-based recommendations
+  const recs=[];
+  const stTotalInv=DATA.stocks.reduce((a,s)=>a+s.Invested,0)||1;
+  const sorted=[...DATA.stocks].sort((a,b)=>a.RetPct-b.RetPct);
+
+  // EXIT: worst losers > -40%
+  const exits=sorted.filter(s=>s.RetPct<-40);
+  if(exits.length) recs.push(['tag-exit','EXIT',exits.map(s=>`${s.name} (${fmtP(s.RetPct)})`).join(', ')+' — no recovery thesis, free up capital']);
+
+  // REDUCE: -25% to -40% with >8% concentration
+  const reduces=sorted.filter(s=>s.RetPct<=-25&&s.RetPct>=-40&&(s.Invested/stTotalInv*100)>8);
+  if(reduces.length) recs.push(['tag-reduce','REDUCE',reduces.map(s=>`${s.name} (${fmtP(s.RetPct)}, ${(s.Invested/stTotalInv*100).toFixed(1)}% of stocks)`).join(', ')+' — trim to ≤5% of portfolio']);
+
+  // HOLD: -15% to -25%, PSU/infra (await macro)
+  const holds=sorted.filter(s=>s.RetPct<-10&&s.RetPct>=-25&&['Finance/PSU','Energy/PSU','Infra/PSU','Renewables'].includes(s.Sector));
+  if(holds.length) recs.push(['tag-hold','HOLD',holds.map(s=>`${s.name} (${fmtP(s.RetPct)})`).join(', ')+' — await rate-cut cycle / sector tailwinds before selling']);
+
+  // ADD SIP: MF CAGR > 15%
+  const addFunds=[...DATA.funds].filter(f=>f.CAGR>=15).sort((a,b)=>b.CAGR-a.CAGR).slice(0,3);
+  if(addFunds.length) recs.push(['tag-add','ADD SIP',addFunds.map(f=>`${f.name} (CAGR ${fmtP(f.CAGR)})`).join(', ')+' — top performers, consider increasing SIP amount']);
+
+  // SWITCH: MF CAGR < 8% — underperforming
+  const switchFunds=[...DATA.funds].filter(f=>f.CAGR<8&&f.CAGR>0&&f.Invested>50000).sort((a,b)=>a.CAGR-b.CAGR).slice(0,2);
+  if(switchFunds.length) recs.push(['tag-switch','SWITCH',switchFunds.map(f=>`${f.name} (CAGR ${fmtP(f.CAGR)})`).join(', ')+' → consider switching to low-cost Nifty 50 index fund']);
+
+  if(!recs.length) recs.push(['tag-hold','HOLD','Portfolio looks stable — continue SIPs and review quarterly']);
+  document.getElementById('recommendations').innerHTML=recs.map(([c,tag,text])=>`<div class="rec-row"><span class="rec-tag ${c}">${tag}</span><span class="rec-text">${text}</span></div>`).join('');
+}
+function sortST(k){if(stSort===k)stAsc=!stAsc;else{stSort=k;stAsc=false;}renderStocks();}
+function setStFil(v){stFil=decodeURIComponent(v);renderStocks();}
+
+// ── Analytics ─────────────────────────────────────────────────
+function renderAnalytics() {
+  // Monthly MF chart
+  setTimeout(()=>{
+    const el=document.getElementById('chart-monthly');
+    if(!el||!window.Chart) return;
+    if(chartInst) chartInst.destroy();
+    const d=DATA.monthlyMF;
+    if(!d.length){el.parentElement.innerHTML='<div style="color:var(--muted);font-size:11px;padding:20px;text-align:center">Upload MF file to see investment flow chart</div>';return;}
+    const maxV=Math.max(...d.map(x=>x.v));
+    chartInst=new Chart(el,{
+      type:'bar',
+      data:{labels:d.map(x=>x.m),datasets:[{label:'Monthly Investment',data:d.map(x=>x.v),backgroundColor:d.map(x=>x.v>=maxV*0.7?'#d4a843':'#58a6ff'),borderRadius:4,borderSkipped:false}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>fmtL(ctx.raw)},backgroundColor:'#1c2330',titleColor:'#e6edf3',bodyColor:'#7d8590',borderColor:'#30363d',borderWidth:1}},
+      scales:{x:{ticks:{font:{size:9},color:'#7d8590',maxRotation:60},grid:{color:'#21262d'}},y:{ticks:{font:{size:9},color:'#7d8590',callback:v=>fmtL(v)},grid:{color:'#21262d'}}}}
+    });
+  },50);
+
+  // Sector P&L
+  const maxS=Math.max(...DATA.sectors.map(s=>Math.abs(s.RetPct)),1);
+  document.getElementById('sector-pl').innerHTML=DATA.sectors.length
+    ?[...DATA.sectors].sort((a,b)=>b.Gain-a.Gain).map(s=>`<div style="margin-bottom:9px"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><span>${s.Sector}</span><span class="${cls(s.Gain)}">${fmtL(s.Gain)}</span></div>${miniBar(s.RetPct,maxS)}</div>`).join('')
+    :'<div style="color:var(--muted);font-size:11px">Upload Stocks file to see sector P&L</div>';
+
+  // Portfolio ratios — fully dynamic
+  const k=DATA.kpis;
+  const n=DATA.stocks.length||1, nMF=DATA.funds.length||1;
+  const mfWin=DATA.funds.filter(f=>f.Gain>0).length;
+  const stWin=DATA.stocks.filter(s=>s.Gain>0).length;
+  const mfSharePct=k.totalInvested?Math.round(k.mfInvested/k.totalInvested*100):0;
+  const specInv=DATA.stocks.filter(s=>s.Sector==='Speculative').reduce((a,s)=>a+s.Invested,0);
+  const specPct=k.stInvested?Math.round(specInv/k.stInvested*100):0;
+  const avgMFcagr=nMF>0?parseFloat((DATA.funds.reduce((a,f)=>a+f.CAGR,0)/nMF).toFixed(1)):0;
+  const bestMF=[...DATA.funds].sort((a,b)=>b.RetPct-a.RetPct)[0];
+  const worstST=[...DATA.stocks].sort((a,b)=>a.RetPct-b.RetPct)[0];
+
+  const ratioRows=[];
+  if(nMF>1) ratioRows.push(['MF win rate', mfWin+'/'+DATA.funds.length, mfWin===DATA.funds.length?'100% profitable':mfWin+' of '+DATA.funds.length+' in profit', mfWin===DATA.funds.length?'var(--green)':'var(--amber)']);
+  if(n>1)   ratioRows.push(['Stock win rate', stWin+'/'+DATA.stocks.length, stWin+' of '+DATA.stocks.length+' in profit', stWin>n/2?'var(--green)':'var(--red)']);
+  if(k.totalInvested) ratioRows.push(['MF share of portfolio', mfSharePct+'%', 'Target: 70%+', mfSharePct>=70?'var(--green)':'var(--blue)']);
+  if(specPct>0) ratioRows.push(['Speculative exposure', specPct+'%', specPct<10?'Within safe range':'Reduce to <10%', specPct<10?'var(--green)':'var(--red)']);
+  if(avgMFcagr) ratioRows.push(['Avg MF CAGR', fmtP(avgMFcagr), avgMFcagr>10?'Beats FD & inflation':'Below 10% — review funds', avgMFcagr>10?'var(--green)':'var(--amber)']);
+  if(bestMF)  ratioRows.push(['Best MF fund', bestMF.name.split(' ').slice(0,2).join(' '), '+'+bestMF.RetPct.toFixed(1)+'% · '+fmtL(bestMF.Gain)+' gain', 'var(--gold)']);
+  if(worstST) ratioRows.push(['Worst stock', worstST.name, fmtP(worstST.RetPct)+' · '+fmtL(worstST.Gain)+' loss', 'var(--red)']);
+
+  document.getElementById('ratios').innerHTML=ratioRows.length
+    ?ratioRows.map(([l,v,n,c])=>`<div class="stat-row"><div><div class="stat-label">${l}</div><div class="stat-note">${n}</div></div><div class="stat-val" style="color:${c}">${v}</div></div>`).join('')
+    :'<div style="color:var(--muted);font-size:11px">Upload files to see ratios</div>';
+
+  // XIRR display — computed from raw lots
+  let xirrHTML='<div style="color:var(--muted);font-size:11px">Upload files to compute XIRR</div>';
+  if(DATA.mfLots.length){
+    const mfCF=[...DATA.mfLots.map(l=>({a:-l.amt,d:l.date}))];
+    // Add final value as positive inflow today
+    mfCF.push({a:k.mfValue, d:new Date()});
+    mfCF.sort((a,b)=>a.d-b.d);
+    const mfXirr=calcXIRR(mfCF.map(x=>x.a), mfCF.map(x=>x.d));
+
+    const stCF=[...DATA.stLots.map(l=>({a:-l.amt,d:l.date}))];
+    stCF.push({a:k.stValue, d:new Date()});
+    stCF.sort((a,b)=>a.d-b.d);
+    const stXirr=DATA.stLots.length?calcXIRR(stCF.map(x=>x.a), stCF.map(x=>x.d)):null;
+
+    xirrHTML=`
+      <div class="stat-row"><div><div class="stat-label">MF XIRR</div><div class="stat-note">Money-weighted return (all lots)</div></div><div class="stat-val" style="color:${mfXirr&&mfXirr>0?'var(--gold)':'var(--red)'}">${mfXirr!==null?pSign(mfXirr)+mfXirr.toFixed(1)+'%':'—'}</div></div>
+      ${stXirr!==null?`<div class="stat-row"><div><div class="stat-label">Stocks XIRR</div><div class="stat-note">Money-weighted return (all lots)</div></div><div class="stat-val" style="color:${stXirr>=0?'var(--green)':'var(--red)'}">${pSign(stXirr)+stXirr.toFixed(1)+'%'}</div></div>`:''}
+      <p style="font-size:10px;color:var(--muted2);margin-top:10px;line-height:1.6">XIRR accounts for exact timing of every investment — it reflects the true compounded return on your actual cash deployed.</p>`;
+  }
+  document.getElementById('xirr-display').innerHTML=xirrHTML;
+}
+
+// ── Upload page ───────────────────────────────────────────────
+let pendingMF=null, pendingST=null;
+
+function renderUpload() {
+  document.getElementById('steps-list').innerHTML=[
+    ['1','Export your Mutual Fund portfolio from your broker (Zerodha Kite, ET Money, Groww, etc.) as .xls or .xlsx'],
+    ['2','Export your Equity Stocks portfolio the same way as a separate file'],
+    ['3','Drop both files below — MF file first, then Stocks file'],
+    ['4','The entire dashboard updates instantly — no Python, no server, no extra tools'],
+    ['∞','Repeat monthly for always-current portfolio tracking'],
+  ].map(([n,t])=>`<div style="display:flex;gap:12px;margin-bottom:10px;align-items:flex-start"><div style="width:22px;height:22px;border-radius:50%;background:var(--bg4);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--gold);flex-shrink:0;margin-top:1px">${n}</div><div style="font-size:12px;color:var(--muted);line-height:1.6">${t}</div></div>`).join('');
+
+  const dzMF=document.getElementById('drop-zone-mf'), fiMF=document.getElementById('file-input-mf');
+  dzMF.onclick=()=>fiMF.click();
+  dzMF.ondragover=e=>{e.preventDefault();dzMF.style.borderColor='var(--gold)';dzMF.style.color='var(--gold)'};
+  dzMF.ondragleave=()=>{dzMF.style.borderColor='';dzMF.style.color=''};
+  dzMF.ondrop=e=>{e.preventDefault();dzMF.style.borderColor='';handleExcel(e.dataTransfer.files[0],'mf')};
+  fiMF.onchange=e=>handleExcel(e.target.files[0],'mf');
+
+  const dzST=document.getElementById('drop-zone-st'), fiST=document.getElementById('file-input-st');
+  dzST.onclick=()=>fiST.click();
+  dzST.ondragover=e=>{e.preventDefault();dzST.style.borderColor='var(--gold)';dzST.style.color='var(--gold)'};
+  dzST.ondragleave=()=>{dzST.style.borderColor='';dzST.style.color=''};
+  dzST.ondrop=e=>{e.preventDefault();dzST.style.borderColor='';handleExcel(e.dataTransfer.files[0],'st')};
+  fiST.onchange=e=>handleExcel(e.target.files[0],'st');
+}
+
+// ── Excel parsing ─────────────────────────────────────────────
+function handleExcel(file, type) {
+  if(!file) return;
+  const dz=document.getElementById(type==='mf'?'drop-zone-mf':'drop-zone-st');
+  const statusEl=dz.querySelector('.upload-status');
+  statusEl.textContent='⏳ Parsing '+file.name+'...';
+  dz.style.borderColor='var(--gold)'; dz.style.color='var(--gold)';
+  if(typeof XLSX==='undefined'){
+    statusEl.textContent='⚠ SheetJS not loaded — check internet connection';
+    dz.style.borderColor='var(--red)'; dz.style.color='var(--red)'; return;
+  }
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{defval:'',raw:false});
+      if(type==='mf') parseMFRows(rows,dz,statusEl,file.name);
+      else parseSTRows(rows,dz,statusEl,file.name);
+    }catch(err){statusEl.textContent='✗ Error: '+err.message;dz.style.borderColor='var(--red)';dz.style.color='var(--red)';}
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function cleanNum(v){
+  if(v===''||v===null||v===undefined) return 0;
+  if(typeof v==='number') return v;
+  return parseFloat(String(v).replace(/[₹,\s*]/g,''))||0;
+}
+
+function parseInvDate(v){
+  if(!v) return null;
+  // SheetJS with cellDates:true may return ISO string or Date-like string
+  const s=String(v).trim();
+  // dd-mm-yyyy
+  const m1=s.match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})$/);
+  if(m1){const y=parseInt(m1[3]);return new Date(`${y<100?2000+y:y}-${m1[2].padStart(2,'0')}-${m1[1].padStart(2,'0')}`);}
+  // yyyy-mm-dd or ISO
+  const d=new Date(s);
+  return isNaN(d)?null:d;
+}
+
+function computeCAGR(invested, current, dates){
+  if(!dates.length||!invested) return 0;
+  const earliest=new Date(Math.min(...dates.map(d=>d.getTime())));
+  const yrs=(Date.now()-earliest.getTime())/(365.25*24*3600*1000);
+  if(yrs<0.08) return 0;
+  return parseFloat(((Math.pow(current/invested,1/yrs)-1)*100).toFixed(1));
+}
+
+function parseMFRows(rows,dz,statusEl,fname){
+  const data=rows.filter(r=>{
+    const s=String(r['Scheme']||r['scheme']||r['Fund Name']||'').trim();
+    return s&&s.toUpperCase()!=='TOTAL'&&!s.startsWith('*');
+  });
+  if(!data.length){statusEl.textContent='✗ No MF data found — check column headers';dz.style.borderColor='var(--red)';dz.style.color='var(--red)';return;}
+
+  const s0=data[0];
+  const col=names=>names.find(n=>n in s0)||null;
+  const cScheme=col(['Scheme','scheme','Fund Name','SCHEME','fund name']);
+  const cNAV   =col(['Latest NAV','NAV','nav','Current NAV']);
+  const cInvP  =col(['Inv. Price','Purchase Price','Buy Price','inv price']);
+  const cQty   =col(['Quantity','quantity','Units','units','QTY']);
+  const cInvAmt=col(['Inv. Amt','Investment Amount','Invested','invested','Inv.Amt','Inv Amount','Amount']);
+  const cGain  =col(['Overall Gain','Overall Gain/Loss','Gain','gain','Total Gain','P&L']);
+  const cValue =col(['Latest Value','Current Value','Value','value','Market Value']);
+  const cDate  =col(['Inv. Date','Date','date','Investment Date','Inv Date','Purchase Date']);
+  if(!cScheme){statusEl.textContent='✗ Could not find Scheme column';dz.style.borderColor='var(--red)';dz.style.color='var(--red)';return;}
+
+  const map={};
+  const lots=[];
+  const monthMap={};
+
+  data.forEach(r=>{
+    const rawName=String(r[cScheme]).trim();
+    const name=rawName.replace(/\s+(Direct Plan Growth|Direct Growth|Regular Growth|Regular Plan Growth|Growth Plan|Growth|Direct Plan|Regular Plan|Direct|Regular)\s*$/i,'').trim();
+    if(!name) return;
+    if(!map[name]) map[name]={name,Invested:0,Current:0,Gain:0,Lots:0,dates:[],rawLots:[]};
+    const g=map[name];
+    const inv=cleanNum(r[cInvAmt]);
+    const cur=cleanNum(r[cValue]);
+    const gn=cleanNum(r[cGain]);
+    const qty=cleanNum(r[cQty]||0);
+    const nav=cleanNum(r[cNAV]||0);
+    const invPrice=cleanNum(r[cInvP]||0);
+    const dt=cDate?parseInvDate(r[cDate]):null;
+    g.Invested+=inv; g.Current+=cur; g.Gain+=gn; g.Lots++;
+    if(dt&&!isNaN(dt)) g.dates.push(dt);
+    if(dt&&!isNaN(dt)&&inv>0){
+      g.rawLots.push({date:dt,amt:inv,qty,invPrice,nav,cur:inv+cleanNum(r[cGain]||0),gain:gn});
+    }
+    // raw lot for XIRR
+    if(dt&&!isNaN(dt)&&inv>0) lots.push({amt:inv,date:dt});
+    // monthly aggregation
+    if(dt&&!isNaN(dt)&&inv>0){
+      const mk=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0');
+      monthMap[mk]=(monthMap[mk]||0)+inv;
+    }
+  });
+
+  const catKw=(n)=>{const l=n.toLowerCase();return l.includes('elss')||l.includes('tax saver')?'ELSS':l.includes('small cap')||l.includes('smallcap')?'Small Cap':l.includes('mid cap')||l.includes('midcap')?'Mid Cap':l.includes('large cap')||l.includes('largecap')?'Large Cap':l.includes('flexi')||l.includes('flexicap')||l.includes('multi cap')?'Flexi Cap':l.includes('value')||l.includes('contra')?'Value':l.includes('index')||l.includes('nifty')||l.includes('sensex')?'Index':'Other';};
+
+  const funds=Object.values(map).filter(f=>f.Invested>0||f.Current>0).map(f=>{
+    f.RetPct=f.Invested>0?parseFloat(((f.Gain/f.Invested)*100).toFixed(1)):0;
+    f.CAGR=computeCAGR(f.Invested,f.Current,f.dates);
+    f.Gain=Math.round(f.Gain);
+    f.Category=catKw(f.name);
+    // Holding period from earliest lot date
+    if(f.dates.length){
+      const earliest=new Date(Math.min(...f.dates.map(d=>d.getTime())));
+      f.holdDays=Math.floor((Date.now()-earliest.getTime())/(24*3600*1000));
+    } else f.holdDays=0;
+    return f;
+  });
+
+  if(!funds.length){statusEl.textContent='✗ No valid fund rows found';dz.style.borderColor='var(--red)';dz.style.color='var(--red)';return;}
+
+  const monthlyMF=Object.entries(monthMap).sort((a,b)=>a[0].localeCompare(b[0])).map(([m,v])=>({m,v:Math.round(v)}));
+  const allDates=lots.map(l=>l.date).filter(Boolean);
+  const earliestMF=allDates.length?new Date(Math.min(...allDates.map(d=>d.getTime()))):null;
+
+  pendingMF={funds,lots,monthlyMF,earliestMF};
+  statusEl.textContent=`✓ ${fname} — ${funds.length} funds, ${lots.length} lots`;
+  dz.style.borderColor='var(--green)'; dz.style.color='var(--green)';
+  tryApplyData();
+}
+
+function parseSTRows(rows,dz,statusEl,fname){
+  const data=rows.filter(r=>{
+    const s=String(r['Stock']||r['stock']||r['Symbol']||r['Company']||'').trim();
+    return s&&s.toUpperCase()!=='TOTAL'&&!s.startsWith('*')&&s!=='';
+  });
+  if(!data.length){statusEl.textContent='✗ No stock data found — check column headers';dz.style.borderColor='var(--red)';dz.style.color='var(--red)';return;}
+
+  const s0=data[0];
+  const col=names=>names.find(n=>n in s0)||null;
+  const cStock =col(['Stock','stock','Symbol','Company','Scrip']);
+  const cPrice =col(['Latest Price','CMP','Price','price','LTP','Last Price']);
+  const cQty   =col(['Quantity','quantity','Qty','qty','Units','Shares']);
+  const cInvP  =col(['Inv. Price','Buy Price','Purchase Price','Avg Price','avg price']);
+  const cInvAmt=col(['Inv. Amt','Investment Amount','Invested','invested','Inv Amount','Inv.Amt','Amount']);
+  const cGain  =col(['Overall Gain','Gain','gain','Overall Gain/Loss','P&L','Profit/Loss']);
+  const cValue =col(['Latest Value','Current Value','Value','value','Market Value','Present Value']);
+  const cDate  =col(['Inv. Date','Date','date','Purchase Date','Buy Date']);
+  if(!cStock){statusEl.textContent='✗ Could not find Stock column';dz.style.borderColor='var(--red)';dz.style.color='var(--red)';return;}
+
+  const SECTOR_MAP={'bpcl':'Energy/PSU','bharat elec':'Defence','coal india':'Energy/PSU','enbee':'Speculative','irfc':'Finance/PSU','itc':'FMCG','jaiprakash':'Speculative','mo defence':'Defence','motilal.*defence':'Defence','mazagon':'Defence','nbcc':'Infra/PSU','nhpc':'Energy/PSU','nipp.*nifty':'Index ETF','nippon.*nifty':'Index ETF','ongc':'Energy/PSU','reliance power':'Speculative','suzlon':'Renewables','tata silver':'Commodities ETF','uti nifty':'Index ETF','vedanta':'Metals/Mining','yes bank':'Banking','uttam value':'Speculative','hindustan zinc':'Metals/Mining','adani':'Speculative','zomato':'Consumer Tech','bse':'Finance','nse':'Finance','hdfc':'Banking','icici':'Banking','sbi':'Banking','axis bank':'Banking','kotak bank':'Banking','tata steel':'Metals/Mining','jsw steel':'Metals/Mining','ntpc':'Energy/PSU','power grid':'Energy/PSU','bhel':'Infra/PSU','l&t':'Infra/PSU','siemens':'Infra/PSU','infosys':'IT','tcs':'IT','wipro':'IT','hcl tech':'IT','tech mahindra':'IT','bajaj finance':'Finance/PSU','muthoot':'Finance/PSU'};
+  function getSector(name){const n=name.toLowerCase();for(const [k,v] of Object.entries(SECTOR_MAP)){if(new RegExp(k).test(n)) return v;} return 'Other';}
+
+  const map={};
+  const lots=[];
+  data.forEach(r=>{
+    const rawName=String(r[cStock]).trim();
+    const name=rawName.replace(/\s*-\s*(NSE|BSE)\s*-.*/i,'').replace(/\s*-\s*(NSE|BSE)\s*$/i,'').trim();
+    if(!name) return;
+    const lp=cleanNum(r[cPrice]);
+    const qty=cleanNum(r[cQty]);
+    const inv=cleanNum(r[cInvAmt]);
+    const cur=cleanNum(r[cValue]);
+    const gn=cleanNum(r[cGain]);
+    const invP=cInvP?cleanNum(r[cInvP]):0;
+    const dt=cDate?parseInvDate(r[cDate]):null;
+    if(!map[name]) map[name]={name,Qty:0,Invested:0,Current:0,Gain:0,Latest_Price:0,dates:[],rawLots:[]};
+    const g=map[name];
+    g.Qty+=qty; g.Invested+=inv; g.Current+=cur; g.Gain+=gn;
+    if(lp>0) g.Latest_Price=lp;
+    if(dt&&!isNaN(dt)) g.dates.push(dt);
+    if(dt&&!isNaN(dt)&&inv>0){
+      g.rawLots.push({date:dt,qty,invPrice:invP||( qty?inv/qty:0),currentPrice:lp,inv,gain:gn,cur:cur||0});
+    }
+    if(dt&&!isNaN(dt)&&inv>0) lots.push({amt:inv,date:dt});
+  });
+
+  const stocks=Object.values(map).filter(s=>s.Invested>0||s.Current>0).map(s=>{
+    s.RetPct=s.Invested>0?parseFloat(((s.Gain/s.Invested)*100).toFixed(1)):0;
+    s.CAGR=computeCAGR(s.Invested,s.Current,s.dates);
+    s.Gain=Math.round(s.Gain);
+    s.Sector=getSector(s.name);
+    if(s.dates.length){
+      const earliest=new Date(Math.min(...s.dates.map(d=>d.getTime())));
+      s.holdDays=Math.floor((Date.now()-earliest.getTime())/(24*3600*1000));
+    } else s.holdDays=0;
+    return s;
+  });
+
+  if(!stocks.length){statusEl.textContent='✗ No valid stock rows found';dz.style.borderColor='var(--red)';dz.style.color='var(--red)';return;}
+
+  const allDates=lots.map(l=>l.date).filter(Boolean);
+  const earliestST=allDates.length?new Date(Math.min(...allDates.map(d=>d.getTime()))):null;
+  pendingST={stocks,lots,earliestST};
+  statusEl.textContent=`✓ ${fname} — ${stocks.length} stocks, ${lots.length} lots`;
+  dz.style.borderColor='var(--green)'; dz.style.color='var(--green)';
+  tryApplyData();
+}
+
+// ── Apply parsed data to DATA + refresh all ───────────────────
+function tryApplyData(){
+  const hasMF=pendingMF!==null, hasST=pendingST!==null;
+  const msgEl=document.getElementById('apply-msg');
+
+  if(hasMF&&hasST){
+    const funds=pendingMF.funds, stocks=pendingST.stocks;
+
+    // MF categories
+    const catMap={};
+    funds.forEach(f=>{
+      if(!catMap[f.Category]) catMap[f.Category]={Category:f.Category,Invested:0,Current:0,Gain:0};
+      catMap[f.Category].Invested+=f.Invested; catMap[f.Category].Current+=f.Current; catMap[f.Category].Gain+=f.Gain;
+    });
+    const mfCategories=Object.values(catMap).map(c=>{c.RetPct=c.Invested>0?parseFloat(((c.Gain/c.Invested)*100).toFixed(1)):0;return c;});
+
+    // Sectors
+    const secMap={};
+    stocks.forEach(s=>{
+      if(!secMap[s.Sector]) secMap[s.Sector]={Sector:s.Sector,Invested:0,Current:0,Gain:0};
+      secMap[s.Sector].Invested+=s.Invested; secMap[s.Sector].Current+=s.Current; secMap[s.Sector].Gain+=s.Gain;
+    });
+    const sectors=Object.values(secMap).map(s=>{s.RetPct=s.Invested>0?parseFloat(((s.Gain/s.Invested)*100).toFixed(1)):0;return s;});
+
+    // KPIs
+    const mfInvested=funds.reduce((a,f)=>a+f.Invested,0);
+    const mfValue   =funds.reduce((a,f)=>a+f.Current,0);
+    const mfGain    =funds.reduce((a,f)=>a+f.Gain,0);
+    const stInvested=stocks.reduce((a,s)=>a+s.Invested,0);
+    const stValue   =stocks.reduce((a,s)=>a+s.Current,0);
+    const stGain    =stocks.reduce((a,s)=>a+s.Gain,0);
+    const totalInvested=mfInvested+stInvested;
+    const totalValue=mfValue+stValue;
+    const totalGain=mfGain+stGain;
+    const mfReturn=mfInvested>0?parseFloat(((mfGain/mfInvested)*100).toFixed(1)):0;
+    const stReturn=stInvested>0?parseFloat(((stGain/stInvested)*100).toFixed(1)):0;
+    const totalReturn=totalInvested>0?parseFloat(((totalGain/totalInvested)*100).toFixed(1)):0;
+    const mfCAGR=mfInvested>0?parseFloat((funds.reduce((a,f)=>a+f.CAGR*(f.Invested/mfInvested),0)).toFixed(1)):0;
+    // Latest date = today (data is current as of upload time)
+    const latestDate=new Date();
+
+    DATA.kpis={totalInvested,totalValue,totalGain,totalReturn,
+               mfInvested,mfValue,mfGain,mfReturn,mfCAGR,
+               stInvested,stValue,stGain,stReturn,
+               earliestMF:pendingMF.earliestMF,
+               earliestST:pendingST.earliestST,
+               latestDate};
+    DATA.funds=funds;
+    DATA.mfCategories=mfCategories;
+    DATA.stocks=stocks;
+    DATA.sectors=sectors;
+    DATA.monthlyMF=pendingMF.monthlyMF;
+    DATA.mfLots=pendingMF.lots;
+    DATA.stLots=pendingST.lots;
+
+    buildTicker();
+    buildStrip();
+    updateChrome();
+
+    if(msgEl){
+      msgEl.style.background='var(--green-bg)';
+      msgEl.style.border='1px solid var(--green-dim)';
+      msgEl.style.color='var(--green)';
+      msgEl.style.display='block';
+      msgEl.textContent='✓ Dashboard fully updated! Navigate to any tab to explore your live portfolio.';
+    }
+    pendingMF=null; pendingST=null;
+    // Reset sort state on new data
+    mfFil='All'; stFil='All';
+  } else {
+    if(msgEl){
+      const missing=(!hasMF&&!hasST)?'Upload both MF and Stocks files to update the dashboard.'
+        :(!hasMF)?'✓ Stocks loaded. Now upload the MF file to complete the update.'
+        :'✓ MF file loaded. Now upload the Stocks file to complete the update.';
+      msgEl.style.background='var(--amber-bg)';
+      msgEl.style.border='1px solid #4a3500';
+      msgEl.style.color='var(--amber)';
+      msgEl.style.display='block';
+      msgEl.textContent=missing;
+    }
+  }
+}
+
+// ── Investment Timeline ───────────────────────────────────────
+let tlYearFilter='All', chartCumInst=null;
+
+function buildCombinedMonthly() {
+  // Merge MF monthly + stock lots into a single month→amount map
+  const map={};
+  // MF monthly data (already aggregated)
+  DATA.monthlyMF.forEach(({m,v})=>{ map[m]=(map[m]||0)+v; });
+  // Stock lots grouped by month
+  DATA.stLots.forEach(l=>{
+    if(!l.date||!l.amt) return;
+    const d=new Date(l.date);
+    if(isNaN(d)) return;
+    const mk=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    map[mk]=(map[mk]||0)+l.amt;
+  });
+  return Object.entries(map).sort((a,b)=>a[0].localeCompare(b[0])).map(([m,v])=>({m,v:Math.round(v)}));
+}
+
+function renderTimeline() {
+  const allMonths = buildCombinedMonthly();
+  const noData = !allMonths.length;
+
+  // ── KPI strip ──────────────────────────────────────────────
+  const k = DATA.kpis;
+  const totalLots = DATA.mfLots.length + DATA.stLots.length;
+  const avgMonthly = allMonths.length ? Math.round(allMonths.reduce((a,x)=>a+x.v,0)/allMonths.length) : 0;
+  const maxMonth = allMonths.length ? allMonths.reduce((a,x)=>x.v>a.v?x:a,allMonths[0]) : null;
+  const minMonth = allMonths.filter(x=>x.v>0).length ? allMonths.filter(x=>x.v>0).reduce((a,x)=>x.v<a.v?x:a) : null;
+  const activeMonths = allMonths.filter(x=>x.v>0).length;
+  const years = [...new Set(allMonths.map(x=>x.m.slice(0,4)))];
+  const spanYears = years.length ? (parseInt(years[years.length-1])-parseInt(years[0])+1) : 0;
+
+  document.getElementById('tl-kpis').innerHTML=[
+    {l:'Total Invested',   v: k.totalInvested?fmtL(k.totalInvested):'—', s:'MF + Stocks combined',      a:'#d4a843'},
+    {l:'Avg Monthly SIP',  v: avgMonthly?fmtL(avgMonthly):'—',            s:'Across active months',       a:'#58a6ff'},
+    {l:'Active Months',    v: activeMonths||'—',                           s:`Over ${spanYears} yr${spanYears!==1?'s':''}`, a:'#3fb950'},
+    {l:'Total Lots',       v: totalLots||'—',                              s:'Individual purchases',       a:'#a371f7'},
+    {l:'Best Month',       v: maxMonth?fmtL(maxMonth.v):'—',              s: maxMonth?fmtMonthLabel(maxMonth.m):'—', a:'#f0c060'},
+    {l:'Lowest Month',     v: minMonth?fmtL(minMonth.v):'—',              s: minMonth?fmtMonthLabel(minMonth.m):'—', a:'#7d8590'},
+  ].map(c=>`<div class="kpi-card" style="--accent:${c.a}"><div class="kpi-label">${c.l}</div><div class="kpi-value">${c.v}</div><div class="kpi-sub">${c.s}</div></div>`).join('');
+
+  // ── Year filter chips ──────────────────────────────────────
+  const allYears=['All',...years];
+  document.getElementById('tl-year-filter').innerHTML=
+    '<span class="ctrl-label">Year:</span>'+
+    allYears.map(y=>`<button class="chip ${tlYearFilter===y?'on':''}" onclick="setTLYear('${y}')">${y}</button>`).join('');
+
+  // filter months
+  const months = tlYearFilter==='All' ? allMonths : allMonths.filter(x=>x.m.startsWith(tlYearFilter));
+
+  // ── Heatmap ────────────────────────────────────────────────
+  renderHeatmap(months, allMonths);
+
+  // ── Yearly bars ────────────────────────────────────────────
+  const yearlyMap={};
+  months.forEach(({m,v})=>{ const y=m.slice(0,4); yearlyMap[y]=(yearlyMap[y]||0)+v; });
+  const yearlyArr=Object.entries(yearlyMap).sort((a,b)=>a[0].localeCompare(b[0]));
+  const maxYV=yearlyArr.length?Math.max(...yearlyArr.map(x=>x[1])):1;
+  document.getElementById('tl-yearly-bars').innerHTML = yearlyArr.length
+    ? yearlyArr.map(([y,v])=>`
+        <div class="yr-bar-wrap">
+          <span class="yr-bar-label">${y}</span>
+          <div class="yr-bar-track">
+            <div class="yr-bar-fill" style="width:${Math.round(v/maxYV*100)}%;background:${v>=maxYV*0.7?'#d4a843':'#58a6ff'}"></div>
+          </div>
+          <span class="yr-bar-val">${fmtL(v)}</span>
+        </div>`).join('')
+    : '<div style="color:var(--muted);font-size:11px">No data</div>';
+
+  // ── Monthly breakdown table (by selected year or last year) ─
+  const tableYear = tlYearFilter!=='All' ? tlYearFilter : (years[years.length-1]||'');
+  const MONTH_NAMES=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  document.getElementById('tl-month-select').innerHTML =
+    years.map(y=>`<button class="chip" style="font-size:9px;padding:3px 7px;${y===tableYear?'background:var(--gold);color:#0d1117;border-color:var(--gold);font-weight:500':''}" onclick="setTLYear('${y}')">${y}</button>`).join('');
+
+  const tableMonths=allMonths.filter(x=>x.m.startsWith(tableYear));
+  const maxTV=tableMonths.length?Math.max(...tableMonths.map(x=>x.v)):1;
+  const tableTotal=tableMonths.reduce((a,x)=>a+x.v,0);
+  document.getElementById('tl-monthly-table').innerHTML = tableMonths.length
+    ? `<table style="width:100%;border-collapse:collapse">
+        <thead><tr>
+          <th style="text-align:left;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:6px 0;border-bottom:1px solid var(--border)">Month</th>
+          <th style="text-align:right;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:6px 0;border-bottom:1px solid var(--border)">Invested</th>
+          <th style="text-align:right;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:6px 4px;border-bottom:1px solid var(--border)">% of Year</th>
+        </tr></thead>
+        <tbody>
+        ${tableMonths.map(({m,v})=>{
+          const mo=parseInt(m.slice(5))-1;
+          const pct=tableTotal>0?Math.round(v/tableTotal*100):0;
+          return `<tr>
+            <td style="padding:7px 0;border-bottom:1px solid var(--border);font-size:11px">
+              <div style="display:flex;align-items:center;gap:7px">
+                <div style="width:${Math.round(v/maxTV*40)+8}px;height:3px;background:${v>=maxTV*0.7?'#d4a843':'#58a6ff'};border-radius:2px;transition:width .4s"></div>
+                ${MONTH_NAMES[mo]}
+              </div>
+            </td>
+            <td style="padding:7px 0;border-bottom:1px solid var(--border);font-size:11px;text-align:right;font-weight:500;color:var(--text)">${fmtL(v)}</td>
+            <td style="padding:7px 4px;border-bottom:1px solid var(--border);font-size:10px;text-align:right;color:var(--muted)">${pct}%</td>
+          </tr>`;
+        }).join('')}
+        </tbody>
+        <tfoot><tr>
+          <td style="padding:8px 0;font-size:11px;color:var(--muted);font-weight:600">Total ${tableYear}</td>
+          <td style="padding:8px 0;font-size:11px;text-align:right;font-weight:700;color:var(--gold)">${fmtL(tableTotal)}</td>
+          <td></td>
+        </tr></tfoot>
+      </table>`
+    : `<div style="color:var(--muted);font-size:11px">${tableYear?'No investments in '+tableYear:'Upload files to see breakdown'}</div>`;
+
+  // ── Cumulative invested chart (MF + Stocks combined) ────────
+  setTimeout(()=>{
+    const el=document.getElementById('chart-cumulative');
+    if(!el||!window.Chart) return;
+    if(chartCumInst) chartCumInst.destroy();
+    if(!allMonths.length){
+      el.parentElement.innerHTML='<div style="color:var(--muted);font-size:11px;padding:20px;text-align:center">Upload files to see cumulative chart</div>';
+      return;
+    }
+    // Build cumulative series — fill every month between first and last
+    const first=allMonths[0].m, last=allMonths[allMonths.length-1].m;
+    const monthMap={}; allMonths.forEach(({m,v})=>monthMap[m]=v);
+    const labels=[], cumData=[], mfCumData=[], stCumData=[];
+    const mfMonthMap={};
+    DATA.monthlyMF.forEach(({m,v})=>mfMonthMap[m]=v);
+    const stMonthMap={};
+    DATA.stLots.forEach(l=>{
+      if(!l.date||!l.amt) return;
+      const d=new Date(l.date); if(isNaN(d)) return;
+      const mk=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+      stMonthMap[mk]=(stMonthMap[mk]||0)+Math.round(l.amt);
+    });
+
+    let [fy,fm]=[parseInt(first.slice(0,4)),parseInt(first.slice(5))];
+    const [ly,lm]=[parseInt(last.slice(0,4)),parseInt(last.slice(5))];
+    let cumTotal=0, cumMF=0, cumST=0;
+    while(fy<ly||(fy===ly&&fm<=lm)){
+      const mk=fy+'-'+String(fm).padStart(2,'0');
+      cumTotal+=(monthMap[mk]||0);
+      cumMF+=(mfMonthMap[mk]||0);
+      cumST+=(stMonthMap[mk]||0);
+      labels.push(mk);
+      cumData.push(cumTotal);
+      mfCumData.push(cumMF);
+      stCumData.push(cumST);
+      fm++; if(fm>12){fm=1;fy++;}
+    }
+
+    // Thin labels for readability
+    const skip=Math.ceil(labels.length/18);
+    chartCumInst=new Chart(el,{
+      type:'line',
+      data:{
+        labels,
+        datasets:[
+          {label:'Total',data:cumData,borderColor:'#d4a843',backgroundColor:'rgba(212,168,67,.08)',borderWidth:2,pointRadius:0,pointHoverRadius:4,fill:true,tension:0.3},
+          {label:'MF',   data:mfCumData,borderColor:'#58a6ff',backgroundColor:'transparent',borderWidth:1.5,pointRadius:0,pointHoverRadius:3,borderDash:[4,3],tension:0.3},
+          {label:'Stocks',data:stCumData,borderColor:'#f0883e',backgroundColor:'transparent',borderWidth:1.5,pointRadius:0,pointHoverRadius:3,borderDash:[2,3],tension:0.3},
+        ]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        interaction:{mode:'index',intersect:false},
+        plugins:{
+          legend:{display:true,position:'top',labels:{color:'#7d8590',font:{size:10},boxWidth:12,padding:12}},
+          tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+fmtL(ctx.raw)},backgroundColor:'#1c2330',titleColor:'#e6edf3',bodyColor:'#7d8590',borderColor:'#30363d',borderWidth:1}
+        },
+        scales:{
+          x:{ticks:{font:{size:9},color:'#7d8590',maxRotation:45,callback:(v,i)=>i%skip===0?labels[i]:''},grid:{color:'#21262d'}},
+          y:{ticks:{font:{size:9},color:'#7d8590',callback:v=>fmtL(v)},grid:{color:'#21262d'}}
+        }
+      }
+    });
+  },60);
+
+  // ── Insight cards ──────────────────────────────────────────
+  const insights=[];
+  if(allMonths.length){
+    // Streak: longest consecutive investing months
+    let maxStreak=0,cur=0;
+    allMonths.forEach(x=>{if(x.v>0){cur++;maxStreak=Math.max(maxStreak,cur);}else cur=0;});
+    insights.push({label:'Longest SIP streak',value:maxStreak+' months',note:'Consecutive months invested',accent:'#3fb950'});
+
+    // Most active year
+    const byYear={}; allMonths.forEach(({m,v})=>{const y=m.slice(0,4);byYear[y]=(byYear[y]||0)+v;});
+    const topYear=Object.entries(byYear).sort((a,b)=>b[1]-a[1])[0];
+    if(topYear) insights.push({label:'Highest-invest year',value:topYear[0],note:fmtL(topYear[1])+' deployed',accent:'#d4a843'});
+
+    // Avg annual investment
+    const yearVals=Object.values(byYear);
+    const avgYearly=Math.round(yearVals.reduce((a,v)=>a+v,0)/yearVals.length);
+    insights.push({label:'Avg annual invest',value:fmtL(avgYearly),note:'Across '+yearVals.length+' year'+( yearVals.length!==1?'s':''),accent:'#58a6ff'});
+
+    // Gap months (months with zero investment)
+    const gapMonths=allMonths.filter(x=>x.v===0).length;
+    insights.push({label:'Inactive months',value:gapMonths,note:'Months with no investment',accent:'#7d8590'});
+
+    // MF vs stock split of total deployed
+    const mfTotal=DATA.monthlyMF.reduce((a,x)=>a+x.v,0);
+    const stTotal=DATA.stLots.reduce((a,l)=>a+l.amt,0);
+    const mfPct=mfTotal+stTotal>0?Math.round(mfTotal/(mfTotal+stTotal)*100):0;
+    insights.push({label:'MF vs Stocks split',value:mfPct+'% / '+(100-mfPct)+'%',note:'Of total capital deployed',accent:'#a371f7'});
+
+    // Biggest single month
+    if(maxMonth) insights.push({label:'Biggest single month',value:fmtL(maxMonth.v),note:fmtMonthLabel(maxMonth.m),accent:'#f0c060'});
+  }
+  document.getElementById('tl-insights').innerHTML=insights.length
+    ?insights.map(c=>`<div class="insight-card" style="--ic-accent:${c.accent}"><div class="insight-label">${c.label}</div><div class="insight-value" style="color:${c.accent}">${c.value}</div><div class="insight-note">${c.note}</div></div>`).join('')
+    :'<div style="color:var(--muted);font-size:11px;padding:10px">Upload files to see investment insights</div>';
+}
+
+function fmtMonthLabel(mk){
+  const MNAMES=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const [y,m]=mk.split('-'); return MNAMES[parseInt(m)-1]+' '+y;
+}
+
+function renderHeatmap(months, allMonths){
+  const container=document.getElementById('tl-heatmap');
+  if(!months.length){container.innerHTML='<div style="color:var(--muted);font-size:11px;padding:16px">Upload files to see heatmap</div>';return;}
+
+  const allValues=allMonths.map(x=>x.v).filter(v=>v>0);
+  const maxV=Math.max(...allValues,1);
+  // colour scale: 5 steps from dim→gold
+  const COLORS=['#1a2a1a','#1a3d26','#1e5c30','#c8901a','#d4a843'];
+  function getColor(v){
+    if(!v) return null;
+    const idx=Math.min(4,Math.floor(v/maxV*5));
+    return COLORS[idx];
+  }
+
+  // Build month→value map
+  const mvMap={}; months.forEach(({m,v})=>mvMap[m]=v);
+  const years=[...new Set(months.map(x=>x.m.slice(0,4)))];
+  const MNAMES=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  // Grid: rows=years, cols=12 months
+  const cellSize=24, gap=3;
+  const totalW=(cellSize+gap)*12+40;
+
+  let html=`<div style="overflow-x:auto"><div style="min-width:${totalW}px;padding:4px 0">`;
+  // Month header
+  html+=`<div style="display:grid;grid-template-columns:36px repeat(12,${cellSize}px);gap:${gap}px;margin-bottom:4px">`;
+  html+=`<div></div>`;
+  MNAMES.forEach(mn=>html+=`<div style="font-size:9px;color:var(--muted2);text-align:center;letter-spacing:.04em">${mn}</div>`);
+  html+='</div>';
+
+  // Tooltip div
+  if(!document.getElementById('tl-tooltip')){
+    const tt=document.createElement('div');
+    tt.id='tl-tooltip'; tt.className='tl-tooltip';
+    document.body.appendChild(tt);
+  }
+
+  years.forEach(y=>{
+    html+=`<div style="display:grid;grid-template-columns:36px repeat(12,${cellSize}px);gap:${gap}px;margin-bottom:${gap}px;align-items:center">`;
+    html+=`<div style="font-size:9px;color:var(--muted);text-align:right;padding-right:6px;font-weight:500">${y}</div>`;
+    for(let m=1;m<=12;m++){
+      const mk=y+'-'+String(m).padStart(2,'0');
+      const v=mvMap[mk]||0;
+      const bg=getColor(v);
+      if(bg){
+        const escaped=fmtL(v).replace(/'/g,"&#39;");
+        const mlabel=MNAMES[m-1]+' '+y;
+        html+=`<div class="tl-cell" style="width:${cellSize}px;height:${cellSize}px;background:${bg}"
+          onmouseenter="showTLTip(event,'${mlabel}','${escaped}')"
+          onmouseleave="hideTLTip()"></div>`;
+      } else {
+        html+=`<div class="tl-cell-empty" style="width:${cellSize}px;height:${cellSize}px"></div>`;
+      }
+    }
+    html+='</div>';
+  });
+  html+='</div></div>';
+
+  // Legend
+  document.getElementById('tl-heatmap-legend').innerHTML=
+    '<span style="margin-right:4px">Less</span>'+
+    ['#1a2a1a','#1a3d26','#1e5c30','#c8901a','#d4a843'].map(c=>`<div style="width:14px;height:14px;background:${c};border-radius:2px"></div>`).join('')+
+    '<span style="margin-left:4px">More</span>';
+
+  container.innerHTML=html;
+}
+
+function showTLTip(e,label,val){
+  const tt=document.getElementById('tl-tooltip');
+  if(!tt) return;
+  tt.innerHTML=`<strong>${label}</strong>Invested: ${val}`;
+  tt.style.display='block';
+  tt.style.left=(e.clientX+12)+'px';
+  tt.style.top=(e.clientY-10)+'px';
+}
+function hideTLTip(){
+  const tt=document.getElementById('tl-tooltip');
+  if(tt) tt.style.display='none';
+}
+function setTLYear(y){ tlYearFilter=y; renderTimeline(); }
+
+// ── Helpers: holding period & drill HTML ──────────────────────
+function fmtHoldPeriod(days){
+  if(!days||days<=0) return '—';
+  const y=Math.floor(days/365), m=Math.floor((days%365)/30);
+  if(y>0&&m>0) return `${y}y ${m}m`;
+  if(y>0) return `${y}y`;
+  if(m>0) return `${m}m`;
+  return `${days}d`;
+}
+
+function buildMFDrillHTML(f){
+  if(!f.rawLots||!f.rawLots.length) return '<div style="color:var(--muted);font-size:11px;padding:6px">No lot-level data available</div>';
+  const lots=[...f.rawLots].sort((a,b)=>a.date-b.date);
+  const rows=lots.map(l=>{
+    const days=Math.floor((Date.now()-l.date.getTime())/(24*3600*1000));
+    const holdStr=fmtHoldPeriod(days);
+    const taxTag=days>=365?'<span class="ltcg-badge">LTCG</span>':'<span class="stcg-badge">STCG</span>';
+    const lotGainPct=l.amt>0?((l.gain/l.amt)*100).toFixed(1):0;
+    const lotCls=l.gain>=0?'td-up':'td-dn';
+    return `<tr>
+      <td>${fmtDate(l.date)}</td>
+      <td>${l.invPrice>0?'₹'+l.invPrice.toFixed(3):'—'}</td>
+      <td>${l.qty>0?l.qty.toFixed(3):'—'}</td>
+      <td>${fmtL(l.amt)}</td>
+      <td class="${lotCls}">${fmtL(l.gain)}</td>
+      <td class="${lotCls}">${l.amt>0?(l.gain>=0?'+':'')+lotGainPct+'%':'—'}</td>
+      <td>${holdStr}</td>
+      <td>${taxTag}</td>
+    </tr>`;
+  }).join('');
+  return `<table class="drill-table">
+    <thead><tr>
+      <th>Buy Date</th><th>Buy NAV</th><th>Units</th><th>Invested</th>
+      <th>Gain/Loss</th><th>Return</th><th>Holding</th><th>Tax</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function buildSTDrillHTML(s){
+  if(!s.rawLots||!s.rawLots.length) return '<div style="color:var(--muted);font-size:11px;padding:6px">No lot-level data available</div>';
+  const lots=[...s.rawLots].sort((a,b)=>a.date-b.date);
+  const cmp=s.Latest_Price||0;
+  const rows=lots.map(l=>{
+    const days=Math.floor((Date.now()-l.date.getTime())/(24*3600*1000));
+    const holdStr=fmtHoldPeriod(days);
+    const taxTag=days>=365?'<span class="ltcg-badge">LTCG</span>':'<span class="stcg-badge">STCG</span>';
+    const curVal=cmp>0&&l.qty>0?cmp*l.qty:l.cur||l.inv+l.gain;
+    const lotGain=curVal-l.inv;
+    const lotPct=l.inv>0?((lotGain/l.inv)*100).toFixed(1):0;
+    const lotCls=lotGain>=0?'td-up':'td-dn';
+    return `<tr>
+      <td>${fmtDate(l.date)}</td>
+      <td>${l.qty>0?fmtN(l.qty):'—'}</td>
+      <td>${l.invPrice>0?'₹'+l.invPrice.toFixed(2):'—'}</td>
+      <td>${cmp>0?'₹'+cmp.toLocaleString('en-IN'):'—'}</td>
+      <td>${fmtL(l.inv)}</td>
+      <td style="font-weight:500">${fmtL(curVal)}</td>
+      <td class="${lotCls}">${fmtL(lotGain)}</td>
+      <td class="${lotCls}">${l.inv>0?(lotGain>=0?'+':'')+lotPct+'%':'—'}</td>
+      <td>${holdStr}</td>
+      <td>${taxTag}</td>
+    </tr>`;
+  }).join('');
+  return `<table class="drill-table">
+    <thead><tr>
+      <th>Buy Date</th><th>Qty</th><th>Buy Price</th><th>CMP</th>
+      <th>Invested</th><th>Cur. Value</th><th>P&amp;L</th><th>Return</th><th>Holding</th><th>Tax</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+const drillState={};
+function toggleDrill(type,i){
+  const rowId=`drill-${type}-${i}`;
+  const btnId=`drill-btn-${type}-${i}`;
+  const row=document.getElementById(rowId);
+  const btn=document.getElementById(btnId);
+  if(!row) return;
+  const open=row.style.display==='none';
+  row.style.display=open?'table-row':'none';
+  if(btn) btn.textContent=open?'▼':'▶';
+}
+
+// ── Health Score ──────────────────────────────────────────────
+function renderHealthScore(){
+  const k=DATA.kpis;
+  if(!k.totalInvested){
+    document.getElementById('health-score-display').innerHTML='<div style="color:var(--muted);font-size:11px">Upload files to compute health score</div>';
+    document.getElementById('health-score-breakdown').innerHTML='';
+    return;
+  }
+
+  // Score components (each 0–20, total 100)
+  const n=DATA.stocks.length||1;
+  const mfShare=k.totalInvested?k.mfInvested/k.totalInvested:0;
+  const stWin=DATA.stocks.filter(s=>s.Gain>0).length;
+  const mfWin=DATA.funds.filter(f=>f.Gain>0).length;
+  const nMF=DATA.funds.length||1;
+  const avgMFcagr=DATA.funds.reduce((a,f)=>a+f.CAGR,0)/nMF;
+  const maxSingleStPct=DATA.stocks.length?Math.max(...DATA.stocks.map(s=>s.Invested/k.stInvested*100)):0;
+  const specInv=DATA.stocks.filter(s=>s.Sector==='Speculative').reduce((a,s)=>a+s.Invested,0);
+  const specPct=k.stInvested?specInv/k.stInvested:0;
+
+  // 1. Diversification (0-20): penalise >20% single stock, >50% speculative
+  const divScore=Math.max(0,20-Math.max(0,(maxSingleStPct-20)*0.5)-Math.max(0,(specPct*100-15)*0.4));
+
+  // 2. MF dominance (0-20): reward MF share ≥60%
+  const mfScore=Math.min(20,mfShare*33);
+
+  // 3. Profitability (0-20): % of holdings in profit weighted equally
+  const totalHoldings=DATA.funds.length+DATA.stocks.length||1;
+  const totalWin=mfWin+stWin;
+  const profScore=(totalWin/totalHoldings)*20;
+
+  // 4. CAGR vs benchmark Nifty 12% (0-20)
+  const cagrScore=Math.min(20,Math.max(0,(avgMFcagr/12)*20));
+
+  // 5. Consistency (0-20): from timeline — active months / total months ratio
+  let consistScore=10; // default when no timeline data
+  if(DATA.monthlyMF.length){
+    const allM=buildCombinedMonthly();
+    const active=allM.filter(x=>x.v>0).length;
+    consistScore=allM.length?Math.min(20,(active/allM.length)*22):10;
+  }
+
+  const total=Math.round(divScore+mfScore+profScore+cagrScore+consistScore);
+  const clamp=Math.min(100,Math.max(0,total));
+  const scoreColor=clamp>=75?'#3fb950':clamp>=50?'#d4a843':'#f85149';
+  const scoreLabel=clamp>=75?'Healthy':clamp>=50?'Fair':'Needs Attention';
+
+  // SVG gauge (semicircle)
+  const R=46, cx=55, cy=58;
+  const angle=(clamp/100)*180;
+  const rad=(angle-180)*Math.PI/180;
+  const x2=cx+R*Math.cos(rad), y2=cy+R*Math.sin(rad);
+  const lg=angle>180?1:0;
+  const trackPath=`M${cx-R},${cy} A${R},${R} 0 0,1 ${cx+R},${cy}`;
+  const fillPath=`M${cx-R},${cy} A${R},${R} 0 ${lg},1 ${x2.toFixed(1)},${y2.toFixed(1)}`;
+
+  document.getElementById('health-score-display').innerHTML=`
+    <div class="health-gauge">
+      <svg viewBox="0 0 110 65" width="130" height="80">
+        <path d="${trackPath}" fill="none" stroke="var(--bg4)" stroke-width="10" stroke-linecap="round"/>
+        <path d="${fillPath}" fill="none" stroke="${scoreColor}" stroke-width="10" stroke-linecap="round"/>
+      </svg>
+      <div class="health-gauge-val" style="top:auto;bottom:0;height:65%">
+        <span class="health-score-num" style="color:${scoreColor}">${clamp}</span>
+        <span class="health-score-lbl" style="color:${scoreColor}">${scoreLabel}</span>
+      </div>
+    </div>
+    <div style="flex:1">
+      <div style="font-size:11px;color:var(--muted);line-height:1.7">
+        Score computed across 5 dimensions: diversification, MF dominance, profitability, CAGR vs benchmark, and investment consistency.
+      </div>
+    </div>`;
+
+  const breakdown=[
+    ['Diversification',  Math.round(divScore),   20, 'Single-stock concentration & speculative exposure'],
+    ['MF Dominance',     Math.round(mfScore),    20, 'MF share of total portfolio'],
+    ['Profitability',    Math.round(profScore),  20, '% of funds & stocks in profit'],
+    ['CAGR Quality',     Math.round(cagrScore),  20, 'Average MF CAGR vs Nifty 50 (12%)'],
+    ['Consistency',      Math.round(consistScore),20,'Regular investing across months'],
+  ];
+  document.getElementById('health-score-breakdown').innerHTML=breakdown.map(([name,pts,max,note])=>{
+    const pct=Math.round(pts/max*100);
+    const c=pct>=75?'#3fb950':pct>=50?'#d4a843':'#f85149';
+    return `<div class="health-bar-row">
+      <span class="health-bar-name" title="${note}">${name}</span>
+      <div class="health-bar-track"><div class="health-bar-fill" style="width:${pct}%;background:${c}"></div></div>
+      <span class="health-bar-pts" style="color:${c}">${pts}/${max}</span>
+    </div>`;
+  }).join('');
+}
+
+// ── Tax Harvesting ────────────────────────────────────────────
+function renderTaxHarvesting(){
+  const taxKpisEl=document.getElementById('tax-kpis');
+  const taxTableEl=document.getElementById('tax-table');
+  if(!taxKpisEl||!taxTableEl) return;
+
+  if(!DATA.stocks.length){
+    taxKpisEl.innerHTML=''; taxTableEl.innerHTML='<div style="color:var(--muted);font-size:11px">Upload Stocks file to see tax analysis</div>'; return;
+  }
+
+  // Per lot tax classification
+  const LTCG_EXEMPT=125000; // ₹1.25L exempt per year
+  const now=Date.now();
+  let totalLTCGGain=0, totalSTCGGain=0, totalLTCGLoss=0, totalSTCGLoss=0;
+  let harvestCandidates=[];
+
+  DATA.stocks.forEach(s=>{
+    const cmp=s.Latest_Price||0;
+    (s.rawLots||[]).forEach(l=>{
+      const days=Math.floor((now-l.date.getTime())/(24*3600*1000));
+      const curVal=cmp>0&&l.qty>0?cmp*l.qty:(l.cur||l.inv+l.gain);
+      const lotGain=Math.round(curVal-l.inv);
+      const isLTCG=days>=365;
+      if(isLTCG){ if(lotGain>0) totalLTCGGain+=lotGain; else totalLTCGLoss+=Math.abs(lotGain); }
+      else       { if(lotGain>0) totalSTCGGain+=lotGain; else totalSTCGLoss+=Math.abs(lotGain); }
+      // Harvest candidate: loss-making lot that can offset gains
+      if(lotGain<0&&Math.abs(lotGain)>1000){
+        harvestCandidates.push({name:s.name,date:l.date,days,inv:l.inv,curVal,gain:lotGain,isLTCG,qty:l.qty,invPrice:l.invPrice,cmp});
+      }
+    });
+  });
+
+  // Tax estimates (Indian equity FY)
+  const taxableLTCG=Math.max(0,totalLTCGGain-LTCG_EXEMPT);
+  const estLTCGTax=Math.round(taxableLTCG*0.125);
+  const estSTCGTax=Math.round(totalSTCGGain*0.20);
+  const totalEstTax=estLTCGTax+estSTCGTax;
+  const harvestSaving=Math.round(Math.min(harvestCandidates.reduce((a,c)=>a+Math.abs(c.gain),0),totalSTCGGain)*0.20
+    +Math.min(harvestCandidates.filter(c=>c.isLTCG).reduce((a,c)=>a+Math.abs(c.gain),0),taxableLTCG)*0.125);
+
+  taxKpisEl.innerHTML=[
+    {l:'LTCG Gains',  v:fmtL(totalLTCGGain), c:totalLTCGGain>0?'var(--green)':'var(--muted)'},
+    {l:'STCG Gains',  v:fmtL(totalSTCGGain), c:totalSTCGGain>0?'var(--amber)':'var(--muted)'},
+    {l:'Est. Tax Liability', v:fmtL(totalEstTax), c:totalEstTax>0?'var(--red)':'var(--green)'},
+    {l:'Harvest Saving', v:harvestSaving>0?'up to '+fmtL(harvestSaving):'—', c:'var(--blue)'},
+  ].map(x=>`<div class="tax-kpi"><div class="tax-kpi-label">${x.l}</div><div class="tax-kpi-val" style="color:${x.c}">${x.v}</div></div>`).join('');
+
+  if(!harvestCandidates.length){
+    taxTableEl.innerHTML='<div style="color:var(--green);font-size:11px;padding:8px">✓ No loss-making lots to harvest right now</div>';
+    return;
+  }
+
+  harvestCandidates.sort((a,b)=>a.gain-b.gain);
+  taxTableEl.innerHTML=`
+    <div style="font-size:10px;color:var(--muted);margin-bottom:8px">Loss-making lots you can sell to offset gains and reduce tax liability:</div>
+    <div style="overflow-x:auto">
+    <table class="drill-table" style="min-width:620px">
+      <thead><tr>
+        <th>Stock</th><th>Buy Date</th><th>Qty</th><th>Buy Price</th><th>CMP</th>
+        <th>Unrealised Loss</th><th>Holding</th><th>Tax Type</th><th>Action</th>
+      </tr></thead>
+      <tbody>
+      ${harvestCandidates.map(c=>`<tr>
+        <td style="font-weight:500">${c.name}</td>
+        <td>${fmtDate(c.date)}</td>
+        <td>${c.qty>0?fmtN(c.qty):'—'}</td>
+        <td>${c.invPrice>0?'₹'+c.invPrice.toFixed(2):'—'}</td>
+        <td>${c.cmp>0?'₹'+c.cmp.toLocaleString('en-IN'):'—'}</td>
+        <td class="td-dn">${fmtL(c.gain)}</td>
+        <td class="td-muted">${fmtHoldPeriod(c.days)}</td>
+        <td>${c.isLTCG?'<span class="ltcg-badge">LTCG</span>':'<span class="stcg-badge">STCG</span>'}</td>
+        <td><span class="harvest-tag">HARVEST</span></td>
+      </tr>`).join('')}
+      </tbody>
+    </table></div>
+    <div style="font-size:10px;color:var(--muted2);margin-top:10px;line-height:1.6">
+      ⚠ After selling for harvest, wait 31+ days before re-buying to avoid wash-sale. LTCG exempt up to ₹1.25L/year; gains above that taxed at 12.5%. STCG taxed at 20%. Consult a tax advisor before acting.
+    </div>`;
+}
+
+// ── Goal Planner ──────────────────────────────────────────────
+let chartGoalInst=null;
+
+function renderGoalPlanner(){
+  // Initialise slider display values
+  updateGoal();
+}
+
+function updateGoal(){
+  const corpus=parseInt(document.getElementById('goal-corpus').value)||10000000;
+  const year=parseInt(document.getElementById('goal-year').value)||2035;
+  const rate=parseFloat(document.getElementById('goal-rate').value)||12;
+
+  document.getElementById('goal-corpus-val').textContent=fmtL(corpus);
+  document.getElementById('goal-year-val').textContent=year;
+  document.getElementById('goal-rate-val').textContent=rate.toFixed(1)+'%';
+
+  const k=DATA.kpis;
+  const currentVal=k.totalValue||0;
+  const nowYear=new Date().getFullYear();
+  const yrsLeft=Math.max(0.5,year-nowYear);
+  const r=rate/100;
+
+  // Monthly SIP needed to reach (corpus - FV of current portfolio) given rate
+  // FV of current: currentVal*(1+r)^yrs
+  const fvCurrent=currentVal*Math.pow(1+r,yrsLeft);
+  const remaining=Math.max(0,corpus-fvCurrent);
+  // SIP formula: PMT = FV * r/12 / ((1+r/12)^(n)-1)
+  const rM=r/12, n=yrsLeft*12;
+  const sipNeeded=remaining>0&&rM>0?Math.round(remaining*rM/(Math.pow(1+rM,n)-1)):0;
+
+  // Current trajectory: FV if we keep investing avg monthly
+  const allMonths=buildCombinedMonthly();
+  const avgMonthly=allMonths.length?Math.round(allMonths.reduce((a,x)=>a+x.v,0)/allMonths.filter(x=>x.v>0).length):0;
+  const fvWithSip=currentVal*Math.pow(1+r,yrsLeft)+(avgMonthly*((Math.pow(1+rM,n)-1)/rM)*(1+rM));
+
+  const onTrack=fvWithSip>=corpus;
+  const gap=corpus-fvWithSip;
+
+  document.getElementById('goal-result-box').innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div><div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">SIP needed</div>
+        <div style="font-family:var(--sans);font-size:18px;font-weight:700;color:var(--gold)">${sipNeeded>0?fmtL(sipNeeded)+'/mo':'Already on track!'}</div></div>
+      <div><div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">Projected at current pace</div>
+        <div style="font-family:var(--sans);font-size:18px;font-weight:700;color:${onTrack?'var(--green)':'var(--red)'}">${fmtL(Math.round(fvWithSip))}</div></div>
+    </div>
+    <div style="font-size:11px;color:${onTrack?'var(--green)':'var(--amber)'}">
+      ${onTrack
+        ?`✓ On track! Your current avg SIP of ${fmtL(avgMonthly)}/mo will reach ${fmtL(Math.round(fvWithSip))} by ${year} — ${fmtL(Math.round(fvWithSip-corpus))} surplus.`
+        :`You need to increase SIP by ${fmtL(Math.max(0,sipNeeded-avgMonthly))}/mo. Current trajectory falls short by ${fmtL(Math.round(gap))}.`
+      }
+    </div>`;
+
+  // Projection chart
+  renderGoalChart(corpus, year, rate, currentVal, avgMonthly, sipNeeded);
+
+  // Summary KPIs
+  document.getElementById('goal-summary-kpis').innerHTML=[
+    {l:'Goal Corpus',      v:fmtL(corpus),          s:'Target by '+year,             a:'#d4a843'},
+    {l:'Current Portfolio',v:fmtL(currentVal),      s:'As of today',                  a:'#58a6ff'},
+    {l:'Years Remaining',  v:yrsLeft.toFixed(1)+'y',s:'To target date',               a:'#a371f7'},
+    {l:'SIP Required',     v:sipNeeded>0?fmtL(sipNeeded)+'/mo':'On track!', s:'At '+rate+'% p.a.',  a:sipNeeded>0?'#f85149':'#3fb950'},
+    {l:'Projected Value',  v:fmtL(Math.round(fvWithSip)), s:onTrack?'Exceeds goal':'Below goal', a:onTrack?'#3fb950':'#f85149'},
+    {l:'Avg Current SIP',  v:avgMonthly?fmtL(avgMonthly)+'/mo':'—', s:'Historical monthly avg', a:'#7d8590'},
+  ].map(c=>`<div class="kpi-card" style="--accent:${c.a}"><div class="kpi-label">${c.l}</div><div class="kpi-value">${c.v}</div><div class="kpi-sub">${c.s}</div></div>`).join('');
+
+  // Scenarios
+  const rates=[8,10,12,15,18];
+  const maxSip=Math.max(...rates.map(rt=>{
+    const rv=rt/100, rMv=rv/12;
+    const fvC=currentVal*Math.pow(1+rv,yrsLeft);
+    const rem=Math.max(0,corpus-fvC);
+    return rem>0&&rMv>0?Math.round(rem*rMv/(Math.pow(1+rMv,n)-1)):0;
+  }),1);
+  document.getElementById('goal-scenarios').innerHTML=rates.map(rt=>{
+    const rv=rt/100, rMv=rv/12;
+    const fvC=currentVal*Math.pow(1+rv,yrsLeft);
+    const rem=Math.max(0,corpus-fvC);
+    const sip=rem>0&&rMv>0?Math.round(rem*rMv/(Math.pow(1+rMv,n)-1)):0;
+    const isSelected=Math.abs(rt-rate)<1;
+    return `<div class="goal-scenario-row">
+      <span class="goal-scen-rate" style="color:${isSelected?'var(--gold)':'var(--muted)'}">${rt}% p.a.${isSelected?' ◀':''}</span>
+      <span class="goal-scen-sip" style="color:${sip===0?'var(--green)':'var(--text)'}">${sip>0?fmtL(sip)+'/mo':'On track!'}</span>
+      <div class="goal-scen-bar"><div class="goal-scen-fill" style="width:${sip>0?Math.round(sip/maxSip*100):0}%"></div></div>
+      <span class="goal-scen-note">${sip>0?'vs avg '+fmtL(avgMonthly):fmtL(Math.round(currentVal*Math.pow(1+rv,yrsLeft)))}</span>
+    </div>`;
+  }).join('');
+
+  // Milestones: 25%, 50%, 75%, 100% of goal
+  const milestones=[0.25,0.50,0.75,1.0];
+  document.getElementById('goal-milestones').innerHTML=milestones.map(pct=>{
+    const target=corpus*pct;
+    const reached=currentVal>=target;
+    // Year when FV of current + SIP reaches target
+    let reachYear=null;
+    for(let y2=nowYear;y2<=2060;y2++){
+      const yrs2=y2-nowYear;
+      const fv=currentVal*Math.pow(1+r,yrs2)+(avgMonthly*((Math.pow(1+rM,yrs2*12)-1)/rM)*(1+rM));
+      if(fv>=target){reachYear=y2;break;}
+    }
+    const dotColor=reached?'var(--green)':reachYear?'var(--gold)':'var(--red)';
+    return `<div class="milestone-row">
+      <div class="milestone-dot" style="background:${dotColor}"></div>
+      <span class="milestone-year">${Math.round(pct*100)}%</span>
+      <span class="milestone-corpus" style="color:var(--text)">${fmtL(target)}</span>
+      <span class="milestone-status" style="color:${dotColor}">${reached?'✓ Reached':reachYear?'Est. '+reachYear:'Beyond '+year}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderGoalChart(corpus, year, rate, currentVal, avgMonthly, sipNeeded){
+  setTimeout(()=>{
+    const el=document.getElementById('chart-goal');
+    if(!el||!window.Chart) return;
+    if(chartGoalInst) chartGoalInst.destroy();
+    const r=rate/100, rM=r/12;
+    const nowYear=new Date().getFullYear();
+    const labels=[], actualTraj=[], sipTraj=[], goalLine=[];
+    for(let y=nowYear;y<=year;y++){
+      const yrs=y-nowYear;
+      const n2=yrs*12;
+      const fvCurrent=currentVal*Math.pow(1+r,yrs);
+      const fvActual=fvCurrent+(avgMonthly>0?avgMonthly*((Math.pow(1+rM,n2)-1)/rM)*(1+rM):0);
+      const fvSip=fvCurrent+(sipNeeded>0?sipNeeded*((Math.pow(1+rM,n2)-1)/rM)*(1+rM):fvCurrent);
+      labels.push(y);
+      actualTraj.push(Math.round(fvActual));
+      sipTraj.push(sipNeeded>0?Math.round(fvSip):null);
+      goalLine.push(corpus);
+    }
+    const datasets=[
+      {label:'Goal',data:goalLine,borderColor:'#f85149',borderWidth:1.5,borderDash:[6,4],pointRadius:0,fill:false,tension:0},
+      {label:'Current pace',data:actualTraj,borderColor:'#58a6ff',backgroundColor:'rgba(88,166,255,.07)',borderWidth:2,pointRadius:0,fill:true,tension:0.3},
+    ];
+    if(sipNeeded>0) datasets.push({label:'With required SIP',data:sipTraj,borderColor:'#3fb950',backgroundColor:'rgba(63,185,80,.06)',borderWidth:2,pointRadius:0,fill:true,tension:0.3,borderDash:[3,2]});
+    chartGoalInst=new Chart(el,{
+      type:'line',data:{labels,datasets},
+      options:{responsive:true,maintainAspectRatio:false,
+        interaction:{mode:'index',intersect:false},
+        plugins:{legend:{display:true,position:'top',labels:{color:'#7d8590',font:{size:10},boxWidth:12,padding:10}},
+          tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+fmtL(ctx.raw)},backgroundColor:'#1c2330',titleColor:'#e6edf3',bodyColor:'#7d8590',borderColor:'#30363d',borderWidth:1}},
+        scales:{
+          x:{ticks:{font:{size:9},color:'#7d8590'},grid:{color:'#21262d'}},
+          y:{ticks:{font:{size:9},color:'#7d8590',callback:v=>fmtL(v)},grid:{color:'#21262d'}}
+        }}
+    });
+  },60);
+}
+
+// ── Router ────────────────────────────────────────────────────
+const PAGES={
+  overview:{title:'Portfolio Overview',render:renderOverview},
+  mf:{title:'Mutual Funds',render:renderMF},
+  stocks:{title:'Equity Stocks',render:renderStocks},
+  analytics:{title:'Analytics',render:renderAnalytics},
+  timeline:{title:'Investment Timeline',render:renderTimeline},
+  goals:{title:'Goal Planner',render:renderGoalPlanner},
+  upload:{title:'Import Excel Data',render:renderUpload},
+};
+function switchPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const pg=document.getElementById('page-'+id); if(pg) pg.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>{if(n.getAttribute('onclick')&&n.getAttribute('onclick').includes("'"+id+"'"))n.classList.add('active');});
+  document.getElementById('page-title').textContent=PAGES[id].title;
+  PAGES[id].render();
+}
+
+// ── Boot ──────────────────────────────────────────────────────
+buildTicker();
+buildStrip();
+updateChrome();
+renderOverview();
+</script>
+</body>
+</html>
