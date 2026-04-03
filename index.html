@@ -124,6 +124,25 @@ tr:hover td{background:var(--bg3)}
 .chart-box{position:relative;width:100%;height:200px}
 .drop-zone{border:1px dashed var(--border2);border-radius:8px;padding:20px;text-align:center;color:var(--muted);cursor:pointer;transition:all .2s;background:var(--bg3);margin-bottom:16px}
 .drop-zone:hover{border-color:var(--gold);color:var(--gold);background:#1a1a00}
+/* ── Benchmark ── */
+.bm-kpi{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:10px 12px;position:relative;overflow:hidden}
+.bm-kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--bm-accent,var(--gold))}
+.bm-kpi-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px}
+.bm-kpi-val{font-family:var(--sans);font-size:17px;font-weight:700;margin-bottom:2px}
+.bm-kpi-note{font-size:10px;color:var(--muted)}
+.bm-verdict{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:4px;font-size:10px;font-weight:600;letter-spacing:.04em}
+.bm-beat{background:var(--green-bg);color:var(--green);border:1px solid var(--green-dim)}
+.bm-trail{background:var(--red-bg);color:var(--red);border:1px solid var(--red-dim)}
+.bm-close{background:var(--amber-bg);color:var(--amber);border:1px solid #5a3d00}
+.alpha-box{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px 16px}
+.alpha-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)}
+.alpha-row:last-child{border-bottom:none}
+.alpha-name{font-size:11px;color:var(--muted);min-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.alpha-cagr{font-size:11px;font-weight:600;min-width:48px;text-align:right}
+.alpha-bm{font-size:10px;color:var(--muted);min-width:56px;text-align:right}
+.alpha-diff{font-size:11px;font-weight:700;min-width:52px;text-align:right}
+.alpha-bar-wrap{flex:1;height:4px;background:var(--bg4);border-radius:2px;overflow:hidden;min-width:40px}
+.alpha-bar{height:100%;border-radius:2px;transition:width .5s}
 /* ── Health Score ── */
 .health-gauge{position:relative;width:110px;height:110px;flex-shrink:0}
 .health-gauge svg{transform:rotate(-90deg)}
@@ -350,6 +369,25 @@ tr:hover td{background:var(--bg3)}
       <p style="font-size:11px;color:var(--muted);line-height:1.7;margin-bottom:10px">Money-weighted return computed from your actual lot dates and amounts:</p>
       <div id="xirr-display"></div>
     </div>
+  </div>
+
+  <!-- Benchmark Comparison -->
+  <div class="card" style="margin-bottom:16px">
+    <div class="sec-head">
+      <div class="sec-title">Benchmark comparison</div>
+      <div style="font-size:10px;color:var(--muted)">Historical average CAGR — your portfolio vs market benchmarks</div>
+    </div>
+    <!-- KPI verdict strip -->
+    <div id="bm-kpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:20px"></div>
+    <!-- Holding period selector -->
+    <div class="controls" id="bm-period-filter" style="margin-bottom:16px"></div>
+    <!-- Main bar chart -->
+    <div class="chart-box" style="height:280px;margin-bottom:20px"><canvas id="chart-benchmark"></canvas></div>
+    <!-- Per-fund vs benchmark table -->
+    <div class="sec-head" style="margin-top:4px"><div class="sec-title">Your funds vs Nifty 50</div></div>
+    <div style="overflow-x:auto"><div id="bm-fund-table"></div></div>
+    <!-- Alpha summary -->
+    <div id="bm-alpha-summary" style="margin-top:16px"></div>
   </div>
 </div>
 
@@ -883,6 +921,9 @@ function renderAnalytics() {
       <p style="font-size:10px;color:var(--muted2);margin-top:10px;line-height:1.6">XIRR accounts for exact timing of every investment — it reflects the true compounded return on your actual cash deployed.</p>`;
   }
   document.getElementById('xirr-display').innerHTML=xirrHTML;
+
+  // Benchmark comparison
+  renderBenchmark();
 }
 
 // ── Upload page ───────────────────────────────────────────────
@@ -1889,6 +1930,283 @@ function renderGoalChart(corpus, year, rate, currentVal, avgMonthly, sipNeeded){
         }}
     });
   },60);
+}
+
+// ── Benchmark Comparison ─────────────────────────────────────
+// Historical average CAGRs (long-run, India) — baked-in reference values
+// Sources: NSE/BSE fact-sheets, AMFI data, RBI, industry consensus
+const BENCHMARKS = {
+  '3y': {
+    'Nifty 50':       12.8,
+    'Nifty Next 50':  10.4,
+    'Nifty Midcap 150':18.2,
+    'Nifty Smallcap': 22.6,
+    'Sensex':         13.1,
+    'PPF':             7.1,
+    'FD (SBI)':        6.8,
+    'Inflation (CPI)': 5.4,
+  },
+  '5y': {
+    'Nifty 50':       14.2,
+    'Nifty Next 50':  12.1,
+    'Nifty Midcap 150':19.8,
+    'Nifty Smallcap': 24.3,
+    'Sensex':         14.5,
+    'PPF':             7.1,
+    'FD (SBI)':        6.5,
+    'Inflation (CPI)': 5.6,
+  },
+  '7y': {
+    'Nifty 50':       13.4,
+    'Nifty Next 50':  11.8,
+    'Nifty Midcap 150':17.6,
+    'Nifty Smallcap': 20.1,
+    'Sensex':         13.7,
+    'PPF':             7.2,
+    'FD (SBI)':        6.6,
+    'Inflation (CPI)': 5.5,
+  },
+  '10y': {
+    'Nifty 50':       12.9,
+    'Nifty Next 50':  11.2,
+    'Nifty Midcap 150':16.4,
+    'Nifty Smallcap': 18.8,
+    'Sensex':         13.2,
+    'PPF':             7.3,
+    'FD (SBI)':        6.7,
+    'Inflation (CPI)': 5.5,
+  },
+};
+
+let bmPeriod = '5y';
+
+function setBMPeriod(p){ bmPeriod=p; renderBenchmark(); }
+
+let chartBMInst=null;
+
+function renderBenchmark(){
+  const bmKpisEl=document.getElementById('bm-kpis');
+  const bmFilterEl=document.getElementById('bm-period-filter');
+  const bmFundTblEl=document.getElementById('bm-fund-table');
+  const bmAlphaEl=document.getElementById('bm-alpha-summary');
+  if(!bmKpisEl) return;
+
+  const k=DATA.kpis;
+  const nMF=DATA.funds.length;
+  const bm=BENCHMARKS[bmPeriod];
+  const nifty50=bm['Nifty 50'];
+  const inflation=bm['Inflation (CPI)'];
+  const fd=bm['FD (SBI)'];
+  const ppf=bm['PPF'];
+
+  // Period selector chips
+  bmFilterEl.innerHTML='<span class="ctrl-label">Period:</span>'+
+    ['3y','5y','7y','10y'].map(p=>`<button class="chip ${bmPeriod===p?'on':''}" onclick="setBMPeriod('${p}')">${p}</button>`).join('')+
+    '<span style="font-size:10px;color:var(--muted2);margin-left:8px">Historical averages — actual returns vary year to year</span>';
+
+  // Your portfolio metrics
+  const yourMFCagr = nMF>0 ? parseFloat((DATA.funds.reduce((a,f)=>a+f.CAGR*(f.Invested/(k.mfInvested||1)),0)).toFixed(1)) : 0;
+  const yourStCagr = DATA.stocks.length>0
+    ? parseFloat((DATA.stocks.filter(s=>s.Invested>0).reduce((a,s)=>a+s.CAGR*(s.Invested/(k.stInvested||1)),0)).toFixed(1)) : 0;
+  const yourCombinedCagr = k.totalInvested>0
+    ? parseFloat(((yourMFCagr*(k.mfInvested/k.totalInvested))+(yourStCagr*(k.stInvested/k.totalInvested))).toFixed(1)) : 0;
+
+  // Alpha = your CAGR - Nifty 50
+  const mfAlpha = parseFloat((yourMFCagr - nifty50).toFixed(1));
+  const combAlpha = parseFloat((yourCombinedCagr - nifty50).toFixed(1));
+  const beatsFD   = yourMFCagr > fd;
+  const beatsInflation = yourMFCagr > inflation;
+  const beatsPPF  = yourMFCagr > ppf;
+  const beatsNifty = yourMFCagr > nifty50;
+
+  // KPI cards
+  const bmKpiData=[
+    {l:'Your MF CAGR',  v:nMF?fmtP(yourMFCagr):'—', note:'Weighted avg', accent: nMF?(yourMFCagr>=nifty50?'var(--green)':'var(--red)'):'var(--muted)'},
+    {l:'Nifty 50 ('+bmPeriod+')', v:fmtP(nifty50), note:'Equity benchmark', accent:'var(--blue)'},
+    {l:'Alpha vs Nifty', v:nMF?(mfAlpha>=0?'+':'')+mfAlpha+'%':'—', note:mfAlpha>0?'Outperforming':'Underperforming', accent:mfAlpha>=0?'var(--green)':'var(--red)'},
+    {l:'Beats Inflation?', v:nMF?(beatsInflation?'✓ Yes':'✗ No'):'—', note:`Inflation ${fmtP(inflation)}`, accent:beatsInflation?'var(--green)':'var(--red)'},
+    {l:'Beats FD?',       v:nMF?(beatsFD?'✓ Yes':'✗ No'):'—', note:`FD rate ${fmtP(fd)}`, accent:beatsFD?'var(--green)':'var(--amber)'},
+    {l:'Beats PPF?',      v:nMF?(beatsPPF?'✓ Yes':'✗ No'):'—', note:`PPF rate ${fmtP(ppf)}`, accent:beatsPPF?'var(--green)':'var(--amber)'},
+  ];
+  bmKpisEl.innerHTML=bmKpiData.map(c=>`
+    <div class="bm-kpi" style="--bm-accent:${c.accent}">
+      <div class="bm-kpi-label">${c.l}</div>
+      <div class="bm-kpi-val" style="color:${c.accent}">${c.v}</div>
+      <div class="bm-kpi-note">${c.note}</div>
+    </div>`).join('');
+
+  // Build bar chart data: your portfolio bars + all benchmarks
+  const chartLabels=[], chartVals=[], chartColors=[], chartBorders=[];
+  if(nMF){
+    chartLabels.push('Your MF CAGR');
+    chartVals.push(yourMFCagr);
+    chartColors.push(yourMFCagr>=nifty50?'rgba(63,185,80,.85)':'rgba(248,81,73,.85)');
+    chartBorders.push(yourMFCagr>=nifty50?'#3fb950':'#f85149');
+  }
+  if(DATA.stocks.length&&k.stInvested>0){
+    chartLabels.push('Your Stocks CAGR');
+    chartVals.push(yourStCagr);
+    chartColors.push(yourStCagr>=nifty50?'rgba(63,185,80,.85)':'rgba(248,81,73,.85)');
+    chartBorders.push(yourStCagr>=nifty50?'#3fb950':'#f85149');
+  }
+  if(nMF&&DATA.stocks.length){
+    chartLabels.push('Your Combined');
+    chartVals.push(yourCombinedCagr);
+    chartColors.push(yourCombinedCagr>=nifty50?'rgba(212,168,67,.9)':'rgba(248,81,73,.7)');
+    chartBorders.push(yourCombinedCagr>=nifty50?'#d4a843':'#f85149');
+  }
+
+  // Separator + benchmarks
+  Object.entries(bm).forEach(([name,val])=>{
+    chartLabels.push(name);
+    chartVals.push(val);
+    const isMkt=name.startsWith('Nifty')||name==='Sensex';
+    const isSafe=name==='PPF'||name.startsWith('FD');
+    const isInfl=name.startsWith('Inflation');
+    chartColors.push(isMkt?'rgba(88,166,255,.7)':isSafe?'rgba(163,113,247,.6)':isInfl?'rgba(248,81,73,.5)':'rgba(125,133,144,.5)');
+    chartBorders.push(isMkt?'#58a6ff':isSafe?'#a371f7':isInfl?'#f85149':'#7d8590');
+  });
+
+  // Render chart
+  setTimeout(()=>{
+    const el=document.getElementById('chart-benchmark');
+    if(!el||!window.Chart) return;
+    if(chartBMInst) chartBMInst.destroy();
+    chartBMInst=new Chart(el,{
+      type:'bar',
+      data:{
+        labels:chartLabels,
+        datasets:[{
+          label:'CAGR %',
+          data:chartVals,
+          backgroundColor:chartColors,
+          borderColor:chartBorders,
+          borderWidth:1.5,
+          borderRadius:4,
+          borderSkipped:false,
+        }]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        indexAxis:'y',
+        plugins:{
+          legend:{display:false},
+          tooltip:{
+            callbacks:{
+              label:ctx=>{
+                const val=ctx.raw;
+                const myCAGR=nMF?yourMFCagr:null;
+                const diff=myCAGR!==null&&ctx.label!=='Your MF CAGR'&&ctx.label!=='Your Combined'&&ctx.label!=='Your Stocks CAGR'
+                  ?' (your MF '+(myCAGR-val>=0?'+':'')+((myCAGR-val).toFixed(1))+'%)':'';
+                return ` ${val.toFixed(1)}% CAGR${diff}`;
+              }
+            },
+            backgroundColor:'#1c2330',titleColor:'#e6edf3',bodyColor:'#7d8590',borderColor:'#30363d',borderWidth:1
+          },
+          annotation:{} // no plugin needed
+        },
+        scales:{
+          x:{
+            ticks:{font:{size:9},color:'#7d8590',callback:v=>v+'%'},
+            grid:{color:'#21262d'},
+            min:0,
+          },
+          y:{
+            ticks:{font:{size:10},color:'#7d8590'},
+            grid:{color:'#21262d'},
+          }
+        }
+      }
+    });
+  },60);
+
+  // Per-fund vs Nifty table
+  if(!nMF){
+    bmFundTblEl.innerHTML='<div style="color:var(--muted);font-size:11px;padding:8px">Upload MF file to see per-fund comparison</div>';
+  } else {
+    const sortedFunds=[...DATA.funds].sort((a,b)=>b.CAGR-a.CAGR);
+    const maxAlpha=Math.max(...sortedFunds.map(f=>Math.abs(f.CAGR-nifty50)),1);
+    bmFundTblEl.innerHTML=`
+      <table style="width:100%;border-collapse:collapse;min-width:500px">
+        <thead><tr>
+          <th style="text-align:left;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:7px 8px;border-bottom:1px solid var(--border)">Fund</th>
+          <th style="text-align:center;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:7px 8px;border-bottom:1px solid var(--border)">Category</th>
+          <th style="text-align:right;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:7px 8px;border-bottom:1px solid var(--border)">Your CAGR</th>
+          <th style="text-align:right;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:7px 8px;border-bottom:1px solid var(--border)">Nifty 50</th>
+          <th style="text-align:left;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:7px 8px;border-bottom:1px solid var(--border);min-width:120px">Alpha</th>
+          <th style="text-align:center;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:7px 8px;border-bottom:1px solid var(--border)">Verdict</th>
+        </tr></thead>
+        <tbody>
+        ${sortedFunds.map(f=>{
+          const alpha=parseFloat((f.CAGR-nifty50).toFixed(1));
+          const alphaPct=Math.min(100,Math.abs(alpha)/maxAlpha*100);
+          const ac=alpha>=2?'var(--green)':alpha>=-2?'var(--amber)':'var(--red)';
+          const vc=alpha>=2?'bm-beat':alpha>=-2?'bm-close':'bm-trail';
+          const vt=alpha>=2?'▲ Beats Nifty':alpha>=-2?'≈ In line':'▼ Trails Nifty';
+          return `<tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:8px;font-size:11px;font-weight:500;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.name}</td>
+            <td style="padding:8px;text-align:center"><span class="pill" style="background:${CAT_CLR[f.Category]||'#444'}22;color:${CAT_CLR[f.Category]||'#888'};border:1px solid ${CAT_CLR[f.Category]||'#444'}44">${f.Category}</span></td>
+            <td style="padding:8px;text-align:right;font-size:12px;font-weight:600;color:${f.CAGR>=nifty50?'var(--green)':'var(--red)'}">${fmtP(f.CAGR)}</td>
+            <td style="padding:8px;text-align:right;font-size:11px;color:var(--muted)">${fmtP(nifty50)}</td>
+            <td style="padding:8px">
+              <div style="display:flex;align-items:center;gap:6px">
+                <div class="alpha-bar-wrap" style="min-width:60px">
+                  <div class="alpha-bar" style="width:${alphaPct}%;background:${ac}"></div>
+                </div>
+                <span style="font-size:11px;font-weight:700;color:${ac};min-width:44px">${alpha>=0?'+':''}${alpha}%</span>
+              </div>
+            </td>
+            <td style="padding:8px;text-align:center"><span class="bm-verdict ${vc}">${vt}</span></td>
+          </tr>`;
+        }).join('')}
+        </tbody>
+      </table>`;
+  }
+
+  // Alpha summary box
+  if(nMF){
+    const beaters=DATA.funds.filter(f=>f.CAGR>nifty50+2).length;
+    const trailers=DATA.funds.filter(f=>f.CAGR<nifty50-2).length;
+    const inline=DATA.funds.filter(f=>Math.abs(f.CAGR-nifty50)<=2).length;
+    const topAlphaFund=[...DATA.funds].sort((a,b)=>(b.CAGR-nifty50)-(a.CAGR-nifty50))[0];
+    const worstAlphaFund=[...DATA.funds].sort((a,b)=>(a.CAGR-nifty50)-(b.CAGR-nifty50))[0];
+    const verdictColor=mfAlpha>=2?'var(--green)':mfAlpha>=-2?'var(--amber)':'var(--red)';
+    const verdictText=mfAlpha>=2
+      ?`Your MF portfolio is generating +${mfAlpha}% alpha over Nifty 50 — active fund selection is adding value.`
+      :mfAlpha>=-2
+        ?`Your MF portfolio is roughly in line with Nifty 50 (${mfAlpha>=0?'+':''}${mfAlpha}%). Consider a mix of active + index funds.`
+        :`Your MF portfolio is trailing Nifty 50 by ${Math.abs(mfAlpha)}%. A low-cost Nifty 50 index fund would have done better — review underperforming funds.`;
+
+    bmAlphaEl.innerHTML=`
+      <div class="alpha-box">
+        <div style="font-size:12px;color:${verdictColor};font-weight:500;margin-bottom:12px;line-height:1.6">${verdictText}</div>
+        <div class="alpha-row">
+          <span class="alpha-name">Funds beating Nifty 50 by &gt;2%</span>
+          <span class="alpha-val" style="color:var(--green)">${beaters} / ${nMF}</span>
+        </div>
+        <div class="alpha-row">
+          <span class="alpha-name">Funds within ±2% of Nifty 50</span>
+          <span class="alpha-val" style="color:var(--amber)">${inline} / ${nMF}</span>
+        </div>
+        <div class="alpha-row">
+          <span class="alpha-name">Funds trailing Nifty 50 by &gt;2%</span>
+          <span class="alpha-val" style="color:var(--red)">${trailers} / ${nMF}</span>
+        </div>
+        ${topAlphaFund?`<div class="alpha-row">
+          <span class="alpha-name">Best alpha fund</span>
+          <span class="alpha-val" style="color:var(--gold)">${topAlphaFund.name.split(' ').slice(0,3).join(' ')} (+${(topAlphaFund.CAGR-nifty50).toFixed(1)}%)</span>
+        </div>`:''}
+        ${worstAlphaFund&&worstAlphaFund.CAGR<nifty50?`<div class="alpha-row">
+          <span class="alpha-name">Worst alpha fund</span>
+          <span class="alpha-val" style="color:var(--red)">${worstAlphaFund.name.split(' ').slice(0,3).join(' ')} (${(worstAlphaFund.CAGR-nifty50).toFixed(1)}%)</span>
+        </div>`:''}
+        <div style="font-size:10px;color:var(--muted2);margin-top:10px;line-height:1.6">
+          Benchmark CAGRs are historical long-run averages (${bmPeriod}) — actual returns vary. Your fund CAGR is computed from your actual purchase dates and amounts.
+        </div>
+      </div>`;
+  } else {
+    bmAlphaEl.innerHTML='<div style="color:var(--muted);font-size:11px">Upload files to see alpha summary</div>';
+  }
 }
 
 // ── Router ────────────────────────────────────────────────────
