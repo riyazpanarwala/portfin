@@ -1,4 +1,4 @@
-# 📊 PortFin — Portfolio Analytics Dashboard
+# 📊 PortFin — Intelligent Portfolio Analytics Dashboard
 
 🔗 **Live Demo:** https://riyazpanarwala.github.io/portfin/
 📦 **GitHub Repo:** https://github.com/riyazpanarwala/portfin
@@ -9,75 +9,117 @@
 
 **PortFin** is a powerful, Excel-driven portfolio analytics dashboard built using **pure HTML, CSS, and JavaScript**.
 
-It goes beyond basic tracking and focuses on:
+It goes beyond basic tracking and delivers:
 
-* 📈 Performance vs Benchmark
-* 🧠 Decision-making insights
-* ⚠️ Risk awareness
+* 📈 Benchmark-aware performance analysis
+* 🧠 Actionable investment decisions
+* ⚠️ Risk and allocation insights
 
-Designed for serious long-term investors who want **data-driven investing** without relying on external tools.
+Designed for serious investors who want **clarity, not just data**.
 
 ---
 
-## 🔥 Key Features
+## 🔥 What Makes PortFin Different
 
-### 📊 Portfolio Analytics
+Most tools show returns.
+
+**PortFin tells you:**
+
+* Are you beating the market?
+* Which investments are underperforming?
+* What you should do next (ADD / HOLD / REDUCE / EXIT)
+
+---
+
+## 📊 Core Features
+
+### 📈 Portfolio Analytics
 
 * Total Investment, Current Value, P&L
 * CAGR & XIRR calculations
 * Portfolio health score
-* Sector allocation analysis
+* Sector allocation
 * Top performers & laggards
 
 ---
 
-### 📈 Advanced Benchmark Analysis (NEW 🔥)
+### 📊 Advanced Benchmark Analysis (Upgraded 🔥)
 
 * Portfolio vs Benchmark comparison
-* Fund-level benchmark comparison
-* Alpha calculation (true performance)
+* Fund-level benchmark mapping (category-based)
+* Time-aligned CAGR comparison (based on holding period)
+* Alpha calculation (true outperformance)
 * Beat / Trail / Close classification
-* Time-based comparison logic (holding period aware)
-* Interactive charts using Chart.js
+* Interactive Chart.js visualization (normalized growth)
 
 📌 **Alpha Formula:**
 
 ```
-Alpha = Portfolio/Fund CAGR − Benchmark CAGR
+Alpha = Fund/Portfolio CAGR − Benchmark CAGR
 ```
 
 ---
 
-### 🧠 Decision-Oriented Insights
+### 🧠 Alpha Intelligence Layer
 
-* Risk alerts (overexposure, concentration)
-* Underperformer identification
-* Analyst-style action hints
-* Behavioral investing awareness
+* Total funds analyzed
+* Funds beating benchmark
+* Average alpha
+* Best & worst performers
+
+👉 Converts raw data into **performance insights**
+
+---
+
+### ⚡ Decision Engine (NEW 🔥)
+
+Each fund is automatically classified:
+
+| Condition               | Action    |
+| ----------------------- | --------- |
+| Alpha < -3% (long hold) | ❌ EXIT    |
+| Alpha -3% to 1%         | ⚠️ REDUCE |
+| Alpha 1% to 3%          | ➖ HOLD    |
+| Alpha > 3%              | ✅ ADD     |
+
+✔ Integrated into:
+
+* Fund tables
+* Analyst insights section
+
+👉 Turns dashboard into a **decision-making system**
+
+---
+
+### ⚠️ Risk & Behavior Insights
+
+* Overexposure alerts
+* Concentration warnings
+* Underperformer detection
+* Portfolio health scoring
 
 ---
 
 ### 📅 Visual Intelligence
 
-* Performance charts
-* Benchmark comparison graphs
-* Timeline-based insights
-* Clean and modern dark UI
+* Benchmark vs portfolio growth chart
+* Performance trends
+* Clean dark UI for long usage
 
 ---
 
-### 📂 Excel-Based Workflow
+### 📂 Excel-Driven Workflow
 
 * No backend required
-* Replace Excel files → auto refresh insights
-* Ideal for monthly portfolio tracking
+* Replace Excel → auto-update dashboard
+* Ideal for monthly tracking
 
 ---
 
 ## 🛠️ Tech Stack
 
 * HTML5
-* CSS3 (Custom, no frameworks)
+* CSS3 (Custom UI, no frameworks)
 * Vanilla JavaScript
 * Chart.js
 
@@ -85,10 +127,10 @@ Alpha = Portfolio/Fund CAGR − Benchmark CAGR
 
 ## ⚙️ How It Works
 
-1. Upload or replace your portfolio Excel files
-2. Dashboard parses and processes data
-3. Analytics + benchmark comparisons are generated
-4. Insights and visualizations update automatically
+1. Upload / replace Excel files
+2. Data is parsed into internal `DATA` structure
+3. Benchmark + alpha + decision logic is applied
+4. UI updates automatically
 
 ---
 
@@ -103,11 +145,11 @@ cd portfin
 
 ---
 
-### 2. Add Your Data
+### 2. Add Your Portfolio Data
 
-Replace Excel files (Mutual Funds / Stocks) with your own data.
+Replace Excel files (Mutual Funds / Stocks)
 
-> ⚠️ Keep column structure consistent
+> ⚠️ Keep structure unchanged
 
 ---
 
@@ -121,56 +163,65 @@ index.html
 
 ---
 
-### 4. Monthly Update Workflow
+### 4. Monthly Workflow
 
-* Replace Excel files
+* Update Excel
 * Refresh browser
 * Done ✅
 
 ---
 
-## 📊 Benchmark System (Core Logic)
+## 🧠 Benchmark System (Core Logic)
 
-* Each fund is compared against a benchmark index
-* Comparison is aligned with **holding duration**
-* Alpha determines real performance
+* Category-based benchmark mapping
+* Time-aligned comparison using holding period
+* Portfolio-level alpha calculation
 
-### Classification:
+### Output:
 
-* ✅ **Beat** → Outperforming benchmark
-* ⚠️ **Close** → Similar performance
-* ❌ **Trail** → Underperforming
+* Beat / Trail / Close
+* Actionable insights
+* Performance validation vs market
 
 ---
 
-## 🎯 Why PortFin?
+## 🎯 Use Case
 
-Most tools show returns.
+Perfect for:
 
-**PortFin shows:**
-
-* Are you actually beating the market?
-* Where you are underperforming
-* What actions you should consider
+* Long-term investors
+* Stock + Mutual Fund portfolios
+* DIY portfolio managers
+* Data-driven decision makers
 
 ---
 
 ## 🚀 Upcoming Enhancements
 
 * Smart monthly allocation engine (₹25K strategy)
-* API-based real-time data
+* API-based live data integration
 
 ---
 
 ## 🤝 Contributing
 
-Feel free to fork and enhance the project.
+Open to improvements:
 
-Ideas welcome:
+* Analytics enhancements
+* UI/UX upgrades
+* Performance optimizations
 
-* Better analytics
-* Performance optimization
-* New visualizations
+---
+
+## 📜 License
+
+MIT License
+
+---
+
+## 👨‍💻 Author
+
+**Riyaz Panarwala**
 
 ---
 
