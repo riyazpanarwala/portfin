@@ -1,216 +1,206 @@
-# PortFin — Intelligent Portfolio Analytics & Decision Engine
+# Portfolio Tracker — Personal Investment Dashboard
 
-* 🔗 **Live Demo:** https://riyazpanarwala.github.io/portfin/
-* 📦 **GitHub Repo:** https://github.com/riyazpanarwala/portfin
+A powerful, **no-backend personal finance dashboard** to track, analyze, and optimize your investments across **Mutual Funds and Stocks** — built using pure HTML, CSS, and JavaScript.
 
----
-
-## 🚀 Overview
-
-**PortFin** is a powerful, Excel-driven portfolio analytics dashboard built using **pure HTML, CSS, and JavaScript**.
-
-It is designed for investors who want:
-
-* 📈 Benchmark-aware performance tracking
-* 🧠 Actionable investment decisions
-* ⚠️ Risk and allocation insights
-
-> Not just “What is happening” — but **“What should I do next?”**
+> 📊 Upload your Excel files → Instantly visualize your portfolio → Make smarter investment decisions.
 
 ---
 
-## 🔥 What’s New (Latest Updates)
+## ✨ Features
 
-* 📊 **Portfolio Rebalancing Advisor (NEW PAGE)**
-* ⏰ **SIP Reminder & Next Action Panel**
-* 📱 **Mobile-Responsive Sidebar Navigation**
-* 📤 **Export Portfolio Data to CSV**
-* 🌗 **Dark / Light Theme Toggle**
+### 📊 Portfolio Overview
 
----
-
-## 📊 Core Features
-
-### 📈 Portfolio Analytics
-
-* Total Investment, Current Value, P&L
-* CAGR & XIRR calculations
-* Portfolio health score
-* Sector allocation
-* Top gainers & losers
+* Total investment, current value, P&L
+* MF vs Stocks allocation
+* Category-wise breakdown (Donut charts)
+* Top performers (MF + Stocks)
+* Risk concentration alerts
 
 ---
 
-### 📊 Advanced Benchmark System
+### 🧠 Smart Insights
 
-* Category-based benchmark mapping
-* Time-aligned comparison using holding period
-* Portfolio-level benchmark comparison
-* Alpha calculation
-
-📌 **Formula:**
-
-```id="r4j3c6"
-Alpha = Fund/Portfolio CAGR − Benchmark CAGR
-```
+* Portfolio **Health Score**
+* Actionable **risk alerts**
+* Intelligent **recommendations**
+* **SIP Reminder & Next Action Panel**
 
 ---
 
-### 🧠 Decision Engine
+### 📈 Mutual Funds Analysis
 
-| Condition               | Action    |
-| ----------------------- | --------- |
-| Alpha < -3% (long hold) | ❌ EXIT    |
-| Alpha -3% to 1%         | ⚠️ REDUCE |
-| Alpha 1% to 3%          | ➖ HOLD    |
-| Alpha > 3%              | ✅ ADD     |
-
-👉 Converts analysis into **clear actions**
+* Category-wise filtering
+* Sorting (CAGR, returns, value, etc.)
+* Holding period tracking
+* Export data to CSV
 
 ---
 
-### 🔄 Portfolio Rebalancing Advisor
+### 📉 Stocks Analysis
 
-* Detects allocation imbalance
-* Highlights overweight / underweight sectors
-* Suggests rebalancing strategy
-
-👉 Helps maintain **optimal portfolio structure**
-
----
-
-### ⏰ SIP Reminder & Next Action Panel
-
-* Tracks upcoming SIP actions
-* Suggests next investment steps
-* Keeps monthly investing disciplined
+* Sector-wise breakdown
+* Risk classification (High / Watch / Safe)
+* P&L and CAGR tracking
+* Analyst-style action recommendations
+* Export data to CSV
 
 ---
 
-### 📱 Mobile-Friendly UI
+### 🧾 Tax Harvesting Assistant
 
-* Responsive sidebar navigation
-* Optimized layout for smaller screens
-* Smooth usability across devices
-
----
-
-### 📤 Export System
-
-* Export portfolio data to CSV
-* Useful for:
-
-  * Offline analysis
-  * Record keeping
-  * Sharing
+* LTCG / STCG classification
+* Tax estimation
+* Smart harvesting suggestions
 
 ---
 
-### 🌗 Theme Support
+### 📊 Advanced Analytics
 
-* Dark mode (default)
-* Light mode toggle
-* Improved readability and accessibility
+* Monthly investment flow (chart)
+* Sector-wise P&L
+* Portfolio ratios
+* XIRR (money-weighted return)
 
 ---
 
-## 📂 Excel-Based Workflow
+### 📊 Benchmark Comparison
 
-* No backend required
-* Replace Excel → auto update
-* Ideal for monthly tracking
+* Portfolio vs market benchmarks
+* CAGR comparison
+* Alpha generation analysis
+* Fund vs category benchmark comparison
+
+---
+
+### 📅 Investment Timeline
+
+* Monthly investment heatmap
+* Yearly totals
+* Monthly breakdown
+* Cumulative investment chart
+* Key investment insights
+
+---
+
+### 🎯 Goal Planner
+
+* Set target corpus & timeline
+* Expected return simulation
+* SIP requirement calculation
+* Scenario comparison
+* Milestone tracking
+* Wealth projection chart
+
+---
+
+### ⚖️ Portfolio Rebalancing Advisor (NEW)
+
+* Set target allocation (MF / Stocks / ETF)
+* Compare current vs target allocation
+* Get **exact buy/sell actions**
+* Smart rebalancing guidance
+
+---
+
+### 🔔 SIP Reminder & Action Panel (NEW)
+
+* Monthly investment guidance
+* Suggested fund allocation
+* Clear next steps for SIP execution
+
+---
+
+### 📤 Export to CSV (NEW)
+
+* Export Mutual Funds data
+* Export Stocks data
+* Easy reporting & tracking
+
+---
+
+### 🎨 UI/UX Enhancements (NEW)
+
+* Dark / Light theme toggle 🌙☀️
+* Fully responsive sidebar (mobile-friendly)
+* Clean, modern dashboard design
+* Smooth transitions & animations
+
+---
+
+## 📂 How It Works
+
+1. Go to **Import Excel**
+2. Upload:
+
+   * Mutual Funds Excel file
+   * Stocks Excel file
+3. Dashboard updates instantly ⚡
+
+> ❗ No backend, no API, no setup required
+
+---
+
+## 📁 Supported File Format
+
+* `.xlsx` / `.xls`
+* Broker/exported portfolio files
+* Structured columns (as per sample format)
 
 ---
 
 ## 🛠️ Tech Stack
 
 * HTML5
-* CSS3 (Custom UI, no frameworks)
+* CSS3 (Custom Design System)
 * Vanilla JavaScript
 * Chart.js
+* SheetJS (xlsx)
 
 ---
 
-## ⚙️ How It Works
+## 💡 Key Highlights
 
-1. Upload / replace Excel files
-2. Data is parsed into internal `DATA` structure
-3. Benchmark + alpha + decision logic is applied
-4. UI updates automatically
-
----
-
-## 📥 Getting Started
-
-### 1. Clone Repository
-
-```id="cx6p2r"
-git clone https://github.com/riyazpanarwala/portfin.git
-cd portfin
-```
+* ⚡ **Zero backend required**
+* 📊 Works entirely in browser
+* 🔒 Your data stays private (no upload to server)
+* 🧠 Built with real investor use-cases in mind
+* 📱 Mobile responsive
 
 ---
 
-### 2. Add Your Data
+## 🚀 Live Demo
 
-Replace Excel files (Mutual Funds / Stocks)
-
-> ⚠️ Keep structure unchanged
+👉 https://riyazpanarwala.github.io/portfin/
 
 ---
 
-### 3. Run Locally
+## 🔮 Future Improvements
 
-```id="qj5gso"
-open index.html
-```
-
----
-
-### 4. Monthly Workflow
-
-* Update Excel
-* Refresh browser
-* Done ✅
-
----
-
-## 🎯 Why PortFin?
-
-Most tools show:
-
-> “Your portfolio is up 12%”
-
-**PortFin shows:**
-
-* Are you beating the market?
-* What is underperforming?
-* What action you should take
-* How to rebalance your portfolio
-* What to do next (SIP + allocation)
-
----
-
-## 🚀 Upcoming Enhancements
-
-* Smart ₹25K allocation engine
-* API-based live data integration
+* Live market data integration (NSE API)
+* Portfolio persistence (local storage / cloud sync)
+* PDF report generation
+* Multi-user support
+* Advanced AI-based insights
 
 ---
 
 ## 🤝 Contributing
 
-Suggestions welcome:
+Contributions, ideas, and suggestions are welcome!
 
-* Analytics improvements
-* UI/UX enhancements
-* Performance optimization
+1. Fork the repo
+2. Create a feature branch
+3. Commit your changes
+4. Open a pull request
 
 ---
 
 ## 👨‍💻 Author
 
 **Riyaz Panarwala**
+
 ---
 
-⭐ If you find this useful, consider starring the repo!
+## ⭐ If You Like This Project
+
+Give it a ⭐ on GitHub — it motivates further improvements!
