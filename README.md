@@ -1,7 +1,7 @@
-# 📊 PortFin — Intelligent Portfolio Analytics Dashboard
+# PortFin — Intelligent Portfolio Analytics Dashboard
 
-🔗 **Live Demo:** https://riyazpanarwala.github.io/portfin/
-📦 **GitHub Repo:** https://github.com/riyazpanarwala/portfin
+* 🔗 **Live Demo:** https://riyazpanarwala.github.io/portfin/
+* 📦 **GitHub Repo:** https://github.com/riyazpanarwala/portfin
 
 ---
 
