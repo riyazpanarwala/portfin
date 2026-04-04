@@ -157,9 +157,9 @@ tr:hover td{background:var(--bg3)}
 .alpha-bar-wrap{flex:1;height:4px;background:var(--bg4);border-radius:2px;overflow:hidden;min-width:40px}
 .alpha-bar{height:100%;border-radius:2px;transition:width .5s}
 /* ── Health Score ── */
-.health-gauge{position:relative;width:110px;height:110px;flex-shrink:0}
-.health-gauge svg{transform:rotate(-90deg)}
-.health-gauge-val{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.health-gauge{position:relative;width:180px;height:120px;flex-shrink:0}
+.health-gauge svg{display:block;overflow:visible}
+.health-gauge-val{position:absolute;bottom:8px;left:0;right:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end}
 .health-score-num{font-family:var(--sans);font-size:28px;font-weight:700;line-height:1}
 .health-score-lbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
 .health-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
@@ -221,9 +221,81 @@ tr:hover td{background:var(--bg3)}
 ::-webkit-scrollbar-track{background:var(--bg)}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
 ::-webkit-scrollbar-thumb:hover{background:var(--muted2)}
+
+/* ── Light theme ── */
+:root.light {
+  --bg:#f0f2f5;--bg2:#ffffff;--bg3:#f6f8fa;--bg4:#eaeef2;
+  --border:#d0d7de;--border2:#b0bec5;
+  --text:#1a1f2e;--muted:#57606a;--muted2:#8c959f;
+  --gold:#9a6f00;--gold2:#c08000;
+  --green:#1a7f37;--green-dim:#a8d5b5;--green-bg:#dafbe1;
+  --red:#cf222e;--red-dim:#ffb8c2;--red-bg:#fff0ee;
+  --blue:#0969da;--blue-bg:#ddf4ff;
+  --amber:#9a6700;--amber-bg:#fff8c5;
+}
+:root.light body{background:var(--bg)}
+:root.light body::before{background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.015) 2px,rgba(0,0,0,.015) 4px)}
+:root.light .chip.on{color:#fff}
+:root.light .pill-h{border-color:#f5b8be}
+:root.light .pill-m{border-color:#e8d4a0}
+:root.light .bm-beat{border-color:#a8d5b5}
+:root.light .bm-trail{border-color:#ffb8c2}
+:root.light .bm-close{border-color:#e8d4a0}
+:root.light .badge-g{border-color:#a8d5b5}
+:root.light .badge-r{border-color:#ffb8c2}
+:root.light .badge-a{border-color:#e8d4a0}
+
+/* ── Theme toggle button ── */
+.theme-toggle{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:6px 10px;cursor:pointer;font-size:14px;color:var(--muted);transition:all .2s;line-height:1;flex-shrink:0}
+.theme-toggle:hover{color:var(--text);border-color:var(--border2)}
+
+/* ── Mobile sidebar ── */
+.hamburger{display:none;background:none;border:none;cursor:pointer;padding:6px;color:var(--muted);font-size:20px;line-height:1}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99}
+.sidebar-overlay.open{display:block}
+@media(max-width:768px){
+  .hamburger{display:block}
+  .sidebar{transform:translateX(-100%);transition:transform .25s ease;z-index:200}
+  .sidebar.mobile-open{transform:translateX(0)}
+  .main{margin-left:0!important}
+  .topbar{padding:10px 14px}
+  .page{padding:14px}
+  .kpi-grid{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
+  .grid2{grid-template-columns:1fr}
+  .grid3{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+}
+
+/* ── Rebalancing advisor ── */
+.reb-asset-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.reb-asset-row:last-child{border-bottom:none}
+.reb-asset-name{font-size:12px;font-weight:500;min-width:120px}
+.reb-asset-pct{font-size:12px;font-weight:700;color:var(--gold);min-width:36px;text-align:right}
+.reb-action-box{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-top:14px}
+.reb-action-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px}
+.reb-action-row:last-child{border-bottom:none}
+.reb-sell{color:var(--red);font-weight:600}
+.reb-buy{color:var(--green);font-weight:600}
+.reb-hold{color:var(--muted);font-weight:500}
+
+/* ── SIP reminder card ── */
+.sip-card{background:linear-gradient(135deg,var(--bg3) 0%,var(--bg2) 100%);border:1px solid var(--gold);border-radius:10px;padding:18px;position:relative;overflow:hidden}
+.sip-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--gold),var(--gold2))}
+.sip-month-label{font-size:10px;color:var(--gold);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px}
+.sip-amount{font-family:var(--sans);font-size:28px;font-weight:700;color:var(--gold);line-height:1;margin-bottom:4px}
+.sip-action-list{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+.sip-action-item{display:flex;align-items:flex-start;gap:10px;background:var(--bg4);border-radius:6px;padding:9px 12px;font-size:11px}
+.sip-action-icon{font-size:16px;flex-shrink:0}
+.sip-action-fund{font-weight:600;color:var(--text);margin-bottom:2px}
+.sip-action-amt{color:var(--gold);font-weight:700;font-family:var(--sans)}
+.sip-action-reason{color:var(--muted);font-size:10px;line-height:1.4}
+
+/* ── Export CSV button ── */
+.export-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:5px;font-size:11px;font-family:var(--mono);color:var(--muted);cursor:pointer;transition:all .15s}
+.export-btn:hover{border-color:var(--gold);color:var(--gold)}
 </style>
 </head>
 <body>
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
 <div class="shell">
 <aside class="sidebar">
   <div class="logo-area">
@@ -239,6 +311,7 @@ tr:hover td{background:var(--bg3)}
     <div class="nav-item" onclick="switchPage('timeline')"><span class="nav-icon">◫</span>Timeline</div>
     <div class="nav-item" onclick="switchPage('goals')"><span class="nav-icon">◎</span>Goal Planner</div>
     <div class="nav-section" style="margin-top:12px">Tools</div>
+    <div class="nav-item" onclick="switchPage('rebalance')"><span class="nav-icon">⊞</span>Rebalancer</div>
     <div class="nav-item" onclick="switchPage('upload')"><span class="nav-icon">↑</span>Import Excel</div>
   </nav>
   <div class="sidebar-stats">
@@ -254,11 +327,17 @@ tr:hover td{background:var(--bg3)}
 <div class="ticker"><div class="ticker-inner" id="ticker-inner"></div></div>
 
 <div class="topbar">
-  <div>
-    <div class="topbar-title" id="page-title">Portfolio Overview</div>
-    <div class="topbar-meta" id="topbar-meta">Upload your Excel files to load live data</div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <button class="hamburger" id="hamburger-btn" onclick="toggleSidebar()" aria-label="Menu">☰</button>
+    <div>
+      <div class="topbar-title" id="page-title">Portfolio Overview</div>
+      <div class="topbar-meta" id="topbar-meta">Upload your Excel files to load live data</div>
+    </div>
   </div>
-  <div style="display:flex;gap:6px;flex-wrap:wrap" id="topbar-badges"></div>
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    <div style="display:flex;gap:6px;flex-wrap:wrap" id="topbar-badges"></div>
+    <button class="theme-toggle" id="theme-toggle-btn" onclick="toggleTheme()" title="Toggle light/dark theme">☀️</button>
+  </div>
 </div>
 
 <!-- OVERVIEW -->
@@ -285,11 +364,16 @@ tr:hover td{background:var(--bg3)}
     <div class="alert-title">⚠ Risk concentration alerts</div>
     <div id="risk-alerts"></div>
   </div>
+  <!-- SIP Reminder Card -->
+  <div class="sip-card" id="sip-reminder-card" style="margin-bottom:20px">
+    <div class="sip-month-label" id="sip-month-label">THIS MONTH'S ACTION PLAN</div>
+    <div id="sip-reminder-content"><div style="color:var(--muted);font-size:12px">Upload your files to get your personalised SIP action plan.</div></div>
+  </div>
   <!-- Health Score -->
   <div class="grid2" id="health-score-wrap">
     <div class="card">
       <div class="sec-head"><div class="sec-title">Portfolio health score</div></div>
-      <div id="health-score-display" style="display:flex;align-items:center;gap:24px"></div>
+      <div id="health-score-display" style="display:flex;align-items:center;gap:24px;min-height:130px;overflow:visible"></div>
     </div>
     <div class="card">
       <div class="sec-head"><div class="sec-title">Score breakdown</div></div>
@@ -302,7 +386,10 @@ tr:hover td{background:var(--bg3)}
 <div class="page" id="page-mf">
   <div class="kpi-grid" id="kpi-mf"></div>
   <div class="controls" id="mf-filters"></div>
-  <div class="controls" id="mf-sorts"></div>
+  <div class="controls" style="justify-content:space-between">
+    <div class="controls" id="mf-sorts" style="margin-bottom:0"></div>
+    <button class="export-btn" onclick="exportCSV('mf')">⬇ Export CSV</button>
+  </div>
   <div class="tbl-wrap">
     <table>
       <thead><tr>
@@ -326,7 +413,10 @@ tr:hover td{background:var(--bg3)}
 <div class="page" id="page-stocks">
   <div class="kpi-grid" id="kpi-stocks"></div>
   <div class="controls" id="st-filters"></div>
-  <div class="controls" id="st-sorts"></div>
+  <div class="controls" style="justify-content:space-between">
+    <div class="controls" id="st-sorts" style="margin-bottom:0"></div>
+    <button class="export-btn" onclick="exportCSV('stocks')">⬇ Export CSV</button>
+  </div>
   <div class="tbl-wrap">
     <table>
       <thead><tr>
@@ -496,6 +586,48 @@ tr:hover td{background:var(--bg3)}
   <div class="card">
     <div class="sec-head"><div class="sec-title">Milestone tracker</div></div>
     <div id="goal-milestones"></div>
+  </div>
+</div>
+
+<!-- REBALANCING ADVISOR -->
+<div class="page" id="page-rebalance">
+  <div class="kpi-grid" id="reb-kpi-strip"></div>
+  <div class="grid2" style="margin-bottom:20px">
+    <div class="card">
+      <div class="sec-head"><div class="sec-title">Target allocation</div><div style="font-size:10px;color:var(--muted)">Set your ideal portfolio mix</div></div>
+      <div style="display:flex;flex-direction:column;gap:16px" id="reb-sliders">
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px"><span style="color:var(--muted)">Mutual Funds (MF)</span><span id="reb-mf-val" style="color:var(--gold);font-weight:700">70%</span></div>
+          <input type="range" id="reb-mf" min="0" max="100" value="70" oninput="syncRebSliders('mf')" style="width:100%;accent-color:var(--gold)">
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px"><span style="color:var(--muted)">Large-cap Stocks</span><span id="reb-lc-val" style="color:var(--blue);font-weight:700">20%</span></div>
+          <input type="range" id="reb-lc" min="0" max="100" value="20" oninput="syncRebSliders('lc')" style="width:100%;accent-color:var(--blue)">
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px"><span style="color:var(--muted)">ETF / Index</span><span id="reb-etf-val" style="color:var(--green);font-weight:700">10%</span></div>
+          <input type="range" id="reb-etf" min="0" max="100" value="10" oninput="syncRebSliders('etf')" style="width:100%;accent-color:var(--green)">
+        </div>
+        <div style="background:var(--bg3);border-radius:6px;padding:10px;font-size:11px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--muted)">Total allocation</span><span id="reb-total-pct" style="font-weight:700;color:var(--green)">100%</span></div>
+          <div id="reb-total-bar" style="height:6px;background:var(--bg4);border-radius:3px;overflow:hidden"><div id="reb-total-fill" style="height:100%;background:var(--green);border-radius:3px;width:100%;transition:width .3s,background .3s"></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="sec-head"><div class="sec-title">Current vs target</div></div>
+      <div id="reb-comparison"></div>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:20px">
+    <div class="sec-head"><div class="sec-title">Rebalancing action plan</div><div style="font-size:10px;color:var(--muted)">Exact moves to reach your target allocation</div></div>
+    <div id="reb-actions"></div>
+  </div>
+  <div class="card">
+    <div class="sec-head"><div class="sec-title">How rebalancing works</div></div>
+    <div style="font-size:11px;color:var(--muted);line-height:1.9">
+      Rebalancing restores your intended risk profile by selling overweight assets and buying underweight ones. It enforces discipline by locking in gains from outperformers and deploying into laggards at lower prices. Aim to rebalance when any class drifts more than ±5% from target, or at least once per year. Note: selling in India attracts STCG (20%) or LTCG (12.5%) — factor this in before executing. Consider rebalancing via new SIP deployment into underweight assets first, to minimise taxable events.
+    </div>
   </div>
 </div>
 
@@ -728,6 +860,7 @@ function renderOverview() {
     :'<div style="color:var(--green);font-size:11px">✓ No critical concentration alerts — portfolio looks balanced</div>';
 
   renderHealthScore();
+  renderSIPReminder();
 }
 
 // ── Mutual Funds ──────────────────────────────────────────────
@@ -1219,6 +1352,7 @@ function tryApplyData(){
     buildTicker();
     buildStrip();
     updateChrome();
+    renderSIPReminder();
 
     if(msgEl){
       msgEl.style.background='var(--green-bg)';
@@ -1673,29 +1807,70 @@ function renderHealthScore(){
   const scoreColor=clamp>=75?'#3fb950':clamp>=50?'#d4a843':'#f85149';
   const scoreLabel=clamp>=75?'Healthy':clamp>=50?'Fair':'Needs Attention';
 
-  // SVG gauge (semicircle)
-  const R=46, cx=55, cy=58;
-  const angle=(clamp/100)*180;
-  const rad=(angle-180)*Math.PI/180;
-  const x2=cx+R*Math.cos(rad), y2=cy+R*Math.sin(rad);
-  const lg=angle>180?1:0;
-  const trackPath=`M${cx-R},${cy} A${R},${R} 0 0,1 ${cx+R},${cy}`;
-  const fillPath=`M${cx-R},${cy} A${R},${R} 0 ${lg},1 ${x2.toFixed(1)},${y2.toFixed(1)}`;
+  // ── SVG semicircle gauge — fixed geometry ──
+  // ViewBox: 180 wide × 110 tall. Centre of arc: (90, 95). Radius 72.
+  // Arc sweeps left (180°) to right (0°) across the top half.
+  // Score 0 = left tip, Score 100 = right tip.
+  const VW=180, VH=110, GCX=90, GCY=95, GR=72, SW=12;
+
+  // Polar → cartesian. 0° = right, angles in degrees, measured from positive-x axis.
+  const polar=(deg)=>({
+    x: GCX + GR * Math.cos(deg * Math.PI / 180),
+    y: GCY + GR * Math.sin(deg * Math.PI / 180),
+  });
+
+  // Track: 180° (left) → 0° (right), always full arc
+  const tStart = polar(180);
+  const tEnd   = polar(0);
+  const trackD = `M${tStart.x},${tStart.y} A${GR},${GR} 0 0,1 ${tEnd.x},${tEnd.y}`;
+
+  // Fill: 180° → (180° - score%) of 180°, sweeping clockwise (0,1)
+  // score 0 → angle stays at 180 (left), score 100 → angle reaches 0 (right)
+  const fillAngle = 180 - (clamp / 100) * 180;   // end angle in degrees
+  const fEnd      = polar(fillAngle);
+  const largeArc  = (180 - fillAngle) > 180 ? 1 : 0;
+  const fillD = clamp > 0
+    ? `M${tStart.x},${tStart.y} A${GR},${GR} 0 ${largeArc},1 ${fEnd.x},${fEnd.y}`
+    : '';
+
+  // Needle tip circle at fill end
+  const needleTip = clamp > 0
+    ? `<circle cx="${fEnd.x.toFixed(1)}" cy="${fEnd.y.toFixed(1)}" r="5" fill="${scoreColor}"/>`
+    : '';
+
+  // Score tick marks at 25/50/75
+  function polar_r(cx,cy,r,deg){return{x:cx+r*Math.cos(deg*Math.PI/180),y:cy+r*Math.sin(deg*Math.PI/180)};}
+  const ticks=[25,50,75].map(v=>{
+    const a=180-(v/100)*180;
+    const inner=polar_r(GCX,GCY,GR-10,a);
+    const outer=polar_r(GCX,GCY,GR+2,a);
+    return `<line x1="${inner.x.toFixed(1)}" y1="${inner.y.toFixed(1)}" x2="${outer.x.toFixed(1)}" y2="${outer.y.toFixed(1)}" stroke="var(--border2)" stroke-width="1.5"/>`;
+  }).join('');
 
   document.getElementById('health-score-display').innerHTML=`
     <div class="health-gauge">
-      <svg viewBox="0 0 110 65" width="130" height="80">
-        <path d="${trackPath}" fill="none" stroke="var(--bg4)" stroke-width="10" stroke-linecap="round"/>
-        <path d="${fillPath}" fill="none" stroke="${scoreColor}" stroke-width="10" stroke-linecap="round"/>
+      <svg viewBox="-10 0 ${VW+20} ${VH}" width="${VW}" height="${VH}" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">
+        <!-- Track arc -->
+        <path d="${trackD}" fill="none" stroke="var(--bg4)" stroke-width="${SW}" stroke-linecap="round"/>
+        <!-- Fill arc -->
+        ${fillD?`<path d="${fillD}" fill="none" stroke="${scoreColor}" stroke-width="${SW}" stroke-linecap="round" opacity="0.95"/>`:''}
+        <!-- Needle tip -->
+        ${needleTip}
+        <!-- Tick marks -->
+        ${ticks}
+        <!-- 0 label -->
+        <text x="${tStart.x-14}" y="${tStart.y+6}" font-size="9" fill="var(--muted)" text-anchor="middle">0</text>
+        <!-- 100 label -->
+        <text x="${tEnd.x+14}" y="${tEnd.y+6}" font-size="9" fill="var(--muted)" text-anchor="middle">100</text>
       </svg>
-      <div class="health-gauge-val" style="top:auto;bottom:0;height:65%">
+      <div class="health-gauge-val">
         <span class="health-score-num" style="color:${scoreColor}">${clamp}</span>
         <span class="health-score-lbl" style="color:${scoreColor}">${scoreLabel}</span>
       </div>
     </div>
-    <div style="flex:1">
-      <div style="font-size:11px;color:var(--muted);line-height:1.7">
-        Score computed across 5 dimensions: diversification, MF dominance, profitability, CAGR vs benchmark, and investment consistency.
+    <div style="flex:1;padding-left:8px">
+      <div style="font-size:11px;color:var(--muted);line-height:1.8">
+        Score computed across 5 dimensions:<br>diversification, MF dominance, profitability,<br>CAGR vs benchmark, and investment consistency.
       </div>
     </div>`;
 
@@ -2380,7 +2555,292 @@ function _renderBMAlphaSummary(el, fundAnalysis, {nMF, yourMFCagr, portfolioBMCa
     </div>`;
 }
 
-// ── Router ────────────────────────────────────────────────────
+// ── Theme toggle ──────────────────────────────────────────────
+function toggleTheme(){
+  const isLight=document.documentElement.classList.toggle('light');
+  document.getElementById('theme-toggle-btn').textContent=isLight?'🌙':'☀️';
+  localStorage.setItem('portfin-theme',isLight?'light':'dark');
+}
+(function initTheme(){
+  const saved=localStorage.getItem('portfin-theme');
+  if(saved==='light'){document.documentElement.classList.add('light');const b=document.getElementById('theme-toggle-btn');if(b)b.textContent='🌙';}
+})();
+
+// ── Mobile sidebar ────────────────────────────────────────────
+function toggleSidebar(){
+  const sb=document.querySelector('.sidebar');
+  const ov=document.getElementById('sidebar-overlay');
+  sb.classList.toggle('mobile-open');
+  ov.classList.toggle('open');
+}
+function closeSidebar(){
+  document.querySelector('.sidebar').classList.remove('mobile-open');
+  document.getElementById('sidebar-overlay').classList.remove('open');
+}
+// Close sidebar on nav item click (mobile)
+document.querySelectorAll('.nav-item').forEach(n=>{
+  const orig=n.getAttribute('onclick')||'';
+  n.setAttribute('onclick', orig+';closeSidebar()');
+});
+
+// ── Export CSV ────────────────────────────────────────────────
+function exportCSV(type){
+  let rows=[], headers=[];
+  if(type==='mf'){
+    if(!DATA.funds.length){alert('No MF data to export. Upload a file first.');return;}
+    headers=['Fund Name','Category','Lots','Invested (₹)','Current Value (₹)','Gain/Loss (₹)','Return (%)','CAGR (%)','Holding Days'];
+    rows=DATA.funds.map(f=>[
+      '"'+f.name.replace(/"/g,'""')+'"', f.Category, f.Lots,
+      Math.round(f.Invested), Math.round(f.Current), f.Gain,
+      f.RetPct, f.CAGR, f.holdDays||0
+    ]);
+  } else {
+    if(!DATA.stocks.length){alert('No stocks data to export. Upload a file first.');return;}
+    headers=['Stock','Sector','Quantity','CMP (₹)','Invested (₹)','Market Value (₹)','P&L (₹)','Return (%)','CAGR (%)','Holding Days'];
+    rows=DATA.stocks.map(s=>[
+      '"'+s.name.replace(/"/g,'""')+'"', s.Sector, s.Qty,
+      s.Latest_Price, Math.round(s.Invested), Math.round(s.Current),
+      s.Gain, s.RetPct, s.CAGR, s.holdDays||0
+    ]);
+  }
+  const csv=[headers.join(','),...rows.map(r=>r.join(','))].join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=(type==='mf'?'mutual_funds':'stocks')+'_portfolio.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ── SIP Reminder ──────────────────────────────────────────────
+function renderSIPReminder(){
+  const el=document.getElementById('sip-reminder-content');
+  const lblEl=document.getElementById('sip-month-label');
+  if(!el) return;
+  const k=DATA.kpis;
+  if(!k.totalInvested){
+    el.innerHTML='<div style="color:var(--muted);font-size:12px">Upload your files to get your personalised SIP action plan.</div>';
+    return;
+  }
+  const now=new Date();
+  const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  lblEl.textContent=MONTHS[now.getMonth()].toUpperCase()+' '+now.getFullYear()+' — ACTION PLAN';
+
+  const allMonths=buildCombinedMonthly();
+  const activeMonths=allMonths.filter(x=>x.v>0);
+  const avgMonthly=activeMonths.length?Math.round(activeMonths.reduce((a,x)=>a+x.v,0)/activeMonths.length):0;
+  const lastMonthKey=(now.getFullYear()+'-'+String(now.getMonth()).padStart(2,'0')); // prev month
+  const investedThisMonth=allMonths.find(x=>x.m===lastMonthKey)?.v||0;
+
+  // Compute per-category allocation
+  const totalMFInv=k.mfInvested, totalSTInv=k.stInvested;
+  const topFunds=[...DATA.funds].sort((a,b)=>b.CAGR-a.CAGR).slice(0,3);
+  const underperformers=DATA.funds.filter(f=>f.CAGR<10&&f.CAGR>0);
+
+  const recommendedSIP=avgMonthly||Math.round(k.totalInvested*0.02);
+  const mfShare=k.totalInvested?k.mfInvested/k.totalInvested:0.7;
+  const mfSIP=Math.round(recommendedSIP*Math.min(0.8,Math.max(0.5,mfShare)));
+  const stSIP=recommendedSIP-mfSIP;
+
+  // Build action items
+  const actions=[];
+  if(topFunds.length){
+    const perFund=Math.round(mfSIP/Math.min(3,topFunds.length));
+    topFunds.slice(0,2).forEach(f=>{
+      actions.push({icon:'📊',fund:f.name.split(' ').slice(0,4).join(' '),amt:fmtL(perFund),reason:`CAGR ${fmtP(f.CAGR)} — top performer in your portfolio`});
+    });
+  }
+  if(underperformers.length){
+    actions.push({icon:'⚠️',fund:underperformers[0].name.split(' ').slice(0,4).join(' '),amt:'₹0',reason:`Consider pausing SIP — CAGR only ${fmtP(underperformers[0].CAGR)}, switch to higher-alpha fund`});
+  }
+  if(stSIP>0){
+    const sectors=DATA.sectors.filter(s=>s.Gain>0).sort((a,b)=>b.RetPct-a.RetPct);
+    const bestSec=sectors[0];
+    actions.push({icon:'📈',fund:bestSec?bestSec.Sector+' stocks':'Large-cap stocks',amt:fmtL(stSIP),reason:bestSec?`Your best-performing sector at ${fmtP(bestSec.RetPct)}`:'Diversify equity exposure'});
+  }
+
+  el.innerHTML=`
+    <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+      <div class="sip-amount">${fmtL(recommendedSIP)}<span style="font-size:14px;color:var(--muted);font-family:var(--mono)">/mo</span></div>
+      <div style="font-size:11px;color:var(--muted)">Recommended monthly deployment · Based on your historical avg ${fmtL(avgMonthly>0?avgMonthly:recommendedSIP)}/mo</div>
+    </div>
+    <div class="sip-action-list">
+      ${actions.map(a=>`<div class="sip-action-item">
+        <span class="sip-action-icon">${a.icon}</span>
+        <div style="flex:1">
+          <div class="sip-action-fund">${a.fund} <span class="sip-action-amt">${a.amt}</span></div>
+          <div class="sip-action-reason">${a.reason}</div>
+        </div>
+      </div>`).join('')}
+    </div>
+    <div style="margin-top:12px;font-size:10px;color:var(--muted2);line-height:1.6">
+      ⓘ Recommendations based on your historical investing pattern and fund performance. Always review with your financial goals before acting.
+    </div>`;
+}
+
+// ── Rebalancing Advisor ───────────────────────────────────────
+function renderRebalance(){
+  syncRebSliders('none'); // initial render
+}
+
+function syncRebSliders(changed){
+  const mfEl=document.getElementById('reb-mf');
+  const lcEl=document.getElementById('reb-lc');
+  const etfEl=document.getElementById('reb-etf');
+  if(!mfEl) return;
+
+  let mf=parseInt(mfEl.value), lc=parseInt(lcEl.value), etf=parseInt(etfEl.value);
+  const total=mf+lc+etf;
+
+  // Clamp so total doesn't exceed 100
+  if(total>100){
+    if(changed==='mf'){ const excess=total-100; lc=Math.max(0,lc-Math.ceil(excess/2)); etf=Math.max(0,etf-Math.floor(excess/2)); }
+    else if(changed==='lc'){ const excess=total-100; mf=Math.max(0,mf-Math.ceil(excess/2)); etf=Math.max(0,etf-Math.floor(excess/2)); }
+    else if(changed==='etf'){ const excess=total-100; mf=Math.max(0,mf-Math.ceil(excess/2)); lc=Math.max(0,lc-Math.floor(excess/2)); }
+    mfEl.value=mf; lcEl.value=lc; etfEl.value=etf;
+  }
+
+  const t=mf+lc+etf;
+  document.getElementById('reb-mf-val').textContent=mf+'%';
+  document.getElementById('reb-lc-val').textContent=lc+'%';
+  document.getElementById('reb-etf-val').textContent=etf+'%';
+  const totalEl=document.getElementById('reb-total-pct');
+  const fillEl=document.getElementById('reb-total-fill');
+  totalEl.textContent=t+'%';
+  totalEl.style.color=t===100?'var(--green)':t>100?'var(--red)':'var(--amber)';
+  fillEl.style.width=Math.min(100,t)+'%';
+  fillEl.style.background=t===100?'var(--green)':t>100?'var(--red)':'var(--amber)';
+
+  computeRebalance(mf,lc,etf);
+}
+
+function computeRebalance(targetMFPct, targetLCPct, targetETFPct){
+  const k=DATA.kpis;
+  const totalValue=k.totalValue||0;
+  const cmpEl=document.getElementById('reb-comparison');
+  const actEl=document.getElementById('reb-actions');
+  const kpiEl=document.getElementById('reb-kpi-strip');
+  if(!cmpEl||!actEl) return;
+
+  if(!totalValue){
+    cmpEl.innerHTML='<div style="color:var(--muted);font-size:12px">Upload files to see rebalancing recommendations.</div>';
+    actEl.innerHTML=''; if(kpiEl) kpiEl.innerHTML=''; return;
+  }
+
+  // Current actuals
+  const curMFVal=k.mfValue||0;
+  const etfStocks=DATA.stocks.filter(s=>s.Sector==='Index ETF'||s.Sector==='Commodities ETF');
+  const lcStocks=DATA.stocks.filter(s=>!etfStocks.includes(s));
+  const curETFVal=etfStocks.reduce((a,s)=>a+s.Current,0);
+  const curLCVal=lcStocks.reduce((a,s)=>a+s.Current,0);
+
+  const curMFPct=totalValue?Math.round(curMFVal/totalValue*100):0;
+  const curLCPct=totalValue?Math.round(curLCVal/totalValue*100):0;
+  const curETFPct=totalValue?Math.round(curETFVal/totalValue*100):0;
+
+  // Target values
+  const tgtMFVal=Math.round(totalValue*targetMFPct/100);
+  const tgtLCVal=Math.round(totalValue*targetLCPct/100);
+  const tgtETFVal=Math.round(totalValue*targetETFPct/100);
+
+  const diffMF=tgtMFVal-curMFVal;
+  const diffLC=tgtLCVal-curLCVal;
+  const diffETF=tgtETFVal-curETFVal;
+
+  const drift=Math.max(Math.abs(targetMFPct-curMFPct),Math.abs(targetLCPct-curLCPct),Math.abs(targetETFPct-curETFPct));
+  const needsAction=drift>=5;
+
+  if(kpiEl){
+    kpiEl.innerHTML=[
+      {l:'Total Portfolio',v:fmtL(totalValue),s:'Current value',a:'#d4a843'},
+      {l:'MF Drift',v:(targetMFPct-curMFPct>=0?'+':'')+(targetMFPct-curMFPct)+'pp',s:`Current ${curMFPct}% → Target ${targetMFPct}%`,a:Math.abs(targetMFPct-curMFPct)>=5?'#f85149':'#3fb950'},
+      {l:'Max Drift',v:drift+'pp',s:drift>=5?'Action needed':'Within tolerance',a:drift>=5?'#f85149':'#3fb950'},
+      {l:'Status',v:needsAction?'Rebalance':'On target',s:needsAction?'Drift ≥5% detected':'All within ±5%',a:needsAction?'#e3b341':'#3fb950'},
+    ].map(c=>`<div class="kpi-card" style="--accent:${c.a}"><div class="kpi-label">${c.l}</div><div class="kpi-value" style="font-size:18px">${c.v}</div><div class="kpi-sub">${c.s}</div></div>`).join('');
+  }
+
+  const classes=[
+    {name:'Mutual Funds', cur:curMFVal, curPct:curMFPct, tgt:tgtMFVal, tgtPct:targetMFPct, diff:diffMF, color:'var(--gold)'},
+    {name:'Large-cap Stocks', cur:curLCVal, curPct:curLCPct, tgt:tgtLCVal, tgtPct:targetLCPct, diff:diffLC, color:'var(--blue)'},
+    {name:'ETF / Index', cur:curETFVal, curPct:curETFPct, tgt:tgtETFVal, tgtPct:targetETFPct, diff:diffETF, color:'var(--green)'},
+  ];
+
+  cmpEl.innerHTML=classes.map(c=>{
+    const d=c.tgtPct-c.curPct;
+    return `<div class="reb-asset-row">
+      <div style="flex:1">
+        <div style="font-size:12px;font-weight:500;margin-bottom:4px">${c.name}</div>
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+          <span style="font-size:10px;color:var(--muted)">Current</span>
+          <div style="flex:1;height:8px;background:var(--bg4);border-radius:4px;overflow:hidden;min-width:60px">
+            <div style="height:100%;background:${c.color};opacity:.5;border-radius:4px;width:${c.curPct}%"></div>
+          </div>
+          <span style="font-size:11px;font-weight:600;min-width:36px;text-align:right">${c.curPct}%</span>
+          <span style="font-size:10px;color:var(--muted);min-width:56px">${fmtL(c.cur)}</span>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span style="font-size:10px;color:var(--muted)">Target&nbsp;</span>
+          <div style="flex:1;height:8px;background:var(--bg4);border-radius:4px;overflow:hidden;min-width:60px">
+            <div style="height:100%;background:${c.color};border-radius:4px;width:${c.tgtPct}%"></div>
+          </div>
+          <span style="font-size:11px;font-weight:600;min-width:36px;text-align:right;color:${c.color}">${c.tgtPct}%</span>
+          <span style="font-size:10px;color:var(--muted);min-width:56px">${fmtL(c.tgt)}</span>
+        </div>
+      </div>
+      <div style="text-align:right;min-width:60px;margin-left:10px">
+        <div style="font-size:13px;font-weight:700;color:${d>=0?'var(--green)':'var(--red)'}">${d>=0?'+':''}${d}pp</div>
+        <div style="font-size:10px;color:${c.diff>=0?'var(--green)':'var(--red)'}">${c.diff>=0?'+':''}${fmtL(Math.round(Math.abs(c.diff)))}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Action plan
+  const totalPct=targetMFPct+targetLCPct+targetETFPct;
+  if(totalPct!==100){
+    actEl.innerHTML=`<div style="color:var(--amber);font-size:12px">⚠ Total target allocation is ${totalPct}% — adjust sliders to sum to 100% for a complete plan.</div>`;
+    return;
+  }
+
+  const sells=classes.filter(c=>c.diff<-1000).sort((a,b)=>a.diff-b.diff);
+  const buys=classes.filter(c=>c.diff>1000).sort((a,b)=>b.diff-a.diff);
+  const holds=classes.filter(c=>Math.abs(c.diff)<=1000);
+
+  if(!sells.length&&!buys.length){
+    actEl.innerHTML=`<div style="color:var(--green);font-size:12px;padding:10px">✓ Portfolio is already within tolerance of your target allocation. No action needed.</div>`;
+    return;
+  }
+
+  const rows=[
+    ...sells.map(c=>`<div class="reb-action-row">
+      <span style="font-size:16px">🔴</span>
+      <span class="reb-sell">SELL</span>
+      <span style="flex:1;font-size:12px;font-weight:500">${c.name}</span>
+      <span style="color:var(--red);font-family:var(--sans);font-size:14px;font-weight:700">${fmtL(Math.abs(Math.round(c.diff)))}</span>
+      <span style="color:var(--muted);font-size:10px;min-width:90px;text-align:right">${c.curPct}% → ${c.tgtPct}%</span>
+    </div>`),
+    ...buys.map(c=>`<div class="reb-action-row">
+      <span style="font-size:16px">🟢</span>
+      <span class="reb-buy">BUY&nbsp;</span>
+      <span style="flex:1;font-size:12px;font-weight:500">${c.name}</span>
+      <span style="color:var(--green);font-family:var(--sans);font-size:14px;font-weight:700">${fmtL(Math.round(c.diff))}</span>
+      <span style="color:var(--muted);font-size:10px;min-width:90px;text-align:right">${c.curPct}% → ${c.tgtPct}%</span>
+    </div>`),
+    ...holds.map(c=>`<div class="reb-action-row">
+      <span style="font-size:16px">⚪</span>
+      <span class="reb-hold">HOLD</span>
+      <span style="flex:1;font-size:12px;font-weight:500">${c.name}</span>
+      <span style="color:var(--muted);font-family:var(--sans);font-size:14px">${fmtL(c.cur)}</span>
+      <span style="color:var(--green);font-size:10px;min-width:90px;text-align:right">Within ±${fmtL(Math.abs(Math.round(c.diff)))}</span>
+    </div>`)
+  ];
+
+  actEl.innerHTML=`<div class="reb-action-box">${rows.join('')}</div>
+    <div style="margin-top:12px;font-size:10px;color:var(--muted2);line-height:1.6">
+      ⚠ These are indicative amounts. Actual execution may differ due to NAV changes, STT, exit loads, and tax impact. Prefer deploying new SIP money into underweight buckets before triggering sell orders.
+    </div>`;
+}
+
+// ── Router (updated) ──────────────────────────────────────────
 const PAGES={
   overview:{title:'Portfolio Overview',render:renderOverview},
   mf:{title:'Mutual Funds',render:renderMF},
@@ -2388,6 +2848,7 @@ const PAGES={
   analytics:{title:'Analytics',render:renderAnalytics},
   timeline:{title:'Investment Timeline',render:renderTimeline},
   goals:{title:'Goal Planner',render:renderGoalPlanner},
+  rebalance:{title:'Portfolio Rebalancing Advisor',render:renderRebalance},
   upload:{title:'Import Excel Data',render:renderUpload},
 };
 function switchPage(id){
@@ -2404,6 +2865,8 @@ buildTicker();
 buildStrip();
 updateChrome();
 renderOverview();
+// Theme init (run after DOM ready)
+(function(){const saved=localStorage.getItem('portfin-theme');if(saved==='light'){document.documentElement.classList.add('light');const b=document.getElementById('theme-toggle-btn');if(b)b.textContent='🌙';}})();
 </script>
 </body>
 </html>
