@@ -292,6 +292,33 @@ tr:hover td{background:var(--bg3)}
 /* ── Export CSV button ── */
 .export-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:5px;font-size:11px;font-family:var(--mono);color:var(--muted);cursor:pointer;transition:all .15s}
 .export-btn:hover{border-color:var(--gold);color:var(--gold)}
+
+/* ── Wealth Waterfall ── */
+.wf-chart-wrap{position:relative;width:100%;overflow-x:auto;padding-bottom:8px}
+.wf-svg-container{min-width:600px}
+.wf-bar-base{cursor:pointer;transition:opacity .2s}
+.wf-bar-base:hover{opacity:.8}
+.wf-connector{stroke:var(--border2);stroke-width:1;stroke-dasharray:4 3}
+.wf-label-top{font-family:'DM Mono',monospace;fill:var(--text);dominant-baseline:auto}
+.wf-label-bot{font-family:'DM Mono',monospace;fill:var(--muted);dominant-baseline:hanging}
+.wf-axis-line{stroke:var(--border);stroke-width:1}
+.wf-grid-line{stroke:var(--border);stroke-width:1;stroke-dasharray:3 4}
+.wf-total-glow{filter:drop-shadow(0 0 6px rgba(212,168,67,.35))}
+.wf-breakdown-card{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px 16px}
+.wf-bk-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+.wf-bk-row:last-child{border-bottom:none}
+.wf-bk-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+.wf-bk-name{font-size:11px;color:var(--muted);flex:1}
+.wf-bk-amt{font-size:13px;font-weight:600;min-width:100px;text-align:right}
+.wf-bk-pct{font-size:10px;color:var(--muted);min-width:44px;text-align:right}
+.wf-tooltip{position:fixed;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:10px 14px;font-size:11px;pointer-events:none;z-index:1000;display:none;min-width:160px}
+.wf-tooltip-title{font-weight:600;color:var(--gold);margin-bottom:5px;font-size:12px}
+.wf-tooltip-row{display:flex;justify-content:space-between;gap:16px;margin-bottom:3px}
+.wf-tooltip-label{color:var(--muted)}
+.wf-tooltip-val{font-weight:600;color:var(--text)}
+.wf-stat-pill{display:inline-flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 14px;font-size:11px}
+.wf-stat-pill-label{color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-size:9px}
+.wf-stat-pill-val{font-family:'Syne',sans-serif;font-size:16px;font-weight:700}
 </style>
 </head>
 <body>
@@ -310,6 +337,7 @@ tr:hover td{background:var(--bg3)}
     <div class="nav-item" onclick="switchPage('analytics')"><span class="nav-icon">◉</span>Analytics</div>
     <div class="nav-item" onclick="switchPage('timeline')"><span class="nav-icon">◫</span>Timeline</div>
     <div class="nav-item" onclick="switchPage('goals')"><span class="nav-icon">◎</span>Goal Planner</div>
+    <div class="nav-item" onclick="switchPage('waterfall')"><span class="nav-icon">◬</span>Wealth Waterfall</div>
     <div class="nav-section" style="margin-top:12px">Tools</div>
     <div class="nav-item" onclick="switchPage('rebalance')"><span class="nav-icon">⊞</span>Rebalancer</div>
     <div class="nav-item" onclick="switchPage('upload')"><span class="nav-icon">↑</span>Import Excel</div>
@@ -658,6 +686,45 @@ tr:hover td{background:var(--bg3)}
       </div>
     </div>
     <div id="apply-msg" style="display:none;border-radius:6px;padding:10px 14px;font-size:12px;margin-bottom:16px"></div>
+  </div>
+</div>
+
+<!-- WEALTH WATERFALL -->
+<div class="page" id="page-waterfall">
+  <!-- KPI strip -->
+  <div class="kpi-grid" id="wf-kpis"></div>
+
+  <!-- Stat pills row -->
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px" id="wf-pills"></div>
+
+  <!-- Main waterfall chart card -->
+  <div class="card" style="margin-bottom:16px">
+    <div class="sec-head">
+      <div class="sec-title">Wealth waterfall — where your money came from</div>
+      <div style="font-size:10px;color:var(--muted)">Starting capital → SIPs added → MF gains → Stock gains → Current portfolio value</div>
+    </div>
+    <div class="wf-chart-wrap">
+      <div class="wf-svg-container" id="wf-svg-wrap"></div>
+    </div>
+    <!-- Tooltip (shared) -->
+    <div class="wf-tooltip" id="wf-tooltip">
+      <div class="wf-tooltip-title" id="wf-tt-title"></div>
+      <div class="wf-tooltip-row"><span class="wf-tooltip-label">Amount</span><span class="wf-tooltip-val" id="wf-tt-amt"></span></div>
+      <div class="wf-tooltip-row"><span class="wf-tooltip-label">% of final</span><span class="wf-tooltip-val" id="wf-tt-pct"></span></div>
+      <div class="wf-tooltip-row"><span class="wf-tooltip-label" id="wf-tt-sub-l"></span><span class="wf-tooltip-val" id="wf-tt-sub-v"></span></div>
+    </div>
+  </div>
+
+  <!-- Breakdown + insight grid -->
+  <div class="grid2" style="margin-bottom:20px">
+    <div class="card">
+      <div class="sec-head"><div class="sec-title">Waterfall breakdown</div></div>
+      <div id="wf-breakdown"></div>
+    </div>
+    <div class="card">
+      <div class="sec-head"><div class="sec-title">Wealth composition insight</div></div>
+      <div id="wf-composition"></div>
+    </div>
   </div>
 </div>
 
@@ -2840,6 +2907,239 @@ function computeRebalance(targetMFPct, targetLCPct, targetETFPct){
     </div>`;
 }
 
+// ── Wealth Waterfall ──────────────────────────────────────────
+function renderWaterfall() {
+  const k = DATA.kpis;
+
+  // ── Derive the 5 waterfall segments ──────────────────────────
+  // Starting capital = total invested (MF + stocks)
+  const startVal   = k.totalInvested   || 0;
+  // SIPs added = total invested (we treat all inflows as "SIPs/capital added")
+  // We split MF invested as SIP contributions, stocks invested as direct buys
+  const mfInvested = k.mfInvested      || 0;
+  const stInvested = k.stInvested      || 0;
+  const mfGain     = k.mfGain          || 0;
+  const stGain     = k.stGain          || 0;
+  const totalVal   = k.totalValue      || 0;
+
+  // 5-step waterfall:
+  // [0] Starting point (zero baseline)   → mfInvested + stInvested (first investment)
+  // For a meaningful waterfall we show:
+  // Bar 0 "MF Invested"  : mfInvested  (positive, anchored at 0)
+  // Bar 1 "Stocks Bought": stInvested  (positive step on top of Bar 0)
+  // Bar 2 "MF Gains"     : mfGain      (+ or -)
+  // Bar 3 "Stock P&L"    : stGain      (+ or -)
+  // Bar 4 "Current Value": totalVal    (total — shown as full bar)
+
+  const segments = [
+    {id:'mf-inv',   label:'MF Invested',   value: mfInvested, type:'invested', color:'#58a6ff',
+     sub:'Total capital deployed into mutual funds', subKey:'Avg SIP'},
+    {id:'st-inv',   label:'Stocks Bought', value: stInvested, type:'invested', color:'#a371f7',
+     sub:'Total capital deployed into equity stocks', subKey:'Direct buys'},
+    {id:'mf-gain',  label:'MF Gains',      value: mfGain,     type: mfGain>=0?'gain':'loss', color: mfGain>=0?'#3fb950':'#f85149',
+     sub:'Unrealised gains from mutual funds', subKey:'Return %'},
+    {id:'st-gain',  label:'Stock P&L',     value: stGain,     type: stGain>=0?'gain':'loss', color: stGain>=0?'#56d364':'#f85149',
+     sub:'Unrealised P&L from equity stocks', subKey:'Return %'},
+    {id:'total',    label:'Current Value', value: totalVal,   type:'total', color:'#d4a843',
+     sub:'Total portfolio market value today', subKey:'Total gain'},
+  ];
+
+  // ── KPI strip ─────────────────────────────────────────────────
+  const wealthMultiplier = startVal>0?(totalVal/startVal).toFixed(2):'—';
+  const sipContrib  = totalVal>0?((mfInvested+stInvested)/totalVal*100).toFixed(1):0;
+  const gainContrib = totalVal>0?((mfGain+stGain)/totalVal*100).toFixed(1):0;
+  document.getElementById('wf-kpis').innerHTML=[
+    {l:'Capital Deployed', v:fmtL(startVal),                  s:'Total invested (MF + Stocks)',        a:'#58a6ff'},
+    {l:'Total Gains',      v:fmtL(mfGain+stGain),             s:fmtP(k.totalReturn||0),               a: (mfGain+stGain)>=0?'#3fb950':'#f85149'},
+    {l:'Current Value',    v:fmtL(totalVal),                  s:'Portfolio today',                     a:'#d4a843'},
+    {l:'Wealth Multiplier',v: startVal>0?(wealthMultiplier+'x'):'—', s:'₹1 invested → ₹'+wealthMultiplier, a:'#a371f7'},
+    {l:'Gains vs Capital', v:gainContrib+'%',                 s:'Wealth from market returns',          a:'#3fb950'},
+  ].map(c=>`<div class="kpi-card" style="--accent:${c.a}"><div class="kpi-label">${c.l}</div><div class="kpi-value" style="font-size:19px">${c.v}</div><div class="kpi-sub">${c.s}</div></div>`).join('');
+
+  // ── Stat pills ────────────────────────────────────────────────
+  const pillsData = [
+    {label:'MF contribution', val: totalVal>0?(mfInvested/totalVal*100).toFixed(0)+'%':'—', color:'#58a6ff'},
+    {label:'Stock contribution', val: totalVal>0?(stInvested/totalVal*100).toFixed(0)+'%':'—', color:'#a371f7'},
+    {label:'MF gains contribution', val: totalVal>0?Math.max(0,mfGain/totalVal*100).toFixed(0)+'%':'—', color:'#3fb950'},
+    {label:'Stock gain contribution', val: totalVal>0?Math.max(0,stGain/totalVal*100).toFixed(0)+'%':'—', color:'#56d364'},
+  ];
+  document.getElementById('wf-pills').innerHTML=pillsData.map(p=>`
+    <div class="wf-stat-pill">
+      <span style="width:8px;height:8px;border-radius:2px;background:${p.color};flex-shrink:0;display:inline-block"></span>
+      <div><div class="wf-stat-pill-label">${p.label}</div><div class="wf-stat-pill-val" style="color:${p.color}">${p.val}</div></div>
+    </div>`).join('');
+
+  // ── Build SVG waterfall chart ─────────────────────────────────
+  const W = 760, H = 340, padL = 70, padR = 30, padT = 36, padB = 60;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+  const n = segments.length;
+  const barGap = 18, barW = Math.floor((chartW - barGap*(n-1)) / n);
+
+  // Compute running baseline for each bar
+  // Bars 0,1,2,3 are stacked increments; bar 4 is the total (full column)
+  const baselines = [], tops = [];
+  let running = 0;
+  for(let i=0;i<n-1;i++){
+    const seg = segments[i];
+    if(seg.value >= 0){
+      baselines.push(running);
+      tops.push(running + seg.value);
+      running += seg.value;
+    } else {
+      baselines.push(running + seg.value);
+      tops.push(running);
+      running += seg.value;
+    }
+  }
+  // Last bar (total) always anchored at 0
+  baselines.push(0);
+  tops.push(totalVal);
+
+  const allVals = [...baselines, ...tops];
+  const dataMin = Math.min(0, ...allVals);
+  const dataMax = Math.max(...allVals);
+  const span = dataMax - dataMin || 1;
+  const yScale = v => padT + chartH - ((v - dataMin) / span * chartH);
+  const xStart = i => padL + i * (barW + barGap);
+
+  // Gridlines
+  const gridCount = 5;
+  let gridLines = '';
+  for(let gi=0;gi<=gridCount;gi++){
+    const gv = dataMin + (span * gi/gridCount);
+    const gy = yScale(gv);
+    gridLines += `<line class="wf-grid-line" x1="${padL}" x2="${W-padR}" y1="${gy.toFixed(1)}" y2="${gy.toFixed(1)}"/>`;
+    gridLines += `<text x="${padL-6}" y="${gy.toFixed(1)}" text-anchor="end" dominant-baseline="middle" font-size="9" fill="var(--muted)" font-family="DM Mono,monospace">${fmtL(Math.round(gv))}</text>`;
+  }
+
+  // Zero axis
+  const zeroY = yScale(0);
+  const zeroLine = `<line class="wf-axis-line" x1="${padL}" x2="${W-padR}" y1="${zeroY.toFixed(1)}" y2="${zeroY.toFixed(1)}" stroke-width="1.5"/>`;
+
+  // Connector dashed lines between bars (top of bar i → baseline of bar i+1)
+  let connectors = '';
+  for(let i=0;i<n-2;i++){
+    const x1 = xStart(i) + barW;
+    const x2 = xStart(i+1);
+    const seg = segments[i];
+    const lineY = seg.value>=0 ? yScale(tops[i]) : yScale(baselines[i]);
+    connectors += `<line class="wf-connector" x1="${x1}" x2="${x2}" y1="${lineY.toFixed(1)}" y2="${lineY.toFixed(1)}"/>`;
+  }
+
+  // Bars + labels
+  let bars = '', topLabels = '', botLabels = '';
+  segments.forEach((seg, i) => {
+    const x    = xStart(i);
+    const yTop = yScale(Math.max(baselines[i], tops[i]));
+    const yBot = yScale(Math.min(baselines[i], tops[i]));
+    const bH   = Math.max(2, yBot - yTop);
+    const isTotal = seg.type === 'total';
+    const opacity = isTotal ? '1' : '0.85';
+    const glow    = isTotal ? 'class="wf-total-glow"' : '';
+
+    bars += `<rect ${glow} class="wf-bar-base" data-idx="${i}" x="${x}" y="${yTop.toFixed(1)}" width="${barW}" height="${bH.toFixed(1)}"
+      fill="${seg.color}" opacity="${opacity}" rx="3"
+      onmouseenter="wfShowTip(event,${i})" onmouseleave="wfHideTip()"/>`;
+
+    // Top value label
+    const labelY = yTop - 6;
+    const valTxt = fmtL(Math.abs(seg.value));
+    topLabels += `<text class="wf-label-top" x="${(x+barW/2).toFixed(1)}" y="${labelY.toFixed(1)}" text-anchor="middle" font-size="9.5" fill="${seg.color}" font-weight="600">${valTxt}</text>`;
+
+    // Bottom axis label
+    botLabels += `<text class="wf-label-bot" x="${(x+barW/2).toFixed(1)}" y="${(H-padB+12).toFixed(1)}" text-anchor="middle" font-size="10" fill="var(--muted)">${seg.label}</text>`;
+
+    // Gain/loss arrow marker
+    if(seg.type==='gain'||seg.type==='loss'){
+      const arrow = seg.type==='gain'?'▲':'▼';
+      const arrY  = yTop - 18;
+      topLabels += `<text x="${(x+barW/2).toFixed(1)}" y="${arrY.toFixed(1)}" text-anchor="middle" font-size="8" fill="${seg.color}">${arrow}</text>`;
+    }
+  });
+
+  const svgHTML = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block">
+    ${gridLines}
+    ${zeroLine}
+    ${connectors}
+    ${bars}
+    ${topLabels}
+    ${botLabels}
+    <!-- X-axis line -->
+    <line class="wf-axis-line" x1="${padL}" x2="${W-padR}" y1="${(H-padB).toFixed(1)}" y2="${(H-padB).toFixed(1)}"/>
+  </svg>`;
+
+  document.getElementById('wf-svg-wrap').innerHTML = svgHTML;
+
+  // Store segments for tooltip
+  window._wfSegments = segments;
+  window._wfTotal = totalVal;
+
+  // ── Breakdown table ───────────────────────────────────────────
+  document.getElementById('wf-breakdown').innerHTML = `<div class="wf-breakdown-card">`+
+    segments.map(seg => {
+      const pct = totalVal>0?(Math.abs(seg.value)/totalVal*100).toFixed(1):0;
+      const sign = seg.type==='loss'?'−':'';
+      const amtCls = seg.type==='gain'?'td-up':seg.type==='loss'?'td-dn':'td-gold';
+      return `<div class="wf-bk-row">
+        <div class="wf-bk-dot" style="background:${seg.color}"></div>
+        <div class="wf-bk-name">${seg.label}</div>
+        <div class="wf-bk-amt ${amtCls}">${sign}${fmtL(Math.abs(seg.value))}</div>
+        <div class="wf-bk-pct">${pct}%</div>
+      </div>`;
+    }).join('') + `</div>`;
+
+  // ── Composition insight ───────────────────────────────────────
+  const gainTotal = (mfGain>=0?mfGain:0) + (stGain>=0?stGain:0);
+  const lossTotal = (mfGain<0?Math.abs(mfGain):0) + (stGain<0?Math.abs(stGain):0);
+  const gainPct   = totalVal>0?(gainTotal/totalVal*100).toFixed(1):0;
+  const capPct    = totalVal>0?(startVal/totalVal*100).toFixed(1):0;
+  const mfRetPct  = mfInvested>0?(mfGain/mfInvested*100).toFixed(1):0;
+  const stRetPct  = stInvested>0?(stGain/stInvested*100).toFixed(1):0;
+
+  const insights = [];
+  if(gainPct>0)  insights.push({icon:'📈', text:`<b>${gainPct}%</b> of your wealth comes from market returns — your portfolio is genuinely compounding.`});
+  if(capPct>0)   insights.push({icon:'💰', text:`<b>${capPct}%</b> is from your invested capital — the savings discipline is the foundation.`});
+  if(+mfRetPct>0)insights.push({icon:'◎', text:`Mutual Funds returned <b>${pSign(+mfRetPct)}${mfRetPct}%</b> on your invested capital of ${fmtL(mfInvested)}.`});
+  if(stInvested) insights.push({icon:'◐', text:`Equity stocks returned <b>${pSign(+stRetPct)}${stRetPct}%</b> on your invested capital of ${fmtL(stInvested)}.`});
+  if(lossTotal>0)insights.push({icon:'⚠', text:`Drag from losses: <b>−${fmtL(lossTotal)}</b> — consider reviewing losing positions.`});
+  if(+gainContrib>50) insights.push({icon:'🏆', text:`Over half your wealth is from market gains — compounding is doing the heavy lifting!`});
+
+  document.getElementById('wf-composition').innerHTML = insights.map(ins=>`
+    <div style="display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:16px;flex-shrink:0">${ins.icon}</span>
+      <span style="font-size:11px;color:var(--muted);line-height:1.6">${ins.text}</span>
+    </div>`).join('') || '<div style="color:var(--muted);font-size:11px;padding:10px">Upload your Excel files to see composition analysis.</div>';
+}
+
+// ── Waterfall tooltip helpers ─────────────────────────────────
+function wfShowTip(e, idx) {
+  const seg = window._wfSegments && window._wfSegments[idx];
+  const total = window._wfTotal || 1;
+  if(!seg) return;
+  const tt = document.getElementById('wf-tooltip');
+  document.getElementById('wf-tt-title').textContent = seg.label;
+  document.getElementById('wf-tt-amt').textContent   = (seg.value<0?'−':'')+fmtL(Math.abs(seg.value));
+  document.getElementById('wf-tt-pct').textContent   = total?(Math.abs(seg.value)/total*100).toFixed(1)+'%':'—';
+  document.getElementById('wf-tt-sub-l').textContent = seg.subKey;
+  if(seg.subKey==='Return %'){
+    const inv = seg.id==='mf-gain'?DATA.kpis.mfInvested:DATA.kpis.stInvested;
+    document.getElementById('wf-tt-sub-v').textContent = inv>0?fmtP(seg.value/inv*100):'—';
+  } else if(seg.subKey==='Total gain'){
+    document.getElementById('wf-tt-sub-v').textContent = fmtL((DATA.kpis.mfGain||0)+(DATA.kpis.stGain||0));
+  } else {
+    document.getElementById('wf-tt-sub-v').textContent = seg.sub;
+    document.getElementById('wf-tt-sub-l').textContent = '';
+  }
+  tt.style.display='block';
+  tt.style.left=(e.clientX+14)+'px';
+  tt.style.top=(e.clientY-10)+'px';
+}
+function wfHideTip(){
+  const tt=document.getElementById('wf-tooltip');
+  if(tt) tt.style.display='none';
+}
+
 // ── Router (updated) ──────────────────────────────────────────
 const PAGES={
   overview:{title:'Portfolio Overview',render:renderOverview},
@@ -2849,6 +3149,7 @@ const PAGES={
   timeline:{title:'Investment Timeline',render:renderTimeline},
   goals:{title:'Goal Planner',render:renderGoalPlanner},
   rebalance:{title:'Portfolio Rebalancing Advisor',render:renderRebalance},
+  waterfall:{title:'Wealth Waterfall',render:renderWaterfall},
   upload:{title:'Import Excel Data',render:renderUpload},
 };
 function switchPage(id){
