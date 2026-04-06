@@ -319,6 +319,76 @@ tr:hover td{background:var(--bg3)}
 .wf-stat-pill{display:inline-flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 14px;font-size:11px}
 .wf-stat-pill-label{color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-size:9px}
 .wf-stat-pill-val{font-family:'Syne',sans-serif;font-size:16px;font-weight:700}
+
+/* ── Portfolio Action Signal ── */
+.pas-hero{border-radius:12px;padding:24px 28px;margin-bottom:20px;position:relative;overflow:hidden;border:1px solid var(--border)}
+.pas-hero::before{content:'';position:absolute;inset:0;opacity:.07;pointer-events:none}
+.pas-hero.green{background:linear-gradient(135deg,var(--green-bg),var(--bg2));border-color:var(--green-dim)}
+.pas-hero.green::before{background:var(--green)}
+.pas-hero.amber{background:linear-gradient(135deg,var(--amber-bg),var(--bg2));border-color:#4a3500}
+.pas-hero.amber::before{background:var(--amber)}
+.pas-hero.red{background:linear-gradient(135deg,var(--red-bg),var(--bg2));border-color:var(--red-dim)}
+.pas-hero.red::before{background:var(--red)}
+.pas-signal-label{font-size:10px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:8px;font-weight:600}
+.pas-signal-label.green{color:var(--green)}
+.pas-signal-label.amber{color:var(--amber)}
+.pas-signal-label.red{color:var(--red)}
+.pas-headline{font-family:'Syne',sans-serif;font-size:26px;font-weight:700;line-height:1.2;margin-bottom:6px}
+.pas-subline{font-size:12px;color:var(--muted);line-height:1.6}
+.pas-score-badge{position:absolute;top:24px;right:28px;width:72px;height:72px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;border:2px solid}
+.pas-score-badge.green{background:var(--green-bg);border-color:var(--green)}
+.pas-score-badge.amber{background:var(--amber-bg);border-color:var(--amber)}
+.pas-score-badge.red{background:var(--red-bg);border-color:var(--red)}
+.pas-score-num{font-family:'Syne',sans-serif;font-size:24px;font-weight:700;line-height:1}
+.pas-score-num.green{color:var(--green)}
+.pas-score-num.amber{color:var(--amber)}
+.pas-score-num.red{color:var(--red)}
+.pas-score-lbl{font-size:8px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-top:2px}
+.pas-action-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:20px}
+.pas-action-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px;position:relative;overflow:hidden;transition:border-color .2s}
+.pas-action-card:hover{border-color:var(--border2)}
+.pas-action-card::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;border-radius:2px 0 0 2px}
+.pas-action-card.urgent::before{background:var(--red)}
+.pas-action-card.watch::before{background:var(--amber)}
+.pas-action-card.good::before{background:var(--green)}
+.pas-action-card.info::before{background:var(--blue)}
+.pas-card-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.pas-card-icon{font-size:18px;line-height:1}
+.pas-card-tag{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:3px}
+.pas-card-tag.urgent{background:var(--red-bg);color:var(--red);border:1px solid var(--red-dim)}
+.pas-card-tag.watch{background:var(--amber-bg);color:var(--amber);border:1px solid #4a3500}
+.pas-card-tag.good{background:var(--green-bg);color:var(--green);border:1px solid var(--green-dim)}
+.pas-card-tag.info{background:var(--blue-bg);color:var(--blue);border:1px solid #1a4060}
+.pas-card-title{font-size:12px;font-weight:600;color:var(--text);margin-bottom:4px}
+.pas-card-body{font-size:11px;color:var(--muted);line-height:1.6}
+.pas-card-metric{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;margin-top:8px}
+.pas-card-metric.urgent{color:var(--red)}
+.pas-card-metric.watch{color:var(--amber)}
+.pas-card-metric.good{color:var(--green)}
+.pas-card-metric.info{color:var(--blue)}
+.pas-checklist{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:20px}
+.pas-check-row{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;border-radius:4px}
+.pas-check-row:last-child{border-bottom:none}
+.pas-check-row:hover{background:var(--bg3)}
+.pas-check-box{width:18px;height:18px;border-radius:4px;border:1.5px solid var(--border2);flex-shrink:0;display:flex;align-items:center;justify-content:center;margin-top:1px;transition:all .15s}
+.pas-check-box.done{background:var(--green);border-color:var(--green)}
+.pas-check-text{flex:1}
+.pas-check-title{font-size:12px;font-weight:500;color:var(--text);margin-bottom:2px}
+.pas-check-desc{font-size:10px;color:var(--muted);line-height:1.5}
+.pas-check-row.checked .pas-check-title{text-decoration:line-through;color:var(--muted)}
+.pas-calendar-strip{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;margin-bottom:20px}
+.pas-cal-day{flex-shrink:0;width:52px;text-align:center;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 4px;cursor:default}
+.pas-cal-day.today{border-color:var(--gold);background:var(--amber-bg)}
+.pas-cal-day.has-sip{border-color:var(--blue)}
+.pas-cal-day.fy-alert{border-color:var(--red)}
+.pas-cal-day-num{font-family:'Syne',sans-serif;font-size:18px;font-weight:700}
+.pas-cal-day-label{font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-top:2px}
+.pas-cal-day-dot{width:6px;height:6px;border-radius:50%;margin:4px auto 0}
+.pas-mood-strip{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap}
+.pas-mood-item{flex:1;min-width:120px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;display:flex;align-items:center;gap:10px}
+.pas-mood-icon{font-size:22px;line-height:1;flex-shrink:0}
+.pas-mood-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:2px}
+.pas-mood-val{font-size:13px;font-weight:600}
 </style>
 </head>
 <body>
@@ -338,6 +408,7 @@ tr:hover td{background:var(--bg3)}
     <div class="nav-item" onclick="switchPage('timeline')"><span class="nav-icon">◫</span>Timeline</div>
     <div class="nav-item" onclick="switchPage('goals')"><span class="nav-icon">◎</span>Goal Planner</div>
     <div class="nav-item" onclick="switchPage('waterfall')"><span class="nav-icon">◬</span>Wealth Waterfall</div>
+    <div class="nav-item" onclick="switchPage('signal')"><span class="nav-icon">⚡</span>Action Signal</div>
     <div class="nav-section" style="margin-top:12px">Tools</div>
     <div class="nav-item" onclick="switchPage('rebalance')"><span class="nav-icon">⊞</span>Rebalancer</div>
     <div class="nav-item" onclick="switchPage('upload')"><span class="nav-icon">↑</span>Import Excel</div>
@@ -726,6 +797,50 @@ tr:hover td{background:var(--bg3)}
       <div id="wf-composition"></div>
     </div>
   </div>
+</div>
+
+<!-- PORTFOLIO ACTION SIGNAL -->
+<div class="page" id="page-signal">
+
+  <!-- Hero signal banner -->
+  <div id="pas-hero" class="pas-hero amber">
+    <div class="pas-score-badge amber" id="pas-badge">
+      <div class="pas-score-num amber" id="pas-score-num">—</div>
+      <div class="pas-score-lbl">/ 100</div>
+    </div>
+    <div class="pas-signal-label amber" id="pas-signal-label">LOADING SIGNAL…</div>
+    <div class="pas-headline" id="pas-headline">Analysing your portfolio…</div>
+    <div class="pas-subline" id="pas-subline">Upload your Excel files to get a personalised daily action signal.</div>
+  </div>
+
+  <!-- Context mood strip -->
+  <div class="pas-mood-strip" id="pas-mood-strip"></div>
+
+  <!-- 7-day calendar strip -->
+  <div class="card" style="margin-bottom:16px">
+    <div class="sec-head">
+      <div class="sec-title">This week at a glance</div>
+      <div style="font-size:10px;color:var(--muted)">Key portfolio events in the next 7 days</div>
+    </div>
+    <div class="pas-calendar-strip" id="pas-calendar"></div>
+  </div>
+
+  <!-- Action cards grid -->
+  <div class="sec-head">
+    <div class="sec-title">Action items</div>
+    <div id="pas-action-count" style="font-size:10px;color:var(--muted)"></div>
+  </div>
+  <div class="pas-action-grid" id="pas-action-grid"></div>
+
+  <!-- Weekly checklist -->
+  <div class="card" style="margin-bottom:20px">
+    <div class="sec-head">
+      <div class="sec-title">Weekly investor checklist</div>
+      <div style="font-size:10px;color:var(--muted)">Tap to mark done — resets each week</div>
+    </div>
+    <div id="pas-checklist"></div>
+  </div>
+
 </div>
 
 </div><!-- /main -->
@@ -3140,6 +3255,261 @@ function wfHideTip(){
   if(tt) tt.style.display='none';
 }
 
+// ── Portfolio Action Signal ───────────────────────────────────
+function renderSignal() {
+  const k = DATA.kpis;
+  const today = new Date();
+  const todayDay = today.getDate();
+  const todayMonth = today.getMonth(); // 0-indexed
+  const todayYear = today.getFullYear();
+  const hasData = DATA.funds.length > 0 || DATA.stocks.length > 0;
+
+  // ── 1. Compute signals ────────────────────────────────────────
+  const signals = [];
+  let urgentCount = 0, watchCount = 0, goodCount = 0;
+
+  // ── SIP timing signal ─────────────────────────────────────────
+  // Detect most common SIP day from lot dates
+  const sipDays = [];
+  DATA.mfLots && DATA.mfLots.forEach(lot => {
+    if(lot.date) sipDays.push(new Date(lot.date).getDate());
+  });
+  const sipDayFreq = {};
+  sipDays.forEach(d => sipDayFreq[d] = (sipDayFreq[d]||0)+1);
+  const topSIPDay = Object.entries(sipDayFreq).sort((a,b)=>b[1]-a[1])[0];
+  const sipDay = topSIPDay ? parseInt(topSIPDay[0]) : null;
+  const daysToSIP = sipDay ? (sipDay >= todayDay ? sipDay - todayDay : (new Date(todayYear, todayMonth+1, sipDay) - today) / 86400000) : null;
+
+  if(sipDay !== null) {
+    if(daysToSIP <= 0) {
+      signals.push({type:'urgent', icon:'📅', tag:'urgent', title:'SIP Due Today!', body:`Your usual SIP day is the ${sipDay}${ordinal(sipDay)}. Time to execute your monthly investment.`, metric: hasData ? `₹${(k.mfInvested / Math.max(sipDays.length/Math.max(1,new Set(DATA.mfLots&&DATA.mfLots.map(l=>new Date(l.date).getMonth()+'-'+new Date(l.date).getFullYear())||[]).size||1),1)).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,',')} est. this month`:'Check your SIP amount', metricClass:'urgent'});
+      urgentCount++;
+    } else if(daysToSIP <= 3) {
+      signals.push({type:'watch', icon:'⏰', tag:'watch', title:`SIP in ${Math.round(daysToSIP)} days`, body:`Your SIP is due on the ${sipDay}${ordinal(sipDay)}. Keep funds ready in your bank account.`, metric:`${Math.round(daysToSIP)} day${daysToSIP>1?'s':''} away`, metricClass:'watch'});
+      watchCount++;
+    } else {
+      signals.push({type:'good', icon:'✅', tag:'good', title:'SIP on track', body:`Next SIP due in ${Math.round(daysToSIP)} days on the ${sipDay}${ordinal(sipDay)}. No action needed this week.`, metric:`${Math.round(daysToSIP)} days away`, metricClass:'good'});
+      goodCount++;
+    }
+  }
+
+  // ── FY-end tax signal (Jan–Mar) ───────────────────────────────
+  const month1 = todayMonth + 1; // 1-indexed
+  if(month1 >= 1 && month1 <= 3) {
+    const fyEnd = new Date(todayYear, 2, 31);
+    const daysToFY = Math.ceil((fyEnd - today) / 86400000);
+    const stcgLosses = DATA.stocks.filter(s => {
+      const held = s.holdDays || 0;
+      return held < 365 && s.Gain < 0;
+    });
+    const totalHarvestable = stcgLosses.reduce((a,s)=>a+Math.abs(s.Gain||0),0);
+    if(totalHarvestable > 0) {
+      signals.push({type:'urgent', icon:'🧾', tag:'urgent', title:'Tax Harvesting Window Open', body:`FY ends in ${daysToFY} days. You have STCG losses that can offset gains before March 31. Book losses, wait 31 days, rebuy.`, metric:`${fmtL(totalHarvestable)} harvestable`, metricClass:'urgent'});
+      urgentCount++;
+    } else {
+      signals.push({type:'watch', icon:'📆', tag:'watch', title:`FY ends in ${daysToFY} days`, body:`March 31 deadline approaching. Review your LTCG gains — ₹1.25L is tax-free. Consider booking profits up to the exemption limit.`, metric:`${daysToFY} days to FY end`, metricClass:'watch'});
+      watchCount++;
+    }
+  }
+
+  // ── Deep loss signal ──────────────────────────────────────────
+  const deepLosers = DATA.stocks.filter(s => s.RetPct < -25);
+  if(deepLosers.length > 0) {
+    const worst = [...deepLosers].sort((a,b)=>a.RetPct-b.RetPct)[0];
+    signals.push({type:'urgent', icon:'🔴', tag:'urgent', title:`${deepLosers.length} stock${deepLosers.length>1?'s':''} down >25%`, body:`${worst.name} is your worst performer at ${fmtP(worst.RetPct)}. Deep losses rarely recover without a clear catalyst. Review your thesis.`, metric:`${fmtP(worst.RetPct)} worst position`, metricClass:'urgent'});
+    urgentCount++;
+  }
+
+  // ── MF laggards (negative return) ────────────────────────────
+  const mfLosers = DATA.funds.filter(f => f.Gain < 0);
+  if(mfLosers.length > 0) {
+    const worstMF = [...mfLosers].sort((a,b)=>a.RetPct-b.RetPct)[0];
+    signals.push({type:'watch', icon:'📉', tag:'watch', title:`${mfLosers.length} MF${mfLosers.length>1?'s':''} in the red`, body:`${worstMF.name} is your worst MF at ${fmtP(worstMF.RetPct)}. Check if it's category underperformance or a specific fund issue.`, metric:`${fmtP(worstMF.RetPct)} worst fund`, metricClass:'watch'});
+    watchCount++;
+  }
+
+  // ── Portfolio concentration risk ──────────────────────────────
+  const stTotal = DATA.stocks.reduce((a,s)=>a+s.Invested,0)||1;
+  const concStocks = DATA.stocks.filter(s => s.Invested/stTotal > 0.20);
+  if(concStocks.length > 0) {
+    signals.push({type:'watch', icon:'⚖️', tag:'watch', title:'High concentration in single stock', body:`${concStocks.map(s=>s.name).join(', ')} each represent >20% of your stock portfolio. Consider trimming on strength.`, metric:`${concStocks.length} over-weight position${concStocks.length>1?'s':''}`, metricClass:'watch'});
+    watchCount++;
+  }
+
+  // ── Stale portfolio check (no new investment > 60 days) ───────
+  const allLotDates = [...(DATA.mfLots||[]), ...(DATA.stLots||[])].map(l => new Date(l.date)).filter(d=>!isNaN(d));
+  if(allLotDates.length > 0) {
+    const latestInv = new Date(Math.max(...allLotDates));
+    const staleDays = Math.floor((today - latestInv)/86400000);
+    if(staleDays > 60) {
+      signals.push({type:'watch', icon:'😴', tag:'watch', title:'No new investment in 60+ days', body:`Last investment was ${staleDays} days ago on ${fmtDate(latestInv)}. If this was intentional, great. If not, consider resuming your SIP.`, metric:`${staleDays} days since last buy`, metricClass:'watch'});
+      watchCount++;
+    }
+  }
+
+  // ── Averaging opportunities ───────────────────────────────────
+  const avgCandidates = DATA.funds.filter(f => f.RetPct < -5 && f.RetPct > -25 && f.CAGR > 0);
+  if(avgCandidates.length > 0) {
+    signals.push({type:'info', icon:'💡', tag:'info', title:`${avgCandidates.length} MF averaging opportunit${avgCandidates.length>1?'ies':'y'}`, body:`${avgCandidates[0].name}${avgCandidates.length>1?' and others':''} are slightly underwater but have positive long-term CAGR. A lumpsum addition here lowers your average cost.`, metric:`${fmtP(avgCandidates[0].RetPct)} on ${avgCandidates[0].name.split(' ')[0]}`, metricClass:'info'});
+  }
+
+  // ── Strong performers ─────────────────────────────────────────
+  const stars = [...DATA.funds, ...DATA.stocks].filter(h => (h.RetPct||0) > 30);
+  if(stars.length > 0) {
+    const best = [...stars].sort((a,b)=>b.RetPct-a.RetPct)[0];
+    signals.push({type:'good', icon:'🌟', tag:'good', title:`${stars.length} holding${stars.length>1?'s':''} up >30%`, body:`${best.name} is your star at ${fmtP(best.RetPct)}. Consider if it's become overweight. Partial profit-booking on strength is valid.`, metric:`${fmtP(best.RetPct)} top performer`, metricClass:'good'});
+    goodCount++;
+  }
+
+  // ── All-green signal ──────────────────────────────────────────
+  if(hasData && deepLosers.length === 0 && mfLosers.length === 0 && concStocks.length === 0) {
+    signals.push({type:'good', icon:'🏆', tag:'good', title:'Portfolio is clean & healthy', body:'No deep losses, no concentration risk, no MF underperformers. Your portfolio is in good shape — stay the course.', metric:'All checks passed', metricClass:'good'});
+    goodCount++;
+  }
+
+  // ── No data fallback ──────────────────────────────────────────
+  if(!hasData) {
+    signals.push({type:'info', icon:'📂', tag:'info', title:'Upload your Excel files', body:'Go to Import Excel to load your MF and Stocks data. The signal engine will then analyse your actual portfolio.', metric:'No data yet', metricClass:'info'});
+  }
+
+  // ── 2. Score (0–100) ──────────────────────────────────────────
+  let score = 100;
+  score -= urgentCount * 20;
+  score -= watchCount * 8;
+  score = Math.max(0, Math.min(100, score));
+  const scoreClass = score >= 70 ? 'green' : score >= 40 ? 'amber' : 'red';
+  const scoreLabel = score >= 70 ? '✦ STAY THE COURSE' : score >= 40 ? '⚠ ATTENTION NEEDED' : '🔴 ACTION REQUIRED';
+  const scoreHeadline = score >= 70
+    ? (urgentCount === 0 ? 'Your portfolio needs nothing from you today.' : 'Minor items to review — no major action needed.')
+    : score >= 40
+    ? `${urgentCount + watchCount} things need your attention this week.`
+    : `${urgentCount} urgent issue${urgentCount!==1?'s':''} require immediate attention.`;
+  const scoreSubline = score >= 70
+    ? `${goodCount} positive signal${goodCount!==1?'s':''} detected. Keep your SIPs running and resist the urge to tinker.`
+    : score >= 40
+    ? `${watchCount} item${watchCount!==1?'s':''} to monitor, ${urgentCount} urgent. Review the action cards below.`
+    : `Deep losses or high risk concentration detected. Review the urgent cards below before your next investment.`;
+
+  // ── 3. Render hero ────────────────────────────────────────────
+  const hero = document.getElementById('pas-hero');
+  hero.className = `pas-hero ${scoreClass}`;
+  document.getElementById('pas-badge').className = `pas-score-badge ${scoreClass}`;
+  document.getElementById('pas-score-num').className = `pas-score-num ${scoreClass}`;
+  document.getElementById('pas-score-num').textContent = score;
+  const lbl = document.getElementById('pas-signal-label');
+  lbl.className = `pas-signal-label ${scoreClass}`;
+  lbl.textContent = scoreLabel;
+  document.getElementById('pas-headline').textContent = scoreHeadline;
+  document.getElementById('pas-subline').textContent = scoreSubline;
+
+  // ── 4. Mood strip ─────────────────────────────────────────────
+  const fyQ = month1>=4&&month1<=6?'Q1':month1>=7&&month1<=9?'Q2':month1>=10&&month1<=12?'Q3':'Q4';
+  const seasonMap = {1:'Tax Season',2:'Tax Season',3:'FY-End Rush',4:'New FY',5:'Early Bull',6:'Monsoon Dip',7:'Earnings Season',8:'Earnings Season',9:'Sept Effect',10:'Festive Rally',11:'Festive Rally',12:'Year-End'};
+  const moodItems = [
+    {icon:'📅', label:'Today', val: today.toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'})},
+    {icon:'🗓', label:'FY Quarter', val: fyQ + ' FY' + String(todayYear).slice(2) + (month1>=1&&month1<=3?'-'+String(todayYear).slice(2):'-'+String(todayYear+1).slice(2))},
+    {icon:'🌦', label:'Market Season', val: seasonMap[month1]||'Active'},
+    {icon:'📊', label:'Holdings tracked', val: `${DATA.funds.length} MFs · ${DATA.stocks.length} Stocks`},
+    {icon:'💰', label:'Portfolio value', val: fmtL(k.totalValue||0)},
+  ];
+  document.getElementById('pas-mood-strip').innerHTML = moodItems.map(m=>`
+    <div class="pas-mood-item">
+      <div class="pas-mood-icon">${m.icon}</div>
+      <div><div class="pas-mood-label">${m.label}</div><div class="pas-mood-val">${m.val}</div></div>
+    </div>`).join('');
+
+  // ── 5. Calendar strip (next 7 days) ──────────────────────────
+  let calHTML = '';
+  for(let i=0;i<7;i++) {
+    const d = new Date(today); d.setDate(today.getDate()+i);
+    const dd = d.getDate(), dm = d.getMonth()+1;
+    const isToday = i===0;
+    const isSIPDay = sipDay !== null && dd === sipDay;
+    const isFYEnd = dm===3 && dd===31;
+    const isWeekend = d.getDay()===0||d.getDay()===6;
+    let cls = 'pas-cal-day';
+    if(isToday) cls += ' today';
+    else if(isFYEnd) cls += ' fy-alert';
+    else if(isSIPDay) cls += ' has-sip';
+    let dotColor = isWeekend?'var(--muted2)':isSIPDay?'var(--blue)':isFYEnd?'var(--red)':'transparent';
+    let dayNote = isToday?'Today':isWeekend?'Weekend':isSIPDay?'SIP Day':isFYEnd?'FY End':d.toLocaleDateString('en-IN',{weekday:'short'});
+    calHTML += `<div class="${cls}">
+      <div class="pas-cal-day-num" style="color:${isToday?'var(--gold)':isSIPDay?'var(--blue)':isFYEnd?'var(--red)':'var(--text)'}">${dd}</div>
+      <div class="pas-cal-day-label">${dayNote}</div>
+      <div class="pas-cal-day-dot" style="background:${dotColor}"></div>
+    </div>`;
+  }
+  document.getElementById('pas-calendar').innerHTML = calHTML;
+
+  // ── 6. Action cards ───────────────────────────────────────────
+  const urgentFirst = [...signals].sort((a,b)=>{
+    const o={urgent:0,watch:1,good:2,info:3};
+    return (o[a.type]||3)-(o[b.type]||3);
+  });
+  document.getElementById('pas-action-count').textContent =
+    `${urgentCount} urgent · ${watchCount} watch · ${goodCount} good`;
+  document.getElementById('pas-action-grid').innerHTML = urgentFirst.map(s=>`
+    <div class="pas-action-card ${s.type}">
+      <div class="pas-card-header">
+        <span class="pas-card-icon">${s.icon}</span>
+        <span class="pas-card-tag ${s.tag}">${s.tag.toUpperCase()}</span>
+      </div>
+      <div class="pas-card-title">${s.title}</div>
+      <div class="pas-card-body">${s.body}</div>
+      <div class="pas-card-metric ${s.metricClass}">${s.metric}</div>
+    </div>`).join('');
+
+  // ── 7. Weekly checklist (persisted in localStorage) ──────────
+  const weekKey = 'pas-checklist-week-' + getWeekNumber(today);
+  let checked = {};
+  try { checked = JSON.parse(localStorage.getItem(weekKey)||'{}'); } catch(e){}
+  const checklist = [
+    {id:'sip',   title:'Confirm SIPs executed this month',       desc:'Check your bank statement or broker app to confirm all SIP debits went through successfully.'},
+    {id:'news',  title:'Skim portfolio-related news (10 min)',   desc:'Check if any of your holdings have major news: results, management change, order wins, regulatory action.'},
+    {id:'drift', title:'Check portfolio allocation drift',       desc:'Open the Rebalancer tab and see if any asset class has drifted more than 5% from your target.'},
+    {id:'loss',  title:'Review your deepest loss positions',     desc:'Look at your worst performers. Are you holding for a reason, or out of hope? Be honest with yourself.'},
+    {id:'goal',  title:'Check goal progress',                    desc:'Open Goal Planner and see if your corpus is on track. Adjust SIP if you are behind by more than 10%.'},
+    {id:'tax',   title:'Note any LTCG approaching 1-year mark',  desc:'Holdings near the 1-year mark cross from STCG (20%) to LTCG (12.5%) tax. Plan exits accordingly.'},
+    {id:'cash',  title:'Check if you have idle cash to deploy',  desc:'If any SIP was missed or you received a bonus, is there capital sitting idle? Deploy into underweight buckets.'},
+  ];
+  document.getElementById('pas-checklist').innerHTML = checklist.map(item=>{
+    const done = !!checked[item.id];
+    return `<div class="pas-check-row ${done?'checked':''}" onclick="togglePasCheck('${weekKey}','${item.id}',this)">
+      <div class="pas-check-box ${done?'done':''}">${done?'<span style="color:#fff;font-size:11px">✓</span>':''}</div>
+      <div class="pas-check-text">
+        <div class="pas-check-title">${item.title}</div>
+        <div class="pas-check-desc">${item.desc}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function togglePasCheck(weekKey, id, row) {
+  let checked = {};
+  try { checked = JSON.parse(localStorage.getItem(weekKey)||'{}'); } catch(e){}
+  checked[id] = !checked[id];
+  localStorage.setItem(weekKey, JSON.stringify(checked));
+  const box = row.querySelector('.pas-check-box');
+  if(checked[id]) {
+    row.classList.add('checked');
+    box.classList.add('done');
+    box.innerHTML='<span style="color:#fff;font-size:11px">✓</span>';
+  } else {
+    row.classList.remove('checked');
+    box.classList.remove('done');
+    box.innerHTML='';
+  }
+}
+
+function ordinal(n) {
+  const s=['th','st','nd','rd'], v=n%100;
+  return s[(v-20)%10]||s[v]||s[0];
+}
+function getWeekNumber(d) {
+  const onejan = new Date(d.getFullYear(),0,1);
+  return Math.ceil((((d-onejan)/86400000)+onejan.getDay()+1)/7);
+}
+
 // ── Router (updated) ──────────────────────────────────────────
 const PAGES={
   overview:{title:'Portfolio Overview',render:renderOverview},
@@ -3150,6 +3520,7 @@ const PAGES={
   goals:{title:'Goal Planner',render:renderGoalPlanner},
   rebalance:{title:'Portfolio Rebalancing Advisor',render:renderRebalance},
   waterfall:{title:'Wealth Waterfall',render:renderWaterfall},
+  signal:{title:'Portfolio Action Signal',render:renderSignal},
   upload:{title:'Import Excel Data',render:renderUpload},
 };
 function switchPage(id){
