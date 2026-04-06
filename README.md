@@ -1,4 +1,4 @@
-# Portfolio Tracker — Personal Investment Dashboard
+# PortFin — Personal Investment Dashboard
 
 A powerful, **no-backend personal finance dashboard** to track, analyze, and optimize your investments across **Mutual Funds and Stocks** — built using pure HTML, CSS, and JavaScript.
 
@@ -11,27 +11,30 @@ A powerful, **no-backend personal finance dashboard** to track, analyze, and opt
 ### 📊 Portfolio Overview
 
 * Total investment, current value, P&L
-* MF vs Stocks allocation
-* Category-wise breakdown (Donut charts)
-* Top performers (MF + Stocks)
+* MF vs Stocks allocation split
+* MF category mix (donut chart)
+* Top MF performers & top stock gainers
 * Risk concentration alerts
+* SIP action plan (this month's guidance)
+* Portfolio health score with score breakdown
 
 ---
 
 ### 🧠 Smart Insights
 
-* Portfolio **Health Score**
+* Portfolio **Health Score** with gauge visualization
 * Actionable **risk alerts**
 * Intelligent **recommendations**
-* **SIP Reminder & Next Action Panel**
+* **SIP Action Plan** — personalized monthly guidance
 
 ---
 
 ### 📈 Mutual Funds Analysis
 
 * Category-wise filtering
-* Sorting (CAGR, returns, value, etc.)
-* Holding period tracking
+* Sorting (CAGR, returns, value, holding period, etc.)
+* Lot-level holding period tracking
+* Category mix breakdown cards
 * Export data to CSV
 
 ---
@@ -41,43 +44,40 @@ A powerful, **no-backend personal finance dashboard** to track, analyze, and opt
 * Sector-wise breakdown
 * Risk classification (High / Watch / Safe)
 * P&L and CAGR tracking
-* Analyst-style action recommendations
+* Analyst-style action recommendations (Add / Hold / Reduce / Exit / Switch)
+* **Tax Harvesting Assistant** — built in
 * Export data to CSV
 
 ---
 
-### 🧾 Tax Harvesting Assistant
+### 🧾 Tax Harvesting Assistant *(inside Stocks page)*
 
-* LTCG / STCG classification
-* Tax estimation
+* LTCG / STCG classification (Indian FY rules: LTCG 12.5% > 1yr, STCG 20% < 1yr)
+* Tax estimation per holding
 * Smart harvesting suggestions
 
 ---
 
-### 📊 Advanced Analytics
+### 📊 Analytics
 
-* Monthly investment flow (chart)
-* Sector-wise P&L
+* Monthly MF investment flow (bar chart)
+* Sector-wise stock P&L
 * Portfolio ratios
 * XIRR (money-weighted return)
-
----
-
-### 📊 Benchmark Comparison
-
-* Portfolio vs market benchmarks
-* CAGR comparison
+* **Benchmark Comparison** — portfolio vs market benchmarks
+* CAGR comparison with holding period filter
+* Your funds vs category benchmark table
 * Alpha generation analysis
-* Fund vs category benchmark comparison
 
 ---
 
 ### 📅 Investment Timeline
 
-* Monthly investment heatmap
-* Yearly totals
-* Monthly breakdown
-* Cumulative investment chart
+* Monthly investment heatmap (calendar-style)
+* Year filter chips
+* Yearly investment totals (bar view)
+* Monthly breakdown table
+* Cumulative investment line chart (MF + Stocks)
 * Key investment insights
 
 ---
@@ -87,30 +87,42 @@ A powerful, **no-backend personal finance dashboard** to track, analyze, and opt
 * Set target corpus & timeline
 * Expected return simulation
 * SIP requirement calculation
-* Scenario comparison
+* Multi-scenario comparison
 * Milestone tracking
 * Wealth projection chart
 
 ---
 
-### ⚖️ Portfolio Rebalancing Advisor (NEW)
+### 💧 Wealth Waterfall *(NEW)*
 
-* Set target allocation (MF / Stocks / ETF)
-* Compare current vs target allocation
-* Get **exact buy/sell actions**
-* Smart rebalancing guidance
-
----
-
-### 🔔 SIP Reminder & Action Panel (NEW)
-
-* Monthly investment guidance
-* Suggested fund allocation
-* Clear next steps for SIP execution
+* Visualizes exactly where your wealth came from
+* Starting capital → SIPs added → MF gains → Stock gains → Current value
+* Waterfall breakdown table
+* Wealth composition insight panel
+* Interactive tooltips on each bar
 
 ---
 
-### 📤 Export to CSV (NEW)
+### ⚡ Portfolio Action Signal *(NEW)*
+
+* **Daily signal score** (0–100) with urgency rating
+* Context mood strip (market sentiment indicators)
+* **7-day calendar strip** — highlights SIP days and FY-end dates
+* Action cards grid — sorted by urgency (Urgent / Watch / Good / Info)
+* **Weekly investor checklist** — 7 key tasks, persisted per week in localStorage
+
+---
+
+### ⚖️ Portfolio Rebalancing Advisor
+
+* Set target allocation (MF / Large-cap Stocks / ETF & Index) via sliders
+* Compare current vs target allocation visually
+* Get **exact buy/sell action plan**
+* Rebalancing education & tax-aware guidance
+
+---
+
+### 📤 Export to CSV
 
 * Export Mutual Funds data
 * Export Stocks data
@@ -118,11 +130,12 @@ A powerful, **no-backend personal finance dashboard** to track, analyze, and opt
 
 ---
 
-### 🎨 UI/UX Enhancements (NEW)
+### 🎨 UI/UX
 
 * Dark / Light theme toggle 🌙☀️
-* Fully responsive sidebar (mobile-friendly)
-* Clean, modern dashboard design
+* Live scrolling **market ticker** strip
+* Fully responsive sidebar with hamburger menu (mobile-friendly)
+* Clean, modern monospace + sans-serif design system
 * Smooth transitions & animations
 
 ---
@@ -131,7 +144,6 @@ A powerful, **no-backend personal finance dashboard** to track, analyze, and opt
 
 1. Go to **Import Excel**
 2. Upload:
-
    * Mutual Funds Excel file
    * Stocks Excel file
 3. Dashboard updates instantly ⚡
@@ -143,7 +155,7 @@ A powerful, **no-backend personal finance dashboard** to track, analyze, and opt
 ## 📁 Supported File Format
 
 * `.xlsx` / `.xls`
-* Broker/exported portfolio files
+* Broker-exported portfolio files
 * Structured columns (as per sample format)
 
 ---
@@ -163,8 +175,9 @@ A powerful, **no-backend personal finance dashboard** to track, analyze, and opt
 * ⚡ **Zero backend required**
 * 📊 Works entirely in browser
 * 🔒 Your data stays private (no upload to server)
-* 🧠 Built with real investor use-cases in mind
+* 🧠 Built with real Indian investor use-cases in mind
 * 📱 Mobile responsive
+* 🇮🇳 Indian number formatting (₹ Lakhs / Crores), LTCG/STCG tax rules
 
 ---
 
