@@ -609,7 +609,7 @@ tr:hover td{background:var(--bg3)}
   <div class="card" style="margin-bottom:16px">
     <div class="sec-head">
       <div class="sec-title">Benchmark comparison</div>
-      <div style="font-size:10px;color:var(--muted)">Historical average CAGR — your portfolio vs market benchmarks</div>
+      <div style="font-size:10px;color:var(--muted)">Historical average CAGR — your portfolio vs market benchmarks &nbsp;·&nbsp; <span style="color:var(--amber)">⚠ Benchmark figures as of Jan 2025 — may diverge from current index returns</span></div>
     </div>
     <!-- KPI verdict strip -->
     <div id="bm-kpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:20px"></div>
@@ -766,7 +766,15 @@ tr:hover td{background:var(--bg3)}
 <div class="page" id="page-upload">
   <div style="max-width:640px;margin:0 auto;padding-top:10px">
     <div class="sec-head"><div class="sec-title">Import new Excel data</div></div>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:20px;line-height:1.8">Drop your broker-exported Excel files below — the dashboard updates instantly with no Python or server required.</p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.8">Drop your broker-exported Excel files below — the dashboard updates instantly with no Python or server required.</p>
+    <!-- Demo data CTA -->
+    <div style="background:var(--blue-bg);border:1px solid #1a4060;border-radius:8px;padding:14px 16px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+      <div>
+        <div style="font-size:12px;font-weight:600;color:var(--blue);margin-bottom:3px">🧪 No files yet? Try the sample portfolio</div>
+        <div style="font-size:11px;color:var(--muted)">Loads a realistic demo portfolio so you can explore every feature before uploading your own data.</div>
+      </div>
+      <button onclick="loadDemoData()" style="flex-shrink:0;padding:8px 18px;background:var(--blue);color:#fff;border:none;border-radius:5px;font-size:12px;font-family:var(--mono);font-weight:600;cursor:pointer;white-space:nowrap">Load sample data →</button>
+    </div>
     <div class="card" style="margin-bottom:16px"><div id="steps-list"></div></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
       <div>
@@ -789,8 +797,10 @@ tr:hover td{background:var(--bg3)}
       </div>
     </div>
     <div id="apply-msg" style="display:none;border-radius:6px;padding:10px 14px;font-size:12px;margin-bottom:16px"></div>
-  </div>
-</div>
+    <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
+      <button onclick="clearSavedData()" style="background:none;border:1px solid var(--border);border-radius:5px;padding:6px 14px;font-size:11px;font-family:var(--mono);color:var(--muted);cursor:pointer" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">🗑 Clear saved data &amp; reset dashboard</button>
+      <div style="font-size:10px;color:var(--muted2);margin-top:6px">Removes your portfolio data from this browser. You will need to re-upload your files.</div>
+    </div>
 
 <!-- WEALTH WATERFALL -->
 <div class="page" id="page-waterfall">
@@ -894,14 +904,105 @@ const DATA = {
   mfLots:[], stLots:[]   // raw lot arrays for XIRR
 };
 
-// ── Helpers ───────────────────────────────────────────────────
+// ── Restore persisted data from localStorage (survives refresh) ──────────────
+(function restorePersistedData(){
+  try {
+    const raw=localStorage.getItem('portfin-data-v1');
+    if(!raw) return;
+    const snap=JSON.parse(raw);
+    if(!snap||!snap.kpis||!snap.kpis.totalInvested) return;
+    // Rehydrate Date objects in lots
+    const reDate=s=>s?new Date(s):null;
+    DATA.kpis=snap.kpis;
+    DATA.funds=snap.funds||[];
+    DATA.mfCategories=snap.mfCategories||[];
+    DATA.stocks=snap.stocks||[];
+    DATA.sectors=snap.sectors||[];
+    DATA.monthlyMF=snap.monthlyMF||[];
+    DATA.mfLots=(snap.mfLots||[]).map(l=>({...l,date:reDate(l.date)}));
+    DATA.stLots=(snap.stLots||[]).map(l=>({...l,date:reDate(l.date)}));
+    // Re-parse kpi dates
+    if(DATA.kpis.earliestMF) DATA.kpis.earliestMF=new Date(DATA.kpis.earliestMF);
+    if(DATA.kpis.earliestST) DATA.kpis.earliestST=new Date(DATA.kpis.earliestST);
+    if(DATA.kpis.latestDate) DATA.kpis.latestDate=new Date(DATA.kpis.latestDate);
+    _fundAnalysisCache=null;
+  } catch(e){ /* corrupt snapshot — ignore and start fresh */ }
+})();
 const fmtL = n => { const a=Math.abs(n),s=n<0?'−':''; return a>=1e7?s+'₹'+(a/1e7).toFixed(2)+' Cr':a>=1e5?s+'₹'+(a/1e5).toFixed(1)+' L':s+'₹'+Math.round(a).toLocaleString('en-IN'); };
 const fmtN = n => n.toLocaleString('en-IN');
 const fmtP = n => (n>=0?'+':'')+n.toFixed(1)+'%';
 const cls  = n => n>=0?'td-up':'td-dn';
 const pSign= n => n>=0?'+':'';
-
+// HTML escape — always use for user-supplied strings (fund names, stock names from Excel)
+const esc  = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 const CAT_CLR = {Value:'#d4a843','Large Cap':'#58a6ff','Mid Cap':'#3fb950','Small Cap':'#f0883e','Flexi Cap':'#a371f7',ELSS:'#e3b341',Index:'#79c0ff',Other:'#7d8590'};
+
+// ── Demo / sample portfolio data ──────────────────────────────
+const DEMO_DATA = (function(){
+  const today = new Date();
+  const daysAgo = n => new Date(today.getTime() - n*24*3600*1000);
+  const funds = [
+    {name:'Mirae Asset Large Cap Fund',Category:'Large Cap',Invested:180000,Current:248000,Gain:68000,Lots:18,RetPct:37.8,CAGR:14.2,holdDays:1095,dates:[daysAgo(1095)],rawLots:[]},
+    {name:'Parag Parikh Flexi Cap Fund',Category:'Flexi Cap',Invested:240000,Current:358000,Gain:118000,Lots:24,RetPct:49.2,CAGR:18.6,holdDays:912,dates:[daysAgo(912)],rawLots:[]},
+    {name:'SBI Small Cap Fund',Category:'Small Cap',Invested:120000,Current:196000,Gain:76000,Lots:12,RetPct:63.3,CAGR:22.1,holdDays:820,dates:[daysAgo(820)],rawLots:[]},
+    {name:'Axis Midcap Fund',Category:'Mid Cap',Invested:150000,Current:201000,Gain:51000,Lots:15,RetPct:34.0,CAGR:13.8,holdDays:730,dates:[daysAgo(730)],rawLots:[]},
+    {name:'Nippon India ELSS Tax Saver',Category:'ELSS',Invested:90000,Current:117000,Gain:27000,Lots:9,RetPct:30.0,CAGR:11.9,holdDays:640,dates:[daysAgo(640)],rawLots:[]},
+    {name:'UTI Nifty 50 Index Fund',Category:'Index',Invested:200000,Current:264000,Gain:64000,Lots:20,RetPct:32.0,CAGR:13.1,holdDays:548,dates:[daysAgo(548)],rawLots:[]},
+  ];
+  const stocks = [
+    {name:'HDFC Bank',Sector:'Banking',Qty:50,Latest_Price:1680,Invested:72000,Current:84000,Gain:12000,RetPct:16.7,CAGR:11.2,holdDays:395,dates:[daysAgo(395)],rawLots:[]},
+    {name:'Infosys',Sector:'IT',Qty:30,Latest_Price:1520,Invested:38400,Current:45600,Gain:7200,RetPct:18.8,CAGR:14.5,holdDays:182,dates:[daysAgo(182)],rawLots:[]},
+    {name:'NTPC',Sector:'Energy/PSU',Qty:200,Latest_Price:362,Invested:58000,Current:72400,Gain:14400,RetPct:24.8,CAGR:19.3,holdDays:274,dates:[daysAgo(274)],rawLots:[]},
+    {name:'Tata Steel',Sector:'Metals/Mining',Qty:100,Latest_Price:148,Invested:17200,Current:14800,Gain:-2400,RetPct:-14.0,CAGR:-11.8,holdDays:210,dates:[daysAgo(210)],rawLots:[]},
+    {name:'Suzlon Energy',Sector:'Renewables',Qty:500,Latest_Price:57,Invested:21000,Current:28500,Gain:7500,RetPct:35.7,CAGR:28.4,holdDays:365,dates:[daysAgo(365)],rawLots:[]},
+    {name:'ITC',Sector:'FMCG',Qty:80,Latest_Price:448,Invested:30400,Current:35840,Gain:5440,RetPct:17.9,CAGR:13.6,holdDays:456,dates:[daysAgo(456)],rawLots:[]},
+  ];
+  const mfInvested=funds.reduce((a,f)=>a+f.Invested,0);
+  const mfValue=funds.reduce((a,f)=>a+f.Current,0);
+  const mfGain=funds.reduce((a,f)=>a+f.Gain,0);
+  const stInvested=stocks.reduce((a,s)=>a+s.Invested,0);
+  const stValue=stocks.reduce((a,s)=>a+s.Current,0);
+  const stGain=stocks.reduce((a,s)=>a+s.Gain,0);
+  const totalInvested=mfInvested+stInvested, totalValue=mfValue+stValue, totalGain=mfGain+stGain;
+  const catMap={};
+  funds.forEach(f=>{
+    if(!catMap[f.Category]) catMap[f.Category]={Category:f.Category,Invested:0,Current:0,Gain:0};
+    catMap[f.Category].Invested+=f.Invested; catMap[f.Category].Current+=f.Current; catMap[f.Category].Gain+=f.Gain;
+  });
+  const mfCategories=Object.values(catMap).map(c=>{c.RetPct=parseFloat(((c.Gain/c.Invested)*100).toFixed(1));return c;});
+  const secMap={};
+  stocks.forEach(s=>{
+    if(!secMap[s.Sector]) secMap[s.Sector]={Sector:s.Sector,Invested:0,Current:0,Gain:0};
+    secMap[s.Sector].Invested+=s.Invested; secMap[s.Sector].Current+=s.Current; secMap[s.Sector].Gain+=s.Gain;
+  });
+  const sectors=Object.values(secMap).map(s=>{s.RetPct=parseFloat(((s.Gain/s.Invested)*100).toFixed(1));return s;});
+  // Monthly MF investments (last 24 months)
+  const monthlyMF=[];
+  for(let i=23;i>=0;i--){
+    const d=new Date(today.getFullYear(),today.getMonth()-i,1);
+    const mk=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    const v=Math.round(15000+Math.random()*10000);
+    monthlyMF.push({m:mk,v});
+  }
+  const mfLots=monthlyMF.map(({m,v})=>({amt:v,date:new Date(m+'-07')}));
+  const stLots=stocks.map(s=>({amt:s.Invested,date:s.dates[0]}));
+  return {
+    kpis:{totalInvested,totalValue,totalGain,
+      totalReturn:parseFloat(((totalGain/totalInvested)*100).toFixed(1)),
+      mfInvested,mfValue,mfGain,mfReturn:parseFloat(((mfGain/mfInvested)*100).toFixed(1)),
+      mfCAGR:parseFloat((funds.reduce((a,f)=>a+f.CAGR*(f.Invested/mfInvested),0)).toFixed(1)),
+      stInvested,stValue,stGain,stReturn:parseFloat(((stGain/stInvested)*100).toFixed(1)),
+      earliestMF:daysAgo(1095),earliestST:daysAgo(456),latestDate:today},
+    funds,mfCategories,stocks,sectors,monthlyMF,mfLots,stLots
+  };
+})();
+
+function loadDemoData(){
+  Object.assign(DATA, DEMO_DATA);
+  _fundAnalysisCache=null;
+  buildTicker(); buildStrip(); updateChrome(); renderSIPReminder();
+  switchPage('overview');
+}
 const SEC_CLR = {Defence:'#58a6ff','Energy/PSU':'#3fb950',Speculative:'#f85149',Renewables:'#56d364','Finance/PSU':'#a371f7',FMCG:'#e3b341','Metals/Mining':'#d4a843',Banking:'#f0883e','Infra/PSU':'#79c0ff','Commodities ETF':'#7d8590','Index ETF':'#484f58',Other:'#7d8590'};
 const gc = (k,m) => m[k]||'#7d8590';
 
@@ -961,6 +1062,8 @@ function calcXIRR(cashflows, dates) {
 let mfSort='RetPct',mfAsc=false,mfFil='All';
 let stSort='RetPct',stAsc=false,stFil='All';
 let chartInst=null;
+// Cache for buildFundAnalysis() — invalidated when DATA changes, avoids recompute on every period toggle
+let _fundAnalysisCache=null;
 
 // ── Ticker ────────────────────────────────────────────────────
 function buildTicker() {
@@ -970,9 +1073,9 @@ function buildTicker() {
     return;
   }
   const stItems=DATA.stocks.filter(s=>s.Latest_Price>0).map(s=>
-    `<span class="tick-item"><span class="tick-name">${s.name}</span><span class="tick-price">₹${s.Latest_Price.toLocaleString('en-IN')}</span><span class="tick-chg ${s.Gain>=0?'up':'dn'}">${fmtP(s.RetPct)}</span></span>`);
+    `<span class="tick-item"><span class="tick-name">${esc(s.name)}</span><span class="tick-price">₹${s.Latest_Price.toLocaleString('en-IN')}</span><span class="tick-chg ${s.Gain>=0?'up':'dn'}">${fmtP(s.RetPct)}</span></span>`);
   const mfItems=DATA.funds.slice(0,6).map(f=>
-    `<span class="tick-item"><span class="tick-name">${f.name.split(' ').slice(0,2).join(' ')}</span><span class="tick-price">${fmtL(f.Current)}</span><span class="tick-chg ${f.Gain>=0?'up':'dn'}">${fmtP(f.RetPct)}</span></span>`);
+    `<span class="tick-item"><span class="tick-name">${esc(f.name).split(' ').slice(0,2).join(' ')}</span><span class="tick-price">${fmtL(f.Current)}</span><span class="tick-chg ${f.Gain>=0?'up':'dn'}">${fmtP(f.RetPct)}</span></span>`);
   const all=[...stItems,...mfItems].join('');
   document.getElementById('ticker-inner').innerHTML=all+all;
 }
@@ -1022,9 +1125,24 @@ function updateChrome() {
 }
 
 // ── Overview ──────────────────────────────────────────────────
+// ── Empty-state helper ────────────────────────────────────────
+function emptyState(containerId, message) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 24px;text-align:center;gap:14px">
+    <div style="font-size:36px;opacity:.4">📂</div>
+    <div style="font-size:13px;font-weight:600;color:var(--muted)">${message||'No data yet'}</div>
+    <div style="font-size:11px;color:var(--muted2)">Upload your broker Excel files to get started</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:6px">
+      <button onclick="switchPage('upload')" style="padding:8px 18px;background:var(--gold);color:#0d1117;border:none;border-radius:5px;font-size:12px;font-family:var(--mono);font-weight:600;cursor:pointer">→ Import Excel</button>
+      <button onclick="loadDemoData()" style="padding:8px 18px;background:var(--bg3);color:var(--blue);border:1px solid #1a4060;border-radius:5px;font-size:12px;font-family:var(--mono);cursor:pointer">🧪 Load sample data</button>
+    </div>
+  </div>`;
+}
+
 function renderOverview() {
   const k=DATA.kpis;
-  const sinceMF = k.earliestMF?('Since '+fmtMonthYear(k.earliestMF)):'All time';
+  if(!k.totalInvested){ emptyState('kpi-overview','No portfolio data loaded'); return; }
   document.getElementById('kpi-overview').innerHTML=[
     {l:'Total Invested',  v:fmtL(k.totalInvested), s:'Capital deployed',     sc:'',   a:'#d4a843'},
     {l:'Current Value',   v:fmtL(k.totalValue),    s:'Portfolio value',      sc:'',   a:'#58a6ff'},
@@ -1048,10 +1166,10 @@ function renderOverview() {
   const maxMF=Math.max(...DATA.funds.map(f=>Math.abs(f.RetPct)),1);
   const maxST=Math.max(...DATA.stocks.map(s=>Math.abs(s.RetPct)),1);
   document.getElementById('top-mf').innerHTML=DATA.funds.length
-    ?[...DATA.funds].sort((a,b)=>b.RetPct-a.RetPct).slice(0,4).map(f=>`<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px"><span style="font-weight:500">${f.name}</span><span style="color:var(--muted)">${fmtL(f.Gain)}</span></div>${miniBar(f.RetPct,maxMF)}</div>`).join('')
+    ?[...DATA.funds].sort((a,b)=>b.RetPct-a.RetPct).slice(0,4).map(f=>`<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px"><span style="font-weight:500">${esc(f.name)}</span><span style="color:var(--muted)">${fmtL(f.Gain)}</span></div>${miniBar(f.RetPct,maxMF)}</div>`).join('')
     :'<div style="color:var(--muted);font-size:11px">Upload MF file to see data</div>';
   document.getElementById('top-st').innerHTML=DATA.stocks.length
-    ?[...DATA.stocks].sort((a,b)=>b.RetPct-a.RetPct).slice(0,4).map(s=>`<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px"><span style="font-weight:500">${s.name}</span><span style="color:var(--muted)">${fmtL(s.Gain)}</span></div>${miniBar(s.RetPct,maxST)}</div>`).join('')
+    ?[...DATA.stocks].sort((a,b)=>b.RetPct-a.RetPct).slice(0,4).map(s=>`<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px"><span style="font-weight:500">${esc(s.name)}</span><span style="color:var(--muted)">${fmtL(s.Gain)}</span></div>${miniBar(s.RetPct,maxST)}</div>`).join('')
     :'<div style="color:var(--muted);font-size:11px">Upload Stocks file to see data</div>';
 
   // Dynamic risk alerts
@@ -1059,10 +1177,10 @@ function renderOverview() {
   const stTotalInv=DATA.stocks.reduce((a,s)=>a+s.Invested,0)||1;
   DATA.stocks.forEach(s=>{
     const conc=s.Invested/stTotalInv*100;
-    if(s.RetPct<-40) alerts.push([s.name,`${fmtP(s.RetPct)} return — strong EXIT candidate, no recovery thesis visible`]);
-    else if(conc>15&&s.RetPct<0) alerts.push([s.name,`${conc.toFixed(1)}% of stock portfolio, ${fmtP(s.RetPct)} return — high concentration risk, consider trimming`]);
-    else if(s.Sector==='Speculative'&&s.RetPct<-20) alerts.push([s.name,`${fmtP(s.RetPct)} in speculative sector — averaging down not advised; reduce to ≤5%`]);
-    else if(s.CAGR<-15&&s.Invested>30000) alerts.push([s.name,`CAGR ${fmtP(s.CAGR)}, ₹${Math.round(s.Invested/1000)}K invested — reassess thesis`]);
+    if(s.RetPct<-40) alerts.push([esc(s.name),`${fmtP(s.RetPct)} return — strong EXIT candidate, no recovery thesis visible`]);
+    else if(conc>15&&s.RetPct<0) alerts.push([esc(s.name),`${conc.toFixed(1)}% of stock portfolio, ${fmtP(s.RetPct)} return — high concentration risk, consider trimming`]);
+    else if(s.Sector==='Speculative'&&s.RetPct<-20) alerts.push([esc(s.name),`${fmtP(s.RetPct)} in speculative sector — averaging down not advised; reduce to ≤5%`]);
+    else if(s.CAGR<-15&&s.Invested>30000) alerts.push([esc(s.name),`CAGR ${fmtP(s.CAGR)}, ₹${Math.round(s.Invested/1000)}K invested — reassess thesis`]);
   });
   // Sector concentration
   DATA.sectors.forEach(sec=>{
@@ -1080,6 +1198,7 @@ function renderOverview() {
 // ── Mutual Funds ──────────────────────────────────────────────
 function renderMF() {
   const k=DATA.kpis;
+  if(!k.mfInvested){ emptyState('kpi-mf','No mutual fund data loaded'); return; }
   const totalLots=DATA.funds.reduce((a,f)=>a+f.Lots,0);
   const profitableMF=DATA.funds.filter(f=>f.Gain>0).length;
   const sinceMF=k.earliestMF?('Since '+fmtMonthYear(k.earliestMF)):'';
@@ -1106,9 +1225,9 @@ function renderMF() {
     const hold=fmtHoldPeriod(f.holdDays);
     return `<tr style="cursor:pointer" onclick="toggleDrill('mf',${i})">
     <td style="font-weight:500;max-width:180px;overflow:hidden;text-overflow:ellipsis">
-      <span class="expand-btn" id="drill-btn-mf-${i}">▶</span> ${f.name}
+      <span class="expand-btn" id="drill-btn-mf-${i}">▶</span> ${esc(f.name)}
     </td>
-    <td><span class="pill" style="background:${CAT_CLR[f.Category]||'#444'}22;color:${CAT_CLR[f.Category]||'#888'};border:1px solid ${CAT_CLR[f.Category]||'#444'}44">${f.Category}</span></td>
+    <td><span class="pill" style="background:${CAT_CLR[f.Category]||'#444'}22;color:${CAT_CLR[f.Category]||'#888'};border:1px solid ${CAT_CLR[f.Category]||'#444'}44">${esc(f.Category)}</span></td>
     <td class="td-muted">${f.Lots}</td>
     <td class="td-muted">${fmtL(f.Invested)}</td>
     <td style="font-weight:500">${fmtL(f.Current)}</td>
@@ -1131,6 +1250,7 @@ function setMfFil(v){mfFil=v;renderMF();}
 // ── Stocks ────────────────────────────────────────────────────
 function renderStocks() {
   const k=DATA.kpis;
+  if(!k.stInvested){ emptyState('kpi-stocks','No stock data loaded'); return; }
   const n=DATA.stocks.length;
   const win=DATA.stocks.filter(s=>s.Gain>0).length;
   const los=DATA.stocks.filter(s=>s.Gain<0).length;
@@ -1159,9 +1279,9 @@ function renderStocks() {
       const hold=fmtHoldPeriod(s.holdDays);
       return `<tr style="cursor:pointer" onclick="toggleDrill('st',${i})">
       <td style="font-weight:500">
-        <span class="expand-btn" id="drill-btn-st-${i}">▶</span> ${s.name}
+        <span class="expand-btn" id="drill-btn-st-${i}">▶</span> ${esc(s.name)}
       </td>
-      <td><span class="pill" style="background:${gc(s.Sector,SEC_CLR)}22;color:${gc(s.Sector,SEC_CLR)};border:1px solid ${gc(s.Sector,SEC_CLR)}44">${s.Sector}</span></td>
+      <td><span class="pill" style="background:${gc(s.Sector,SEC_CLR)}22;color:${gc(s.Sector,SEC_CLR)};border:1px solid ${gc(s.Sector,SEC_CLR)}44">${esc(s.Sector)}</span></td>
       <td>${riskBadge(s)}</td>
       <td class="td-gold">${fmtN(s.Qty)}</td>
       <td>₹${s.Latest_Price>0?s.Latest_Price.toLocaleString('en-IN'):'—'}</td>
@@ -1188,23 +1308,23 @@ function renderStocks() {
 
   // EXIT: worst losers > -40%
   const exits=sorted.filter(s=>s.RetPct<-40);
-  if(exits.length) recs.push(['tag-exit','EXIT',exits.map(s=>`${s.name} (${fmtP(s.RetPct)})`).join(', ')+' — no recovery thesis, free up capital']);
+  if(exits.length) recs.push(['tag-exit','EXIT',exits.map(s=>`${esc(s.name)} (${fmtP(s.RetPct)})`).join(', ')+' — no recovery thesis, free up capital']);
 
   // REDUCE: -25% to -40% with >8% concentration
   const reduces=sorted.filter(s=>s.RetPct<=-25&&s.RetPct>=-40&&(s.Invested/stTotalInv*100)>8);
-  if(reduces.length) recs.push(['tag-reduce','REDUCE',reduces.map(s=>`${s.name} (${fmtP(s.RetPct)}, ${(s.Invested/stTotalInv*100).toFixed(1)}% of stocks)`).join(', ')+' — trim to ≤5% of portfolio']);
+  if(reduces.length) recs.push(['tag-reduce','REDUCE',reduces.map(s=>`${esc(s.name)} (${fmtP(s.RetPct)}, ${(s.Invested/stTotalInv*100).toFixed(1)}% of stocks)`).join(', ')+' — trim to ≤5% of portfolio']);
 
   // HOLD: -15% to -25%, PSU/infra (await macro)
   const holds=sorted.filter(s=>s.RetPct<-10&&s.RetPct>=-25&&['Finance/PSU','Energy/PSU','Infra/PSU','Renewables'].includes(s.Sector));
-  if(holds.length) recs.push(['tag-hold','HOLD',holds.map(s=>`${s.name} (${fmtP(s.RetPct)})`).join(', ')+' — await rate-cut cycle / sector tailwinds before selling']);
+  if(holds.length) recs.push(['tag-hold','HOLD',holds.map(s=>`${esc(s.name)} (${fmtP(s.RetPct)})`).join(', ')+' — await rate-cut cycle / sector tailwinds before selling']);
 
   // ADD SIP: MF CAGR > 15%
   const addFunds=[...DATA.funds].filter(f=>f.CAGR>=15).sort((a,b)=>b.CAGR-a.CAGR).slice(0,3);
-  if(addFunds.length) recs.push(['tag-add','ADD SIP',addFunds.map(f=>`${f.name} (CAGR ${fmtP(f.CAGR)})`).join(', ')+' — top performers, consider increasing SIP amount']);
+  if(addFunds.length) recs.push(['tag-add','ADD SIP',addFunds.map(f=>`${esc(f.name)} (CAGR ${fmtP(f.CAGR)})`).join(', ')+' — top performers, consider increasing SIP amount']);
 
   // SWITCH: MF CAGR < 8% — underperforming
   const switchFunds=[...DATA.funds].filter(f=>f.CAGR<8&&f.CAGR>0&&f.Invested>50000).sort((a,b)=>a.CAGR-b.CAGR).slice(0,2);
-  if(switchFunds.length) recs.push(['tag-switch','SWITCH',switchFunds.map(f=>`${f.name} (CAGR ${fmtP(f.CAGR)})`).join(', ')+' → consider switching to low-cost Nifty 50 index fund']);
+  if(switchFunds.length) recs.push(['tag-switch','SWITCH',switchFunds.map(f=>`${esc(f.name)} (CAGR ${fmtP(f.CAGR)})`).join(', ')+' → consider switching to low-cost Nifty 50 index fund']);
 
   if(!recs.length) recs.push(['tag-hold','HOLD','Portfolio looks stable — continue SIPs and review quarterly']);
   document.getElementById('recommendations').innerHTML=recs.map(([c,tag,text])=>`<div class="rec-row"><span class="rec-tag ${c}">${tag}</span><span class="rec-text">${text}</span></div>`).join('');
@@ -1233,7 +1353,7 @@ function renderAnalytics() {
   // Sector P&L
   const maxS=Math.max(...DATA.sectors.map(s=>Math.abs(s.RetPct)),1);
   document.getElementById('sector-pl').innerHTML=DATA.sectors.length
-    ?[...DATA.sectors].sort((a,b)=>b.Gain-a.Gain).map(s=>`<div style="margin-bottom:9px"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><span>${s.Sector}</span><span class="${cls(s.Gain)}">${fmtL(s.Gain)}</span></div>${miniBar(s.RetPct,maxS)}</div>`).join('')
+    ?[...DATA.sectors].sort((a,b)=>b.Gain-a.Gain).map(s=>`<div style="margin-bottom:9px"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><span>${esc(s.Sector)}</span><span class="${cls(s.Gain)}">${fmtL(s.Gain)}</span></div>${miniBar(s.RetPct,maxS)}</div>`).join('')
     :'<div style="color:var(--muted);font-size:11px">Upload Stocks file to see sector P&L</div>';
 
   // Portfolio ratios — fully dynamic
@@ -1460,7 +1580,9 @@ function parseSTRows(rows,dz,statusEl,fname){
   if(!cStock){statusEl.textContent='✗ Could not find Stock column';dz.style.borderColor='var(--red)';dz.style.color='var(--red)';return;}
 
   const SECTOR_MAP={'bpcl':'Energy/PSU','bharat elec':'Defence','coal india':'Energy/PSU','enbee':'Speculative','irfc':'Finance/PSU','itc':'FMCG','jaiprakash':'Speculative','mo defence':'Defence','motilal.*defence':'Defence','mazagon':'Defence','nbcc':'Infra/PSU','nhpc':'Energy/PSU','nipp.*nifty':'Index ETF','nippon.*nifty':'Index ETF','ongc':'Energy/PSU','reliance power':'Speculative','suzlon':'Renewables','tata silver':'Commodities ETF','uti nifty':'Index ETF','vedanta':'Metals/Mining','yes bank':'Banking','uttam value':'Speculative','hindustan zinc':'Metals/Mining','adani':'Speculative','zomato':'Consumer Tech','bse':'Finance','nse':'Finance','hdfc':'Banking','icici':'Banking','sbi':'Banking','axis bank':'Banking','kotak bank':'Banking','tata steel':'Metals/Mining','jsw steel':'Metals/Mining','ntpc':'Energy/PSU','power grid':'Energy/PSU','bhel':'Infra/PSU','l&t':'Infra/PSU','siemens':'Infra/PSU','infosys':'IT','tcs':'IT','wipro':'IT','hcl tech':'IT','tech mahindra':'IT','bajaj finance':'Finance/PSU','muthoot':'Finance/PSU'};
-  function getSector(name){const n=name.toLowerCase();for(const [k,v] of Object.entries(SECTOR_MAP)){if(new RegExp(k).test(n)) return v;} return 'Other';}
+  const _unclassifiedStocks=[];
+  function getSector(name){const n=name.toLowerCase();for(const [k,v] of Object.entries(SECTOR_MAP)){if(new RegExp(k).test(n)) return v;} _unclassifiedStocks.push(name); return 'Other';}
+
 
   const map={};
   const lots=[];
@@ -1503,7 +1625,10 @@ function parseSTRows(rows,dz,statusEl,fname){
   const allDates=lots.map(l=>l.date).filter(Boolean);
   const earliestST=allDates.length?new Date(Math.min(...allDates.map(d=>d.getTime()))):null;
   pendingST={stocks,lots,earliestST};
-  statusEl.textContent=`✓ ${fname} — ${stocks.length} stocks, ${lots.length} lots`;
+  const uniqUnclassified=[...new Set(_unclassifiedStocks)];
+  let stMsg=`✓ ${fname} — ${stocks.length} stocks, ${lots.length} lots`;
+  if(uniqUnclassified.length) stMsg+=` · ⚠ ${uniqUnclassified.length} stock(s) auto-mapped to "Other" sector (${uniqUnclassified.slice(0,3).join(', ')}${uniqUnclassified.length>3?'…':''})`;
+  statusEl.textContent=stMsg;
   dz.style.borderColor='var(--green)'; dz.style.color='var(--green)';
   tryApplyData();
 }
@@ -1562,11 +1687,21 @@ function tryApplyData(){
     DATA.monthlyMF=pendingMF.monthlyMF;
     DATA.mfLots=pendingMF.lots;
     DATA.stLots=pendingST.lots;
+    _fundAnalysisCache=null; // invalidate on new data
 
     buildTicker();
     buildStrip();
     updateChrome();
     renderSIPReminder();
+    // ── Persist data so it survives page refresh ──────────────
+    try {
+      const snapshot={kpis:DATA.kpis,funds:DATA.funds,mfCategories:DATA.mfCategories,
+        stocks:DATA.stocks,sectors:DATA.sectors,monthlyMF:DATA.monthlyMF,
+        mfLots:DATA.mfLots.map(l=>({amt:l.amt,date:l.date?l.date.toISOString():null})),
+        stLots:DATA.stLots.map(l=>({amt:l.amt,date:l.date?l.date.toISOString():null})),
+        savedAt:Date.now()};
+      localStorage.setItem('portfin-data-v1',JSON.stringify(snapshot));
+    } catch(e){ /* storage quota exceeded — skip silently */ }
 
     if(msgEl){
       msgEl.style.background='var(--green-bg)';
@@ -2169,7 +2304,7 @@ function renderTaxHarvesting(){
       </tr></thead>
       <tbody>
       ${harvestCandidates.map(c=>`<tr>
-        <td style="font-weight:500">${c.name}</td>
+        <td style="font-weight:500">${esc(c.name)}</td>
         <td>${fmtDate(c.date)}</td>
         <td>${c.qty>0?fmtN(c.qty):'—'}</td>
         <td>${c.invPrice>0?'₹'+c.invPrice.toFixed(2):'—'}</td>
@@ -2343,6 +2478,9 @@ function renderGoalChart(corpus, year, rate, currentVal, avgMonthly, sipNeeded){
 
 // ── ADD THIS: raw annual CAGR data per index, per calendar year ──
 // Used by calculateBenchmarkCAGR() to interpolate for any holdDays
+// Benchmark historical CAGR data — last updated: Jan 2025
+// These are long-run average returns; actual recent returns may differ.
+// A staleness note is shown in the UI alongside any benchmark comparison.
 const BM_ANNUAL = {
   'Nifty 50':        {1:8.5,  2:10.2, 3:12.8, 5:14.2, 7:13.4, 10:12.9, 15:13.5},
   'Nifty Next 50':   {1:6.1,  2:8.4,  3:10.4, 5:12.1, 7:11.8, 10:11.2, 15:11.8},
@@ -2477,8 +2615,8 @@ function renderBenchmark() {
     ).join('') +
     '<span style="font-size:10px;color:var(--muted2);margin-left:10px">Fund comparison uses each fund\'s actual holding period</span>';
 
-  // ── Build enriched fund analysis (single pass, cached in local var) ──
-  const fundAnalysis = buildFundAnalysis();  // [{...f, bmKey, bmCagr, alpha, decision}]
+  // ── Build enriched fund analysis (cached — only recomputes when DATA changes) ──
+  const fundAnalysis = _fundAnalysisCache || (_fundAnalysisCache = buildFundAnalysis());  // [{...f, bmKey, bmCagr, alpha, decision}]
 
   // ── Portfolio-level metrics ──
   const yourMFCagr = nMF > 0
@@ -2660,9 +2798,9 @@ function _renderBMFundTable(el, fundAnalysis) {
         const d   = f.decision;
         const dcls= d.cls;
         return `<tr style="border-bottom:1px solid var(--border)" title="${d.reason}">
-          <td style="padding:8px;font-size:11px;font-weight:500;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.name}</td>
+          <td style="padding:8px;font-size:11px;font-weight:500;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</td>
           <td style="padding:8px;text-align:center">
-            <span class="pill" style="background:${CAT_CLR[f.Category]||'#444'}22;color:${CAT_CLR[f.Category]||'#888'};border:1px solid ${CAT_CLR[f.Category]||'#444'}44">${f.Category}</span>
+            <span class="pill" style="background:${CAT_CLR[f.Category]||'#444'}22;color:${CAT_CLR[f.Category]||'#888'};border:1px solid ${CAT_CLR[f.Category]||'#444'}44">${esc(f.Category)}</span>
           </td>
           <td style="padding:8px;text-align:right;font-size:12px;font-weight:600;color:${f.CAGR >= f.bmCagr ? 'var(--green)' : 'var(--red)'}">${fmtP(f.CAGR)}</td>
           <td style="padding:8px;text-align:right;font-size:11px;color:var(--muted)">${fmtP(f.bmCagr)}</td>
@@ -2797,6 +2935,23 @@ document.querySelectorAll('.nav-item').forEach(n=>{
   n.setAttribute('onclick', orig+';closeSidebar()');
 });
 
+// ── Clear persisted data ──────────────────────────────────────
+function clearSavedData(){
+  try{ localStorage.removeItem('portfin-data-v1'); }catch(e){}
+  // Reset DATA to empty state
+  DATA.kpis={totalInvested:0,totalValue:0,totalGain:0,totalReturn:0,
+    mfInvested:0,mfValue:0,mfGain:0,mfReturn:0,mfCAGR:0,
+    stInvested:0,stValue:0,stGain:0,stReturn:0,earliestMF:'',earliestST:''};
+  DATA.funds=[];DATA.mfCategories=[];DATA.stocks=[];DATA.sectors=[];
+  DATA.monthlyMF=[];DATA.mfLots=[];DATA.stLots=[];
+  _fundAnalysisCache=null;
+  pendingMF=null;pendingST=null;
+  buildTicker();buildStrip();updateChrome();
+  switchPage('upload');
+  const msg=document.getElementById('apply-msg');
+  if(msg){msg.style.display='block';msg.style.background='var(--amber-bg)';msg.style.border='1px solid #4a3500';msg.style.color='var(--amber)';msg.textContent='Dashboard reset. Upload your files to reload.';}
+}
+
 // ── Export CSV ────────────────────────────────────────────────
 function exportCSV(type){
   let rows=[], headers=[];
@@ -2843,7 +2998,9 @@ function renderSIPReminder(){
   const allMonths=buildCombinedMonthly();
   const activeMonths=allMonths.filter(x=>x.v>0);
   const avgMonthly=activeMonths.length?Math.round(activeMonths.reduce((a,x)=>a+x.v,0)/activeMonths.length):0;
-  const lastMonthKey=(now.getFullYear()+'-'+String(now.getMonth()).padStart(2,'0')); // prev month
+  // Correct previous-month key: use a Date rolled back by 1 month to avoid off-by-one with getMonth() (0-indexed)
+  const prevMonthDate=new Date(now.getFullYear(),now.getMonth()-1,1);
+  const lastMonthKey=(prevMonthDate.getFullYear()+'-'+String(prevMonthDate.getMonth()+1).padStart(2,'0')); // prev month
   const investedThisMonth=allMonths.find(x=>x.m===lastMonthKey)?.v||0;
 
   // Compute per-category allocation
@@ -2983,7 +3140,7 @@ function computeRebalance(targetMFPct, targetLCPct, targetETFPct){
     const d=c.tgtPct-c.curPct;
     return `<div class="reb-asset-row">
       <div style="flex:1">
-        <div style="font-size:12px;font-weight:500;margin-bottom:4px">${c.name}</div>
+        <div style="font-size:12px;font-weight:500;margin-bottom:4px">${esc(c.name)}</div>
         <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
           <span style="font-size:10px;color:var(--muted)">Current</span>
           <div style="flex:1;height:8px;background:var(--bg4);border-radius:4px;overflow:hidden;min-width:60px">
@@ -3028,21 +3185,21 @@ function computeRebalance(targetMFPct, targetLCPct, targetETFPct){
     ...sells.map(c=>`<div class="reb-action-row">
       <span style="font-size:16px">🔴</span>
       <span class="reb-sell">SELL</span>
-      <span style="flex:1;font-size:12px;font-weight:500">${c.name}</span>
+      <span style="flex:1;font-size:12px;font-weight:500">${esc(c.name)}</span>
       <span style="color:var(--red);font-family:var(--sans);font-size:14px;font-weight:700">${fmtL(Math.abs(Math.round(c.diff)))}</span>
       <span style="color:var(--muted);font-size:10px;min-width:90px;text-align:right">${c.curPct}% → ${c.tgtPct}%</span>
     </div>`),
     ...buys.map(c=>`<div class="reb-action-row">
       <span style="font-size:16px">🟢</span>
       <span class="reb-buy">BUY&nbsp;</span>
-      <span style="flex:1;font-size:12px;font-weight:500">${c.name}</span>
+      <span style="flex:1;font-size:12px;font-weight:500">${esc(c.name)}</span>
       <span style="color:var(--green);font-family:var(--sans);font-size:14px;font-weight:700">${fmtL(Math.round(c.diff))}</span>
       <span style="color:var(--muted);font-size:10px;min-width:90px;text-align:right">${c.curPct}% → ${c.tgtPct}%</span>
     </div>`),
     ...holds.map(c=>`<div class="reb-action-row">
       <span style="font-size:16px">⚪</span>
       <span class="reb-hold">HOLD</span>
-      <span style="flex:1;font-size:12px;font-weight:500">${c.name}</span>
+      <span style="flex:1;font-size:12px;font-weight:500">${esc(c.name)}</span>
       <span style="color:var(--muted);font-family:var(--sans);font-size:14px">${fmtL(c.cur)}</span>
       <span style="color:var(--green);font-size:10px;min-width:90px;text-align:right">Within ±${fmtL(Math.abs(Math.round(c.diff)))}</span>
     </div>`)
@@ -3290,6 +3447,16 @@ function wfHideTip(){
 // ── Portfolio Action Signal ───────────────────────────────────
 function renderSignal() {
   const k = DATA.kpis;
+  if(!k.totalInvested){
+    document.getElementById('pas-hero').className='pas-hero amber';
+    document.getElementById('pas-score-num').textContent='—';
+    document.getElementById('pas-signal-label').textContent='NO DATA';
+    document.getElementById('pas-headline').textContent='Upload your portfolio to get signals';
+    document.getElementById('pas-subline').textContent='';
+    document.getElementById('pas-mood-strip').innerHTML='';
+    emptyState('pas-action-grid','No portfolio data — upload files to generate action signals');
+    return;
+  }
   const today = new Date();
   const todayDay = today.getDate();
   const todayMonth = today.getMonth(); // 0-indexed
@@ -3364,7 +3531,7 @@ function renderSignal() {
   const stTotal = DATA.stocks.reduce((a,s)=>a+s.Invested,0)||1;
   const concStocks = DATA.stocks.filter(s => s.Invested/stTotal > 0.20);
   if(concStocks.length > 0) {
-    signals.push({type:'watch', icon:'⚖️', tag:'watch', title:'High concentration in single stock', body:`${concStocks.map(s=>s.name).join(', ')} each represent >20% of your stock portfolio. Consider trimming on strength.`, metric:`${concStocks.length} over-weight position${concStocks.length>1?'s':''}`, metricClass:'watch'});
+    signals.push({type:'watch', icon:'⚖️', tag:'watch', title:'High concentration in single stock', body:`${concStocks.map(s=>esc(s.name)).join(', ')} each represent >20% of your stock portfolio. Consider trimming on strength.`, metric:`${concStocks.length} over-weight position${concStocks.length>1?'s':''}`, metricClass:'watch'});
     watchCount++;
   }
 
@@ -3569,8 +3736,7 @@ buildTicker();
 buildStrip();
 updateChrome();
 renderOverview();
-// Theme init (run after DOM ready)
-(function(){const saved=localStorage.getItem('portfin-theme');if(saved==='light'){document.documentElement.classList.add('light');const b=document.getElementById('theme-toggle-btn');if(b)b.textContent='🌙';}})();
+// NOTE: theme is already initialised by initTheme() IIFE defined above — no duplicate needed here.
 </script>
 </body>
 </html>
