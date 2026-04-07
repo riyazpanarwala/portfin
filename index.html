@@ -237,7 +237,7 @@ tr:hover td{background:var(--bg3)}
 .tl-cell-empty{background:var(--bg4);border-radius:2px}
 .tl-month-label{font-size:9px;color:var(--muted);text-align:center;padding-top:2px}
 .tl-year-label{font-size:9px;color:var(--muted2);writing-mode:vertical-rl;text-align:center;padding-right:4px;letter-spacing:.06em;text-transform:uppercase}
-.tl-tooltip{position:fixed;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:8px 12px;font-size:11px;pointer-events:none;z-index:1000;display:none;max-width:200px}
+.tl-tooltip{position:absolute;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:8px 12px;font-size:11px;pointer-events:none;z-index:1000;display:none;max-width:200px}
 .tl-tooltip strong{color:var(--gold);display:block;margin-bottom:3px}
 .yr-bar-wrap{display:flex;align-items:center;gap:8px;margin-bottom:7px}
 .yr-bar-label{font-size:10px;color:var(--muted);min-width:36px;text-align:right}
@@ -343,7 +343,7 @@ tr:hover td{background:var(--bg3)}
 .wf-bk-name{font-size:11px;color:var(--muted);flex:1}
 .wf-bk-amt{font-size:13px;font-weight:600;min-width:100px;text-align:right}
 .wf-bk-pct{font-size:10px;color:var(--muted);min-width:44px;text-align:right}
-.wf-tooltip{position:fixed;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:10px 14px;font-size:11px;pointer-events:none;z-index:1000;display:none;min-width:160px}
+.wf-tooltip{position:absolute;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:10px 14px;font-size:11px;pointer-events:none;z-index:1000;display:none;min-width:160px}
 .wf-tooltip-title{font-weight:600;color:var(--gold);margin-bottom:5px;font-size:12px}
 .wf-tooltip-row{display:flex;justify-content:space-between;gap:16px;margin-bottom:3px}
 .wf-tooltip-label{color:var(--muted)}
@@ -433,17 +433,17 @@ tr:hover td{background:var(--bg3)}
   </div>
   <nav class="nav">
     <div class="nav-section">Views</div>
-    <div class="nav-item active" onclick="switchPage('overview')"><span class="nav-icon">◈</span>Overview</div>
-    <div class="nav-item" onclick="switchPage('mf')"><span class="nav-icon">◎</span>Mutual Funds</div>
-    <div class="nav-item" onclick="switchPage('stocks')"><span class="nav-icon">◐</span>Equity Stocks</div>
-    <div class="nav-item" onclick="switchPage('analytics')"><span class="nav-icon">◉</span>Analytics</div>
-    <div class="nav-item" onclick="switchPage('timeline')"><span class="nav-icon">◫</span>Timeline</div>
-    <div class="nav-item" onclick="switchPage('goals')"><span class="nav-icon">◎</span>Goal Planner</div>
-    <div class="nav-item" onclick="switchPage('waterfall')"><span class="nav-icon">◬</span>Wealth Waterfall</div>
-    <div class="nav-item" onclick="switchPage('signal')"><span class="nav-icon">⚡</span>Action Signal</div>
+    <div class="nav-item active" data-page="overview" onclick="switchPage('overview')"><span class="nav-icon">◈</span>Overview</div>
+    <div class="nav-item" data-page="mf" onclick="switchPage('mf')"><span class="nav-icon">◎</span>Mutual Funds</div>
+    <div class="nav-item" data-page="stocks" onclick="switchPage('stocks')"><span class="nav-icon">◐</span>Equity Stocks</div>
+    <div class="nav-item" data-page="analytics" onclick="switchPage('analytics')"><span class="nav-icon">◉</span>Analytics</div>
+    <div class="nav-item" data-page="timeline" onclick="switchPage('timeline')"><span class="nav-icon">◫</span>Timeline</div>
+    <div class="nav-item" data-page="goals" onclick="switchPage('goals')"><span class="nav-icon">◎</span>Goal Planner</div>
+    <div class="nav-item" data-page="waterfall" onclick="switchPage('waterfall')"><span class="nav-icon">◬</span>Wealth Waterfall</div>
+    <div class="nav-item" data-page="signal" onclick="switchPage('signal')"><span class="nav-icon">⚡</span>Action Signal</div>
     <div class="nav-section" style="margin-top:12px">Tools</div>
-    <div class="nav-item" onclick="switchPage('rebalance')"><span class="nav-icon">⊞</span>Rebalancer</div>
-    <div class="nav-item" onclick="switchPage('upload')"><span class="nav-icon">↑</span>Import Excel</div>
+    <div class="nav-item" data-page="rebalance" onclick="switchPage('rebalance')"><span class="nav-icon">⊞</span>Rebalancer</div>
+    <div class="nav-item" data-page="upload" onclick="switchPage('upload')"><span class="nav-icon">↑</span>Import Excel</div>
   </nav>
   <div class="sidebar-stats">
     <div class="ss-row"><span class="ss-label">Total Value</span><span id="sb-total-val" class="ss-val" style="color:var(--gold)">—</span></div>
@@ -895,7 +895,7 @@ const DATA = {
 };
 const fmtL = n => { const a=Math.abs(n),s=n<0?'−':''; return a>=1e7?s+'₹'+(a/1e7).toFixed(2)+' Cr':a>=1e5?s+'₹'+(a/1e5).toFixed(1)+' L':s+'₹'+Math.round(a).toLocaleString('en-IN'); };
 const fmtN = n => n.toLocaleString('en-IN');
-const fmtP = n => (n>=0?'+':'')+n.toFixed(1)+'%';
+const fmtP = n => (n==null||isNaN(n)) ? '—' : (n>=0?'+':'')+n.toFixed(1)+'%';
 const cls  = n => n>=0?'td-up':'td-dn';
 const pSign= n => n>=0?'+':'';
 // HTML escape — always use for user-supplied strings (fund names, stock names from Excel)
@@ -926,7 +926,7 @@ function donut(svgId, legId, data, colorMap) {
     const lg=a2-a1>180?1:0;
     paths+=`<path d="M${cx} ${cy} L${x1.toFixed(1)} ${y1.toFixed(1)} A${r} ${r} 0 ${lg} 1 ${x2.toFixed(1)} ${y2.toFixed(1)}Z" fill="${gc(d.k,colorMap)}" opacity=".9"/>`;
   });
-  paths+=`<circle cx="${cx}" cy="${cy}" r="26" fill="#161b22"/>`;
+  paths+=`<circle cx="${cx}" cy="${cy}" r="26" fill="var(--bg2)"/>`;
   svg.innerHTML=paths;
   leg.innerHTML=data.map(d=>`<div class="legend-row"><div class="legend-dot" style="background:${gc(d.k,colorMap)}"></div><span class="legend-name">${d.k}</span><span class="legend-pct">${Math.round(d.v/total*100)}%</span></div>`).join('');
 }
@@ -1068,7 +1068,7 @@ function renderOverview() {
   // Sector concentration
   DATA.sectors.forEach(sec=>{
     const secPct=stTotalInv?sec.Invested/stTotalInv*100:0;
-    if(secPct>30&&sec.Gain<0) alerts.push([sec.Sector+' Sector',`${secPct.toFixed(1)}% of stocks with ${fmtL(sec.Gain)} loss — over-concentrated`]);
+    if(secPct>30&&sec.Gain<0) alerts.push([esc(sec.Sector)+' Sector',`${secPct.toFixed(1)}% of stocks with ${fmtL(sec.Gain)} loss — over-concentrated`]);
   });
   document.getElementById('risk-alerts').innerHTML=alerts.length
     ?alerts.map(([n,m])=>`<div class="alert-row"><span class="alert-name">${n}</span><span class="alert-msg">${m}</span></div>`).join('')
@@ -1094,7 +1094,7 @@ function renderMF() {
   ].map(c=>`<div class="kpi-card" style="--accent:${c.a}"><div class="kpi-label">${c.l}</div><div class="kpi-value">${c.v}</div><div class="kpi-sub ${c.sc}">${c.s}</div></div>`).join('');
 
   const cats=['All',...new Set(DATA.funds.map(f=>f.Category))];
-  document.getElementById('mf-filters').innerHTML='<span class="ctrl-label">Category:</span>'+cats.map(c=>`<button class="chip ${mfFil===c?'on':''}" onclick="setMfFil('${c}')">${c}</button>`).join('');
+  document.getElementById('mf-filters').innerHTML='<span class="ctrl-label">Category:</span>'+cats.map(c=>`<button class="chip ${mfFil===c?'on':''}" onclick="setMfFil('${esc(c)}')">${esc(c)}</button>`).join('');
   const sOpts=[['RetPct','Return'],['CAGR','CAGR'],['Current','Value'],['Gain','Gain'],['Invested','Invested'],['Lots','Lots']];
   document.getElementById('mf-sorts').innerHTML='<span class="ctrl-label">Sort:</span>'+sOpts.map(([k,l])=>`<button class="chip ${mfSort===k?'on':''}" onclick="sortMF('${k}')">${l}${mfSort===k?(mfAsc?' ↑':' ↓'):''}</button>`).join('');
 
@@ -1298,20 +1298,23 @@ function renderUpload() {
     ['4','The entire dashboard updates instantly — no Python, no server, no extra tools'],
     ['∞','Repeat monthly for always-current portfolio tracking'],
   ].map(([n,t])=>`<div style="display:flex;gap:12px;margin-bottom:10px;align-items:flex-start"><div style="width:22px;height:22px;border-radius:50%;background:var(--bg4);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--gold);flex-shrink:0;margin-top:1px">${n}</div><div style="font-size:12px;color:var(--muted);line-height:1.6">${t}</div></div>`).join('');
+}
 
+// ── Upload event wiring (one-time, not re-registered on each tab visit) ──────
+function initUploadListeners() {
   const dzMF=document.getElementById('drop-zone-mf'), fiMF=document.getElementById('file-input-mf');
-  dzMF.onclick=()=>fiMF.click();
-  dzMF.ondragover=e=>{e.preventDefault();dzMF.style.borderColor='var(--gold)';dzMF.style.color='var(--gold)'};
-  dzMF.ondragleave=()=>{dzMF.style.borderColor='';dzMF.style.color=''};
-  dzMF.ondrop=e=>{e.preventDefault();dzMF.style.borderColor='';handleExcel(e.dataTransfer.files[0],'mf')};
-  fiMF.onchange=e=>handleExcel(e.target.files[0],'mf');
+  dzMF.addEventListener('click',()=>fiMF.click());
+  dzMF.addEventListener('dragover',e=>{e.preventDefault();dzMF.style.borderColor='var(--gold)';dzMF.style.color='var(--gold)'});
+  dzMF.addEventListener('dragleave',()=>{dzMF.style.borderColor='';dzMF.style.color=''});
+  dzMF.addEventListener('drop',e=>{e.preventDefault();dzMF.style.borderColor='';handleExcel(e.dataTransfer.files[0],'mf')});
+  fiMF.addEventListener('change',e=>handleExcel(e.target.files[0],'mf'));
 
   const dzST=document.getElementById('drop-zone-st'), fiST=document.getElementById('file-input-st');
-  dzST.onclick=()=>fiST.click();
-  dzST.ondragover=e=>{e.preventDefault();dzST.style.borderColor='var(--gold)';dzST.style.color='var(--gold)'};
-  dzST.ondragleave=()=>{dzST.style.borderColor='';dzST.style.color=''};
-  dzST.ondrop=e=>{e.preventDefault();dzST.style.borderColor='';handleExcel(e.dataTransfer.files[0],'st')};
-  fiST.onchange=e=>handleExcel(e.target.files[0],'st');
+  dzST.addEventListener('click',()=>fiST.click());
+  dzST.addEventListener('dragover',e=>{e.preventDefault();dzST.style.borderColor='var(--gold)';dzST.style.color='var(--gold)'});
+  dzST.addEventListener('dragleave',()=>{dzST.style.borderColor='';dzST.style.color=''});
+  dzST.addEventListener('drop',e=>{e.preventDefault();dzST.style.borderColor='';handleExcel(e.dataTransfer.files[0],'st')});
+  fiST.addEventListener('change',e=>handleExcel(e.target.files[0],'st'));
 }
 
 // ── Excel parsing ─────────────────────────────────────────────
@@ -1350,17 +1353,17 @@ function parseInvDate(v){
   const s=String(v).trim();
   // dd-mm-yyyy
   const m1=s.match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})$/);
-  if(m1){const y=parseInt(m1[3]);return new Date(`${y<100?2000+y:y}-${m1[2].padStart(2,'0')}-${m1[1].padStart(2,'0')}`);}
+  if(m1){const y=parseInt(m1[3]);const d=new Date(`${y<100?2000+y:y}-${m1[2].padStart(2,'0')}-${m1[1].padStart(2,'0')}`);return (!isNaN(d)&&d<=new Date())?d:null;}
   // yyyy-mm-dd or ISO
   const d=new Date(s);
-  return isNaN(d)?null:d;
+  return (isNaN(d)||d>new Date())?null:d;
 }
 
 function computeCAGR(invested, current, dates){
   if(!dates.length||!invested) return 0;
   const earliest=new Date(Math.min(...dates.map(d=>d.getTime())));
   const yrs=(Date.now()-earliest.getTime())/(365.25*24*3600*1000);
-  if(yrs<0.08) return 0;
+  if(yrs<0.5) return 0; // Too short to annualise meaningfully
   return parseFloat(((Math.pow(current/invested,1/yrs)-1)*100).toFixed(1));
 }
 
@@ -1887,8 +1890,8 @@ function showTLTip(e,label,val){
   if(!tt) return;
   tt.innerHTML=`<strong>${label}</strong>Invested: ${val}`;
   tt.style.display='block';
-  tt.style.left=(e.clientX+12)+'px';
-  tt.style.top=(e.clientY-10)+'px';
+  tt.style.left=(e.pageX+12)+'px';
+  tt.style.top=(e.pageY-10)+'px';
 }
 function hideTLTip(){
   const tt=document.getElementById('tl-tooltip');
@@ -3546,8 +3549,9 @@ function togglePasCheck(weekKey, id, row) {
 }
 
 function ordinal(n) {
-  const s=['th','st','nd','rd'], v=n%100;
-  return s[(v-20)%10]||s[v]||s[0];
+  const v=n%100;
+  if(v>=11&&v<=13) return n+'th';
+  return n+(['th','st','nd','rd'][n%10]||'th');
 }
 function getWeekNumber(d) {
   const onejan = new Date(d.getFullYear(),0,1);
@@ -3568,10 +3572,12 @@ const PAGES={
   upload:{title:'Import Excel Data',render:renderUpload},
 };
 function switchPage(id){
+  if(!PAGES[id]) { console.warn('switchPage: unknown page id "'+id+'"'); return; }
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   const pg=document.getElementById('page-'+id); if(pg) pg.classList.add('active');
-  document.querySelectorAll('.nav-item').forEach(n=>{if(n.getAttribute('onclick')&&n.getAttribute('onclick').includes("'"+id+"'"))n.classList.add('active');});
+  // Fix 12: use data-page attribute for reliable active detection
+  document.querySelectorAll('.nav-item').forEach(n=>{ if(n.dataset.page===id) n.classList.add('active'); });
   document.getElementById('page-title').textContent=PAGES[id].title;
   PAGES[id].render();
 }
@@ -3581,6 +3587,7 @@ buildTicker();
 buildStrip();
 updateChrome();
 renderOverview();
+initUploadListeners();
 // NOTE: theme is already initialised by initTheme() IIFE defined above — no duplicate needed here.
 </script>
 </body>
