@@ -1,6 +1,5 @@
 // ── common.js — shared data, formatters, helpers, router, boot ──────────────
 
-
 // ══════════════════════════════════════════════════════════════
 // DATA — seed / fallback; fully replaced when Excel uploaded
 // ══════════════════════════════════════════════════════════════
@@ -11,14 +10,16 @@ const DATA = {
         earliestMF:'', earliestST:''},
   funds:[], mfCategories:[], stocks:[], sectors:[],
   monthlyMF:[],
-  mfLots:[], stLots:[]   // raw lot arrays for XIRR
+  mfLots:[], stLots:[],   // raw lot arrays for XIRR
+  _cachedMonthly: null    // FIX: cache for buildCombinedMonthly()
 };
+
 const fmtL = n => { const a=Math.abs(n),s=n<0?'−':''; return a>=1e7?s+'₹'+(a/1e7).toFixed(2)+' Cr':a>=1e5?s+'₹'+(a/1e5).toFixed(1)+' L':s+'₹'+Math.round(a).toLocaleString('en-IN'); };
 const fmtN = n => n.toLocaleString('en-IN');
 const fmtP = n => (n==null||isNaN(n)) ? '—' : (n>=0?'+':'')+n.toFixed(1)+'%';
 const cls  = n => n>=0?'td-up':'td-dn';
 const pSign= n => n>=0?'+':'';
-// HTML escape — always use for user-supplied strings (fund names, stock names from Excel)
+// HTML escape — always use for user-supplied strings
 const esc  = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 const CAT_CLR = {Value:'#d4a843','Large Cap':'#58a6ff','Mid Cap':'#3fb950','Small Cap':'#f0883e','Flexi Cap':'#a371f7',ELSS:'#e3b341',Index:'#79c0ff',Other:'#7d8590'};
 const SEC_CLR = {Defence:'#58a6ff','Energy/PSU':'#3fb950',Speculative:'#f85149',Renewables:'#56d364','Finance/PSU':'#a371f7',FMCG:'#e3b341','Metals/Mining':'#d4a843',Banking:'#f0883e','Infra/PSU':'#79c0ff','Commodities ETF':'#7d8590','Index ETF':'#484f58',Other:'#7d8590'};
@@ -55,8 +56,6 @@ function fmtMonthYear(d){ return d?new Date(d).toLocaleDateString('en-IN',{month
 
 // ── XIRR via Newton-Raphson ───────────────────────────────────
 function calcXIRR(cashflows, dates) {
-  // cashflows: array of numbers (negative=outflow, positive=inflow)
-  // dates: array of Date objects, same length
   if(!cashflows.length) return null;
   const base = dates[0];
   const t = dates.map(d=>(d-base)/(365.25*24*3600*1000));
@@ -79,9 +78,49 @@ function calcXIRR(cashflows, dates) {
 // ── State ─────────────────────────────────────────────────────
 let mfSort='RetPct',mfAsc=false,mfFil='All';
 let stSort='RetPct',stAsc=false,stFil='All';
-let chartInst=null;
-// Cache for buildFundAnalysis() — invalidated when DATA changes, avoids recompute on every period toggle
-let _fundAnalysisCache=null;
+
+// FIX: Store pending chart timeout IDs to cancel on rapid tab switching
+const _chartTimers = {};
+
+// FIX: Chart registry — use canvas._chartInst to avoid module-level race
+function destroyChart(canvasId) {
+  const el = document.getElementById(canvasId);
+  if (!el) return;
+  if (el._chartInst) { el._chartInst.destroy(); el._chartInst = null; }
+  if (_chartTimers[canvasId]) { clearTimeout(_chartTimers[canvasId]); delete _chartTimers[canvasId]; }
+}
+function scheduleChart(canvasId, delay, buildFn) {
+  if (_chartTimers[canvasId]) clearTimeout(_chartTimers[canvasId]);
+  _chartTimers[canvasId] = setTimeout(() => {
+    delete _chartTimers[canvasId];
+    const el = document.getElementById(canvasId);
+    if (!el || !window.Chart) return;
+    if (el._chartInst) { el._chartInst.destroy(); el._chartInst = null; }
+    el._chartInst = buildFn(el);
+  }, delay);
+}
+
+// Legacy compat — kept so page modules that still assign chartInst don't break
+let chartInst = null;
+let _fundAnalysisCache = null;
+
+// ══════════════════════════════════════════════════════════════
+// FIX: buildCombinedMonthly — cached, invalidated on new data
+// ══════════════════════════════════════════════════════════════
+function buildCombinedMonthly() {
+  if (DATA._cachedMonthly) return DATA._cachedMonthly;
+  const map={};
+  DATA.monthlyMF.forEach(({m,v})=>{ map[m]=(map[m]||0)+v; });
+  DATA.stLots.forEach(l=>{
+    if(!l.date||!l.amt) return;
+    const d=new Date(l.date);
+    if(isNaN(d)) return;
+    const mk=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    map[mk]=(map[mk]||0)+l.amt;
+  });
+  DATA._cachedMonthly = Object.entries(map).sort((a,b)=>a[0].localeCompare(b[0])).map(([m,v])=>({m,v:Math.round(v)}));
+  return DATA._cachedMonthly;
+}
 
 // ── Ticker ────────────────────────────────────────────────────
 function buildTicker() {
@@ -98,6 +137,15 @@ function buildTicker() {
   document.getElementById('ticker-inner').innerHTML=all+all;
 }
 
+// FIX: Ticker animation reset on tab visibility change
+document.addEventListener('visibilitychange', () => {
+  const el = document.getElementById('ticker-inner');
+  if (!el) return;
+  el.style.animation = 'none';
+  el.offsetHeight; // force reflow
+  el.style.animation = '';
+});
+
 function buildStrip() {
   const tot=DATA.mfCategories.reduce((s,c)=>s+c.Invested,0);
   if(!tot){document.getElementById('cat-strip').innerHTML='';return;}
@@ -108,17 +156,14 @@ function buildStrip() {
 // ── Update topbar + sidebar ───────────────────────────────────
 function updateChrome() {
   const k=DATA.kpis;
-  // Sidebar
   document.getElementById('sb-total-val').textContent = k.totalValue?fmtL(k.totalValue):'—';
   const pnlEl=document.getElementById('sb-pnl');
   pnlEl.textContent = k.totalReturn?(pSign(k.totalReturn)+k.totalReturn.toFixed(1)+'%'):'—';
   pnlEl.style.color = k.totalGain>=0?'var(--green)':'var(--red)';
   document.getElementById('sb-cagr').textContent = k.mfCAGR?(k.mfCAGR.toFixed(1)+'% p.a.'):'—';
-  // Date: latest across both files
   const dateStr = k.latestDate ? fmtDate(k.latestDate) : (k.totalValue?fmtDate(new Date()):'—');
   document.getElementById('sb-date').textContent = dateStr;
 
-  // Topbar meta
   const mfCount=DATA.funds.length, stCount=DATA.stocks.length;
   if(mfCount||stCount){
     const since = k.earliestMF?(' · Since '+fmtMonthYear(k.earliestMF)):'';
@@ -126,7 +171,6 @@ function updateChrome() {
       `${mfCount} mutual funds · ${stCount} equity stocks${since}`;
   }
 
-  // Topbar badges
   const badges=[];
   if(k.mfReturn!==undefined&&mfCount){
     const bc=k.mfReturn>=0?'badge-g':'badge-r';
@@ -142,9 +186,134 @@ function updateChrome() {
   document.getElementById('topbar-badges').innerHTML=badges.join('');
 }
 
+// ═══════════════════════════════════════════════════════════════
+// LOCALSTORAGE PERSISTENCE
+// ═══════════════════════════════════════════════════════════════
+const LS_KEY = 'portfin-data-v1';
+const LS_SNAPSHOTS_KEY = 'portfin-snapshots-v1';
+const MAX_SNAPSHOTS = 24;
 
-// ── Shared helpers: holding period, drill HTML ──────────────────────────────
-// ── Helpers: holding period & drill HTML ──────────────────────
+function saveDataToStorage() {
+  try {
+    // Serialize DATA — dates need special handling
+    const payload = {
+      kpis: { ...DATA.kpis, earliestMF: DATA.kpis.earliestMF ? new Date(DATA.kpis.earliestMF).toISOString() : null, earliestST: DATA.kpis.earliestST ? new Date(DATA.kpis.earliestST).toISOString() : null, latestDate: DATA.kpis.latestDate ? new Date(DATA.kpis.latestDate).toISOString() : null },
+      funds: DATA.funds.map(f => ({ ...f, dates: f.dates.map(d => new Date(d).toISOString()), rawLots: f.rawLots.map(l => ({ ...l, date: new Date(l.date).toISOString() })) })),
+      mfCategories: DATA.mfCategories,
+      stocks: DATA.stocks.map(s => ({ ...s, dates: s.dates.map(d => new Date(d).toISOString()), rawLots: s.rawLots.map(l => ({ ...l, date: new Date(l.date).toISOString() })) })),
+      sectors: DATA.sectors,
+      monthlyMF: DATA.monthlyMF,
+      mfLots: DATA.mfLots.map(l => ({ ...l, date: new Date(l.date).toISOString() })),
+      stLots: DATA.stLots.map(l => ({ ...l, date: new Date(l.date).toISOString() })),
+      savedAt: new Date().toISOString()
+    };
+    localStorage.setItem(LS_KEY, JSON.stringify(payload));
+    return true;
+  } catch(e) {
+    console.warn('PortFin: Could not save to localStorage', e);
+    return false;
+  }
+}
+
+function loadDataFromStorage() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return false;
+    const payload = JSON.parse(raw);
+    if (!payload || !payload.funds) return false;
+
+    // Rehydrate dates
+    const reDate = v => v ? new Date(v) : null;
+    DATA.kpis = { ...payload.kpis, earliestMF: reDate(payload.kpis.earliestMF), earliestST: reDate(payload.kpis.earliestST), latestDate: reDate(payload.kpis.latestDate) };
+    DATA.funds = payload.funds.map(f => ({ ...f, dates: (f.dates||[]).map(d => new Date(d)), rawLots: (f.rawLots||[]).map(l => ({ ...l, date: new Date(l.date) })) }));
+    DATA.mfCategories = payload.mfCategories || [];
+    DATA.stocks = payload.stocks.map(s => ({ ...s, dates: (s.dates||[]).map(d => new Date(d)), rawLots: (s.rawLots||[]).map(l => ({ ...l, date: new Date(l.date) })) }));
+    DATA.sectors = payload.sectors || [];
+    DATA.monthlyMF = payload.monthlyMF || [];
+    DATA.mfLots = (payload.mfLots||[]).map(l => ({ ...l, date: new Date(l.date) }));
+    DATA.stLots = (payload.stLots||[]).map(l => ({ ...l, date: new Date(l.date) }));
+    DATA._cachedMonthly = null;
+    _fundAnalysisCache = null;
+    return payload.savedAt || true;
+  } catch(e) {
+    console.warn('PortFin: Could not load from localStorage', e);
+    return false;
+  }
+}
+
+function clearStoredData() {
+  localStorage.removeItem(LS_KEY);
+}
+
+// ── Snapshot helpers ──────────────────────────────────────────
+function saveSnapshot() {
+  try {
+    const k = DATA.kpis;
+    if (!k.totalInvested) return;
+    const snapshots = getSnapshots();
+    const now = new Date();
+    // Key by YYYY-MM — overwrite same month
+    const monthKey = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+    const snap = {
+      monthKey,
+      savedAt: now.toISOString(),
+      label: now.toLocaleDateString('en-IN', {month:'short', year:'numeric'}),
+      totalInvested: k.totalInvested,
+      totalValue: k.totalValue,
+      totalGain: k.totalGain,
+      totalReturn: k.totalReturn,
+      mfInvested: k.mfInvested,
+      mfValue: k.mfValue,
+      mfCAGR: k.mfCAGR,
+      stInvested: k.stInvested,
+      stValue: k.stValue,
+      fundCount: DATA.funds.length,
+      stockCount: DATA.stocks.length
+    };
+    // Replace existing same-month snap or append
+    const idx = snapshots.findIndex(s => s.monthKey === monthKey);
+    if (idx >= 0) snapshots[idx] = snap; else snapshots.push(snap);
+    // Keep latest MAX_SNAPSHOTS
+    snapshots.sort((a,b) => a.monthKey.localeCompare(b.monthKey));
+    while (snapshots.length > MAX_SNAPSHOTS) snapshots.shift();
+    localStorage.setItem(LS_SNAPSHOTS_KEY, JSON.stringify(snapshots));
+  } catch(e) { console.warn('PortFin: Could not save snapshot', e); }
+}
+
+function getSnapshots() {
+  try {
+    return JSON.parse(localStorage.getItem(LS_SNAPSHOTS_KEY) || '[]');
+  } catch(e) { return []; }
+}
+
+function clearSnapshots() {
+  localStorage.removeItem(LS_SNAPSHOTS_KEY);
+}
+
+// ── Show persistent data banner ───────────────────────────────
+function showPersistBanner(savedAt) {
+  const existing = document.getElementById('persist-banner');
+  if (existing) existing.remove();
+  const bar = document.createElement('div');
+  bar.id = 'persist-banner';
+  const dateStr = savedAt && savedAt !== true ? new Date(savedAt).toLocaleString('en-IN', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : 'previous session';
+  bar.innerHTML = `
+    <span style="flex:1">📂 Showing portfolio saved on <strong>${dateStr}</strong>. Upload new files to refresh.</span>
+    <button onclick="clearAndReset()" style="background:transparent;border:1px solid var(--border2);border-radius:4px;color:var(--muted);padding:3px 10px;font-size:10px;cursor:pointer;flex-shrink:0">Clear data</button>
+  `;
+  bar.style.cssText = 'display:flex;align-items:center;gap:10px;background:var(--amber-bg);border-bottom:1px solid #4a3500;color:var(--amber);font-size:11px;padding:7px 20px;font-family:var(--mono)';
+  const ticker = document.querySelector('.ticker');
+  if (ticker) ticker.after(bar);
+}
+
+function clearAndReset() {
+  if (!confirm('Clear all saved portfolio data and snapshots? This cannot be undone.')) return;
+  clearStoredData();
+  clearSnapshots();
+  location.reload();
+}
+
+// ── Shared helpers ────────────────────────────────────────────
 function fmtHoldPeriod(days){
   if(!days||days<=0) return '—';
   const y=Math.floor(days/365), m=Math.floor((days%365)/30);
@@ -229,10 +398,7 @@ function toggleDrill(type,i){
   if(btn) btn.textContent=open?'▼':'▶';
 }
 
-// ── Health Score ──────────────────────────────────────────────
-
-// ── Theme & sidebar ─────────────────────────────────────────────────────────
-// ── Theme toggle ──────────────────────────────────────────────
+// ── Theme & sidebar ───────────────────────────────────────────
 function toggleTheme(){
   const isLight=document.documentElement.classList.toggle('light');
   document.getElementById('theme-toggle-btn').textContent=isLight?'🌙':'☀️';
@@ -254,14 +420,11 @@ function closeSidebar(){
   document.querySelector('.sidebar').classList.remove('mobile-open');
   document.getElementById('sidebar-overlay').classList.remove('open');
 }
-// Close sidebar on nav item click (mobile)
 document.querySelectorAll('.nav-item').forEach(n=>{
   const orig=n.getAttribute('onclick')||'';
   n.setAttribute('onclick', orig+';closeSidebar()');
 });
 
-
-// ── Export CSV ──────────────────────────────────────────────────────────────
 // ── Export CSV ────────────────────────────────────────────────
 function exportCSV(type){
   let rows=[], headers=[];

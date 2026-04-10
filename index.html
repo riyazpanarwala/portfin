@@ -71,6 +71,7 @@
     <div class="nav-item" data-page="goals" onclick="switchPage('goals')"><span class="nav-icon">◎</span>Goal Planner</div>
     <div class="nav-item" data-page="waterfall" onclick="switchPage('waterfall')"><span class="nav-icon">◬</span>Wealth Waterfall</div>
     <div class="nav-item" data-page="signal" onclick="switchPage('signal')"><span class="nav-icon">⚡</span>Action Signal</div>
+	<div class="nav-item" data-page="snapshots" onclick="switchPage('snapshots')"><span class="nav-icon">📸</span>Snapshot History</div>
     <div class="nav-section" style="margin-top:12px">Tools</div>
     <div class="nav-item" data-page="rebalance" onclick="switchPage('rebalance')"><span class="nav-icon">⊞</span>Rebalancer</div>
     <div class="nav-item" data-page="upload" onclick="switchPage('upload')"><span class="nav-icon">↑</span>Import Excel</div>
@@ -273,6 +274,15 @@
       <div id="xirr-display"></div>
     </div>
   </div>
+  
+  <!-- Holding Period Distribution -->
+	<div class="card" style="margin-bottom:16px">
+	  <div class="sec-head">
+		<div class="sec-title">Holding period distribution</div>
+		<div style="font-size:10px;color:var(--muted)">LTCG (held >1yr, 12.5% tax) vs STCG (held <1yr, 20% tax) · Capital deployed per bucket</div>
+	  </div>
+	  <div id="holding-period-chart-wrap"></div>
+	</div>
 
   <!-- Benchmark Comparison -->
   <div class="card" style="margin-bottom:16px">
@@ -544,6 +554,12 @@
 
 </div>
 
+<!-- SNAPSHOT HISTORY -->
+<div class="page" id="page-snapshots">
+  <div id="snapshots-content"></div>
+  <div id="snap-kpis"></div>
+</div>
+
 </div><!-- /main -->
 </div><!-- /shell -->
 
@@ -559,6 +575,7 @@
 <script src="js/page-timeline.js"></script>
 <script src="js/page-goals.js"></script>
 <script src="js/page-tools.js"></script>
+<script src="js/page-snapshots.js"></script>
 <!-- boot.js MUST be last: registers PAGES router and calls boot functions -->
 <script src="js/boot.js"></script>
 

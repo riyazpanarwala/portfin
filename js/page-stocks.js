@@ -16,8 +16,20 @@ function renderStocks() {
     {l:'Total Quantity', v:fmtN(totalQty),      s:'Shares held',     sc:'',   a:'#7d8590'},
   ].map(c=>`<div class="kpi-card" style="--accent:${c.a}"><div class="kpi-label">${c.l}</div><div class="kpi-value">${c.v}</div><div class="kpi-sub ${c.sc}">${c.s}</div></div>`).join('');
 
+  // FIX: Use data-sector attributes instead of encodeURIComponent in onclick strings.
+  // Sectors like "Energy/PSU", "Metals/Mining" contain "/" which caused double-encoding bugs.
   const secs=['All',...new Set(DATA.stocks.map(s=>s.Sector))];
-  document.getElementById('st-filters').innerHTML='<span class="ctrl-label">Sector:</span>'+secs.map(s=>`<button class="chip ${stFil===s?'on':''}" onclick="setStFil('${encodeURIComponent(s)}')">${s}</button>`).join('');
+  const filterContainer = document.getElementById('st-filters');
+  filterContainer.innerHTML = '<span class="ctrl-label">Sector:</span>';
+  secs.forEach(sec => {
+    const btn = document.createElement('button');
+    btn.className = 'chip' + (stFil === sec ? ' on' : '');
+    btn.textContent = sec;
+    btn.dataset.sector = sec;  // store raw value, no encoding needed
+    btn.addEventListener('click', () => setStFil(sec));
+    filterContainer.appendChild(btn);
+  });
+
   const sOpts=[['RetPct','Return'],['Gain','P&L'],['Qty','Qty'],['Invested','Invested'],['Current','Value'],['CAGR','CAGR'],['Latest_Price','CMP']];
   document.getElementById('st-sorts').innerHTML='<span class="ctrl-label">Sort:</span>'+sOpts.map(([k,l])=>`<button class="chip ${stSort===k?'on':''}" onclick="sortST('${k}')">${l}${stSort===k?(stAsc?' ↑':' ↓'):''}</button>`).join('');
 
@@ -50,7 +62,6 @@ function renderStocks() {
     }).join('');
   }
 
-  // Tax harvesting
   renderTaxHarvesting();
 
   // Dynamic rule-based recommendations
@@ -58,31 +69,23 @@ function renderStocks() {
   const stTotalInv=DATA.stocks.reduce((a,s)=>a+s.Invested,0)||1;
   const sorted=[...DATA.stocks].sort((a,b)=>a.RetPct-b.RetPct);
 
-  // EXIT: worst losers > -40%
   const exits=sorted.filter(s=>s.RetPct<-40);
   if(exits.length) recs.push(['tag-exit','EXIT',exits.map(s=>`${esc(s.name)} (${fmtP(s.RetPct)})`).join(', ')+' — no recovery thesis, free up capital']);
-
-  // REDUCE: -25% to -40% with >8% concentration
   const reduces=sorted.filter(s=>s.RetPct<=-25&&s.RetPct>=-40&&(s.Invested/stTotalInv*100)>8);
   if(reduces.length) recs.push(['tag-reduce','REDUCE',reduces.map(s=>`${esc(s.name)} (${fmtP(s.RetPct)}, ${(s.Invested/stTotalInv*100).toFixed(1)}% of stocks)`).join(', ')+' — trim to ≤5% of portfolio']);
-
-  // HOLD: -15% to -25%, PSU/infra (await macro)
   const holds=sorted.filter(s=>s.RetPct<-10&&s.RetPct>=-25&&['Finance/PSU','Energy/PSU','Infra/PSU','Renewables'].includes(s.Sector));
   if(holds.length) recs.push(['tag-hold','HOLD',holds.map(s=>`${esc(s.name)} (${fmtP(s.RetPct)})`).join(', ')+' — await rate-cut cycle / sector tailwinds before selling']);
-
-  // ADD SIP: MF CAGR > 15%
   const addFunds=[...DATA.funds].filter(f=>f.CAGR>=15).sort((a,b)=>b.CAGR-a.CAGR).slice(0,3);
   if(addFunds.length) recs.push(['tag-add','ADD SIP',addFunds.map(f=>`${esc(f.name)} (CAGR ${fmtP(f.CAGR)})`).join(', ')+' — top performers, consider increasing SIP amount']);
-
-  // SWITCH: MF CAGR < 8% — underperforming
   const switchFunds=[...DATA.funds].filter(f=>f.CAGR<8&&f.CAGR>0&&f.Invested>50000).sort((a,b)=>a.CAGR-b.CAGR).slice(0,2);
   if(switchFunds.length) recs.push(['tag-switch','SWITCH',switchFunds.map(f=>`${esc(f.name)} (CAGR ${fmtP(f.CAGR)})`).join(', ')+' → consider switching to low-cost Nifty 50 index fund']);
-
   if(!recs.length) recs.push(['tag-hold','HOLD','Portfolio looks stable — continue SIPs and review quarterly']);
   document.getElementById('recommendations').innerHTML=recs.map(([c,tag,text])=>`<div class="rec-row"><span class="rec-tag ${c}">${tag}</span><span class="rec-text">${text}</span></div>`).join('');
 }
+
+// FIX: setStFil now receives the raw string directly (called from event listener, no encoding needed)
 function sortST(k){if(stSort===k)stAsc=!stAsc;else{stSort=k;stAsc=false;}renderStocks();}
-function setStFil(v){stFil=decodeURIComponent(v);renderStocks();}
+function setStFil(v){ stFil = v; renderStocks(); }
 
 // ── Tax Harvesting ────────────────────────────────────────────
 function renderTaxHarvesting(){
@@ -94,8 +97,7 @@ function renderTaxHarvesting(){
     taxKpisEl.innerHTML=''; taxTableEl.innerHTML='<div style="color:var(--muted);font-size:11px">Upload Stocks file to see tax analysis</div>'; return;
   }
 
-  // Per lot tax classification
-  const LTCG_EXEMPT=125000; // ₹1.25L exempt per year
+  const LTCG_EXEMPT=125000;
   const now=Date.now();
   let totalLTCGGain=0, totalSTCGGain=0, totalLTCGLoss=0, totalSTCGLoss=0;
   let harvestCandidates=[];
@@ -109,14 +111,12 @@ function renderTaxHarvesting(){
       const isLTCG=days>=365;
       if(isLTCG){ if(lotGain>0) totalLTCGGain+=lotGain; else totalLTCGLoss+=Math.abs(lotGain); }
       else       { if(lotGain>0) totalSTCGGain+=lotGain; else totalSTCGLoss+=Math.abs(lotGain); }
-      // Harvest candidate: loss-making lot that can offset gains
       if(lotGain<0&&Math.abs(lotGain)>1000){
         harvestCandidates.push({name:s.name,date:l.date,days,inv:l.inv,curVal,gain:lotGain,isLTCG,qty:l.qty,invPrice:l.invPrice,cmp});
       }
     });
   });
 
-  // Tax estimates (Indian equity FY)
   const taxableLTCG=Math.max(0,totalLTCGGain-LTCG_EXEMPT);
   const estLTCGTax=Math.round(taxableLTCG*0.125);
   const estSTCGTax=Math.round(totalSTCGGain*0.20);
@@ -160,7 +160,6 @@ function renderTaxHarvesting(){
       </tbody>
     </table></div>
     <div style="font-size:10px;color:var(--muted2);margin-top:10px;line-height:1.6">
-      ⚠ After selling for harvest, wait 31+ days before re-buying to avoid wash-sale. LTCG exempt up to ₹1.25L/year; gains above that taxed at 12.5%. STCG taxed at 20%. Consult a tax advisor before acting.
+      ⚠ After selling for harvest, wait 31+ days before re-buying to avoid wash-sale. LTCG exempt up to ₹1.25L/year; gains above that taxed at 12.5%. STCG taxed at 20%.
     </div>`;
 }
-

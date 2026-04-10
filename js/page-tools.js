@@ -13,7 +13,6 @@ function renderUpload() {
   ].map(([n,t])=>`<div style="display:flex;gap:12px;margin-bottom:10px;align-items:flex-start"><div style="width:22px;height:22px;border-radius:50%;background:var(--bg4);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--gold);flex-shrink:0;margin-top:1px">${n}</div><div style="font-size:12px;color:var(--muted);line-height:1.6">${t}</div></div>`).join('');
 }
 
-// ── Upload event wiring (one-time, not re-registered on each tab visit) ──────
 function initUploadListeners() {
   const dzMF=document.getElementById('drop-zone-mf'), fiMF=document.getElementById('file-input-mf');
   dzMF.addEventListener('click',()=>fiMF.click());
@@ -62,12 +61,9 @@ function cleanNum(v){
 
 function parseInvDate(v){
   if(!v) return null;
-  // SheetJS with cellDates:true may return ISO string or Date-like string
   const s=String(v).trim();
-  // dd-mm-yyyy
   const m1=s.match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})$/);
   if(m1){const y=parseInt(m1[3]);const d=new Date(`${y<100?2000+y:y}-${m1[2].padStart(2,'0')}-${m1[1].padStart(2,'0')}`);return (!isNaN(d)&&d<=new Date())?d:null;}
-  // yyyy-mm-dd or ISO
   const d=new Date(s);
   return (isNaN(d)||d>new Date())?null:d;
 }
@@ -76,7 +72,7 @@ function computeCAGR(invested, current, dates){
   if(!dates.length||!invested) return 0;
   const earliest=new Date(Math.min(...dates.map(d=>d.getTime())));
   const yrs=(Date.now()-earliest.getTime())/(365.25*24*3600*1000);
-  if(yrs<0.5) return 0; // Too short to annualise meaningfully
+  if(yrs<0.5) return 0;
   return parseFloat(((Math.pow(current/invested,1/yrs)-1)*100).toFixed(1));
 }
 
@@ -121,9 +117,7 @@ function parseMFRows(rows,dz,statusEl,fname){
     if(dt&&!isNaN(dt)&&inv>0){
       g.rawLots.push({date:dt,amt:inv,qty,invPrice,nav,cur:inv+cleanNum(r[cGain]||0),gain:gn});
     }
-    // raw lot for XIRR
     if(dt&&!isNaN(dt)&&inv>0) lots.push({amt:inv,date:dt});
-    // monthly aggregation
     if(dt&&!isNaN(dt)&&inv>0){
       const mk=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0');
       monthMap[mk]=(monthMap[mk]||0)+inv;
@@ -137,7 +131,6 @@ function parseMFRows(rows,dz,statusEl,fname){
     f.CAGR=computeCAGR(f.Invested,f.Current,f.dates);
     f.Gain=Math.round(f.Gain);
     f.Category=catKw(f.name);
-    // Holding period from earliest lot date
     if(f.dates.length){
       const earliest=new Date(Math.min(...f.dates.map(d=>d.getTime())));
       f.holdDays=Math.floor((Date.now()-earliest.getTime())/(24*3600*1000));
@@ -180,7 +173,6 @@ function parseSTRows(rows,dz,statusEl,fname){
   const _unclassifiedStocks=[];
   function getSector(name){const n=name.toLowerCase();for(const [k,v] of Object.entries(SECTOR_MAP)){if(new RegExp(k).test(n)) return v;} _unclassifiedStocks.push(name); return 'Other';}
 
-
   const map={};
   const lots=[];
   data.forEach(r=>{
@@ -200,7 +192,7 @@ function parseSTRows(rows,dz,statusEl,fname){
     if(lp>0) g.Latest_Price=lp;
     if(dt&&!isNaN(dt)) g.dates.push(dt);
     if(dt&&!isNaN(dt)&&inv>0){
-      g.rawLots.push({date:dt,qty,invPrice:invP||( qty?inv/qty:0),currentPrice:lp,inv,gain:gn,cur:cur||0});
+      g.rawLots.push({date:dt,qty,invPrice:invP||(qty?inv/qty:0),currentPrice:lp,inv,gain:gn,cur:cur||0});
     }
     if(dt&&!isNaN(dt)&&inv>0) lots.push({amt:inv,date:dt});
   });
@@ -238,7 +230,6 @@ function tryApplyData(){
   if(hasMF&&hasST){
     const funds=pendingMF.funds, stocks=pendingST.stocks;
 
-    // MF categories
     const catMap={};
     funds.forEach(f=>{
       if(!catMap[f.Category]) catMap[f.Category]={Category:f.Category,Invested:0,Current:0,Gain:0};
@@ -246,7 +237,6 @@ function tryApplyData(){
     });
     const mfCategories=Object.values(catMap).map(c=>{c.RetPct=c.Invested>0?parseFloat(((c.Gain/c.Invested)*100).toFixed(1)):0;return c;});
 
-    // Sectors
     const secMap={};
     stocks.forEach(s=>{
       if(!secMap[s.Sector]) secMap[s.Sector]={Sector:s.Sector,Invested:0,Current:0,Gain:0};
@@ -254,7 +244,6 @@ function tryApplyData(){
     });
     const sectors=Object.values(secMap).map(s=>{s.RetPct=s.Invested>0?parseFloat(((s.Gain/s.Invested)*100).toFixed(1)):0;return s;});
 
-    // KPIs
     const mfInvested=funds.reduce((a,f)=>a+f.Invested,0);
     const mfValue   =funds.reduce((a,f)=>a+f.Current,0);
     const mfGain    =funds.reduce((a,f)=>a+f.Gain,0);
@@ -268,7 +257,6 @@ function tryApplyData(){
     const stReturn=stInvested>0?parseFloat(((stGain/stInvested)*100).toFixed(1)):0;
     const totalReturn=totalInvested>0?parseFloat(((totalGain/totalInvested)*100).toFixed(1)):0;
     const mfCAGR=mfInvested>0?parseFloat((funds.reduce((a,f)=>a+f.CAGR*(f.Invested/mfInvested),0)).toFixed(1)):0;
-    // Latest date = today (data is current as of upload time)
     const latestDate=new Date();
 
     DATA.kpis={totalInvested,totalValue,totalGain,totalReturn,
@@ -284,7 +272,18 @@ function tryApplyData(){
     DATA.monthlyMF=pendingMF.monthlyMF;
     DATA.mfLots=pendingMF.lots;
     DATA.stLots=pendingST.lots;
-    _fundAnalysisCache=null; // invalidate on new data
+
+    // FIX: Invalidate all caches on new data
+    DATA._cachedMonthly = null;
+    _fundAnalysisCache = null;
+
+    // Persist to localStorage and save snapshot
+    saveDataToStorage();
+    saveSnapshot();
+
+    // Remove persist banner if shown (fresh data loaded)
+    const banner = document.getElementById('persist-banner');
+    if (banner) banner.remove();
 
     buildTicker();
     buildStrip();
@@ -296,10 +295,9 @@ function tryApplyData(){
       msgEl.style.border='1px solid var(--green-dim)';
       msgEl.style.color='var(--green)';
       msgEl.style.display='block';
-      msgEl.textContent='✓ Dashboard fully updated! Navigate to any tab to explore your live portfolio.';
+      msgEl.textContent='✓ Dashboard fully updated and saved! Navigate to any tab to explore your live portfolio.';
     }
     pendingMF=null; pendingST=null;
-    // Reset sort state on new data
     mfFil='All'; stFil='All';
   } else {
     if(msgEl){
@@ -317,7 +315,7 @@ function tryApplyData(){
 
 // ── Rebalancing Advisor ───────────────────────────────────────
 function renderRebalance(){
-  syncRebSliders('none'); // initial render
+  syncRebSliders('none');
 }
 
 function syncRebSliders(changed){
@@ -329,7 +327,6 @@ function syncRebSliders(changed){
   let mf=parseInt(mfEl.value), lc=parseInt(lcEl.value), etf=parseInt(etfEl.value);
   const total=mf+lc+etf;
 
-  // Clamp so total doesn't exceed 100
   if(total>100){
     if(changed==='mf'){ const excess=total-100; lc=Math.max(0,lc-Math.ceil(excess/2)); etf=Math.max(0,etf-Math.floor(excess/2)); }
     else if(changed==='lc'){ const excess=total-100; mf=Math.max(0,mf-Math.ceil(excess/2)); etf=Math.max(0,etf-Math.floor(excess/2)); }
@@ -364,7 +361,6 @@ function computeRebalance(targetMFPct, targetLCPct, targetETFPct){
     actEl.innerHTML=''; if(kpiEl) kpiEl.innerHTML=''; return;
   }
 
-  // Current actuals
   const curMFVal=k.mfValue||0;
   const etfStocks=DATA.stocks.filter(s=>s.Sector==='Index ETF'||s.Sector==='Commodities ETF');
   const lcStocks=DATA.stocks.filter(s=>!etfStocks.includes(s));
@@ -375,7 +371,6 @@ function computeRebalance(targetMFPct, targetLCPct, targetETFPct){
   const curLCPct=totalValue?Math.round(curLCVal/totalValue*100):0;
   const curETFPct=totalValue?Math.round(curETFVal/totalValue*100):0;
 
-  // Target values
   const tgtMFVal=Math.round(totalValue*targetMFPct/100);
   const tgtLCVal=Math.round(totalValue*targetLCPct/100);
   const tgtETFVal=Math.round(totalValue*targetETFPct/100);
@@ -431,7 +426,6 @@ function computeRebalance(targetMFPct, targetLCPct, targetETFPct){
     </div>`;
   }).join('');
 
-  // Action plan
   const totalPct=targetMFPct+targetLCPct+targetETFPct;
   if(totalPct!==100){
     actEl.innerHTML=`<div style="color:var(--amber);font-size:12px">⚠ Total target allocation is ${totalPct}% — adjust sliders to sum to 100% for a complete plan.</div>`;
@@ -448,27 +442,9 @@ function computeRebalance(targetMFPct, targetLCPct, targetETFPct){
   }
 
   const rows=[
-    ...sells.map(c=>`<div class="reb-action-row">
-      <span style="font-size:16px">🔴</span>
-      <span class="reb-sell">SELL</span>
-      <span style="flex:1;font-size:12px;font-weight:500">${esc(c.name)}</span>
-      <span style="color:var(--red);font-family:var(--sans);font-size:14px;font-weight:700">${fmtL(Math.abs(Math.round(c.diff)))}</span>
-      <span style="color:var(--muted);font-size:10px;min-width:90px;text-align:right">${c.curPct}% → ${c.tgtPct}%</span>
-    </div>`),
-    ...buys.map(c=>`<div class="reb-action-row">
-      <span style="font-size:16px">🟢</span>
-      <span class="reb-buy">BUY&nbsp;</span>
-      <span style="flex:1;font-size:12px;font-weight:500">${esc(c.name)}</span>
-      <span style="color:var(--green);font-family:var(--sans);font-size:14px;font-weight:700">${fmtL(Math.round(c.diff))}</span>
-      <span style="color:var(--muted);font-size:10px;min-width:90px;text-align:right">${c.curPct}% → ${c.tgtPct}%</span>
-    </div>`),
-    ...holds.map(c=>`<div class="reb-action-row">
-      <span style="font-size:16px">⚪</span>
-      <span class="reb-hold">HOLD</span>
-      <span style="flex:1;font-size:12px;font-weight:500">${esc(c.name)}</span>
-      <span style="color:var(--muted);font-family:var(--sans);font-size:14px">${fmtL(c.cur)}</span>
-      <span style="color:var(--green);font-size:10px;min-width:90px;text-align:right">Within ±${fmtL(Math.abs(Math.round(c.diff)))}</span>
-    </div>`)
+    ...sells.map(c=>`<div class="reb-action-row"><span style="font-size:16px">🔴</span><span class="reb-sell">SELL</span><span style="flex:1;font-size:12px;font-weight:500">${esc(c.name)}</span><span style="color:var(--red);font-family:var(--sans);font-size:14px;font-weight:700">${fmtL(Math.abs(Math.round(c.diff)))}</span><span style="color:var(--muted);font-size:10px;min-width:90px;text-align:right">${c.curPct}% → ${c.tgtPct}%</span></div>`),
+    ...buys.map(c=>`<div class="reb-action-row"><span style="font-size:16px">🟢</span><span class="reb-buy">BUY&nbsp;</span><span style="flex:1;font-size:12px;font-weight:500">${esc(c.name)}</span><span style="color:var(--green);font-family:var(--sans);font-size:14px;font-weight:700">${fmtL(Math.round(c.diff))}</span><span style="color:var(--muted);font-size:10px;min-width:90px;text-align:right">${c.curPct}% → ${c.tgtPct}%</span></div>`),
+    ...holds.map(c=>`<div class="reb-action-row"><span style="font-size:16px">⚪</span><span class="reb-hold">HOLD</span><span style="flex:1;font-size:12px;font-weight:500">${esc(c.name)}</span><span style="color:var(--muted);font-family:var(--sans);font-size:14px">${fmtL(c.cur)}</span><span style="color:var(--green);font-size:10px;min-width:90px;text-align:right">Within ±${fmtL(Math.abs(Math.round(c.diff)))}</span></div>`)
   ];
 
   actEl.innerHTML=`<div class="reb-action-box">${rows.join('')}</div>
@@ -480,43 +456,22 @@ function computeRebalance(targetMFPct, targetLCPct, targetETFPct){
 // ── Wealth Waterfall ──────────────────────────────────────────
 function renderWaterfall() {
   const k = DATA.kpis;
-
-  // ── Derive the 5 waterfall segments ──────────────────────────
-  // Starting capital = total invested (MF + stocks)
   const startVal   = k.totalInvested   || 0;
-  // SIPs added = total invested (we treat all inflows as "SIPs/capital added")
-  // We split MF invested as SIP contributions, stocks invested as direct buys
   const mfInvested = k.mfInvested      || 0;
   const stInvested = k.stInvested      || 0;
   const mfGain     = k.mfGain          || 0;
   const stGain     = k.stGain          || 0;
   const totalVal   = k.totalValue      || 0;
 
-  // 5-step waterfall:
-  // [0] Starting point (zero baseline)   → mfInvested + stInvested (first investment)
-  // For a meaningful waterfall we show:
-  // Bar 0 "MF Invested"  : mfInvested  (positive, anchored at 0)
-  // Bar 1 "Stocks Bought": stInvested  (positive step on top of Bar 0)
-  // Bar 2 "MF Gains"     : mfGain      (+ or -)
-  // Bar 3 "Stock P&L"    : stGain      (+ or -)
-  // Bar 4 "Current Value": totalVal    (total — shown as full bar)
-
   const segments = [
-    {id:'mf-inv',   label:'MF Invested',   value: mfInvested, type:'invested', color:'#58a6ff',
-     sub:'Total capital deployed into mutual funds', subKey:'Avg SIP'},
-    {id:'st-inv',   label:'Stocks Bought', value: stInvested, type:'invested', color:'#a371f7',
-     sub:'Total capital deployed into equity stocks', subKey:'Direct buys'},
-    {id:'mf-gain',  label:'MF Gains',      value: mfGain,     type: mfGain>=0?'gain':'loss', color: mfGain>=0?'#3fb950':'#f85149',
-     sub:'Unrealised gains from mutual funds', subKey:'Return %'},
-    {id:'st-gain',  label:'Stock P&L',     value: stGain,     type: stGain>=0?'gain':'loss', color: stGain>=0?'#56d364':'#f85149',
-     sub:'Unrealised P&L from equity stocks', subKey:'Return %'},
-    {id:'total',    label:'Current Value', value: totalVal,   type:'total', color:'#d4a843',
-     sub:'Total portfolio market value today', subKey:'Total gain'},
+    {id:'mf-inv',   label:'MF Invested',   value: mfInvested, type:'invested', color:'#58a6ff', sub:'Total capital deployed into mutual funds', subKey:'Avg SIP'},
+    {id:'st-inv',   label:'Stocks Bought', value: stInvested, type:'invested', color:'#a371f7', sub:'Total capital deployed into equity stocks', subKey:'Direct buys'},
+    {id:'mf-gain',  label:'MF Gains',      value: mfGain,     type: mfGain>=0?'gain':'loss', color: mfGain>=0?'#3fb950':'#f85149', sub:'Unrealised gains from mutual funds', subKey:'Return %'},
+    {id:'st-gain',  label:'Stock P&L',     value: stGain,     type: stGain>=0?'gain':'loss', color: stGain>=0?'#56d364':'#f85149', sub:'Unrealised P&L from equity stocks', subKey:'Return %'},
+    {id:'total',    label:'Current Value', value: totalVal,   type:'total', color:'#d4a843', sub:'Total portfolio market value today', subKey:'Total gain'},
   ];
 
-  // ── KPI strip ─────────────────────────────────────────────────
   const wealthMultiplier = startVal>0?(totalVal/startVal).toFixed(2):'—';
-  const sipContrib  = totalVal>0?((mfInvested+stInvested)/totalVal*100).toFixed(1):0;
   const gainContrib = totalVal>0?((mfGain+stGain)/totalVal*100).toFixed(1):0;
   document.getElementById('wf-kpis').innerHTML=[
     {l:'Capital Deployed', v:fmtL(startVal),                  s:'Total invested (MF + Stocks)',        a:'#58a6ff'},
@@ -526,7 +481,6 @@ function renderWaterfall() {
     {l:'Gains vs Capital', v:gainContrib+'%',                 s:'Wealth from market returns',          a:'#3fb950'},
   ].map(c=>`<div class="kpi-card" style="--accent:${c.a}"><div class="kpi-label">${c.l}</div><div class="kpi-value" style="font-size:19px">${c.v}</div><div class="kpi-sub">${c.s}</div></div>`).join('');
 
-  // ── Stat pills ────────────────────────────────────────────────
   const pillsData = [
     {label:'MF contribution', val: totalVal>0?(mfInvested/totalVal*100).toFixed(0)+'%':'—', color:'#58a6ff'},
     {label:'Stock contribution', val: totalVal>0?(stInvested/totalVal*100).toFixed(0)+'%':'—', color:'#a371f7'},
@@ -539,32 +493,20 @@ function renderWaterfall() {
       <div><div class="wf-stat-pill-label">${p.label}</div><div class="wf-stat-pill-val" style="color:${p.color}">${p.val}</div></div>
     </div>`).join('');
 
-  // ── Build SVG waterfall chart ─────────────────────────────────
   const W = 760, H = 340, padL = 70, padR = 30, padT = 36, padB = 60;
   const chartW = W - padL - padR;
   const chartH = H - padT - padB;
   const n = segments.length;
   const barGap = 18, barW = Math.floor((chartW - barGap*(n-1)) / n);
 
-  // Compute running baseline for each bar
-  // Bars 0,1,2,3 are stacked increments; bar 4 is the total (full column)
   const baselines = [], tops = [];
   let running = 0;
   for(let i=0;i<n-1;i++){
     const seg = segments[i];
-    if(seg.value >= 0){
-      baselines.push(running);
-      tops.push(running + seg.value);
-      running += seg.value;
-    } else {
-      baselines.push(running + seg.value);
-      tops.push(running);
-      running += seg.value;
-    }
+    if(seg.value >= 0){ baselines.push(running); tops.push(running + seg.value); running += seg.value; }
+    else { baselines.push(running + seg.value); tops.push(running); running += seg.value; }
   }
-  // Last bar (total) always anchored at 0
-  baselines.push(0);
-  tops.push(totalVal);
+  baselines.push(0); tops.push(totalVal);
 
   const allVals = [...baselines, ...tops];
   const dataMin = Math.min(0, ...allVals);
@@ -573,7 +515,6 @@ function renderWaterfall() {
   const yScale = v => padT + chartH - ((v - dataMin) / span * chartH);
   const xStart = i => padL + i * (barW + barGap);
 
-  // Gridlines
   const gridCount = 5;
   let gridLines = '';
   for(let gi=0;gi<=gridCount;gi++){
@@ -583,21 +524,17 @@ function renderWaterfall() {
     gridLines += `<text x="${padL-6}" y="${gy.toFixed(1)}" text-anchor="end" dominant-baseline="middle" font-size="9" fill="var(--muted)" font-family="DM Mono,monospace">${fmtL(Math.round(gv))}</text>`;
   }
 
-  // Zero axis
   const zeroY = yScale(0);
   const zeroLine = `<line class="wf-axis-line" x1="${padL}" x2="${W-padR}" y1="${zeroY.toFixed(1)}" y2="${zeroY.toFixed(1)}" stroke-width="1.5"/>`;
 
-  // Connector dashed lines between bars (top of bar i → baseline of bar i+1)
   let connectors = '';
   for(let i=0;i<n-2;i++){
-    const x1 = xStart(i) + barW;
-    const x2 = xStart(i+1);
+    const x1 = xStart(i) + barW, x2 = xStart(i+1);
     const seg = segments[i];
     const lineY = seg.value>=0 ? yScale(tops[i]) : yScale(baselines[i]);
     connectors += `<line class="wf-connector" x1="${x1}" x2="${x2}" y1="${lineY.toFixed(1)}" y2="${lineY.toFixed(1)}"/>`;
   }
 
-  // Bars + labels
   let bars = '', topLabels = '', botLabels = '';
   segments.forEach((seg, i) => {
     const x    = xStart(i);
@@ -607,20 +544,11 @@ function renderWaterfall() {
     const isTotal = seg.type === 'total';
     const opacity = isTotal ? '1' : '0.85';
     const glow    = isTotal ? 'class="wf-total-glow"' : '';
-
-    bars += `<rect ${glow} class="wf-bar-base" data-idx="${i}" x="${x}" y="${yTop.toFixed(1)}" width="${barW}" height="${bH.toFixed(1)}"
-      fill="${seg.color}" opacity="${opacity}" rx="3"
-      onmouseenter="wfShowTip(event,${i})" onmouseleave="wfHideTip()"/>`;
-
-    // Top value label
+    bars += `<rect ${glow} class="wf-bar-base" data-idx="${i}" x="${x}" y="${yTop.toFixed(1)}" width="${barW}" height="${bH.toFixed(1)}" fill="${seg.color}" opacity="${opacity}" rx="3" onmouseenter="wfShowTip(event,${i})" onmouseleave="wfHideTip()"/>`;
     const labelY = yTop - 6;
     const valTxt = fmtL(Math.abs(seg.value));
     topLabels += `<text class="wf-label-top" x="${(x+barW/2).toFixed(1)}" y="${labelY.toFixed(1)}" text-anchor="middle" font-size="9.5" fill="${seg.color}" font-weight="600">${valTxt}</text>`;
-
-    // Bottom axis label
     botLabels += `<text class="wf-label-bot" x="${(x+barW/2).toFixed(1)}" y="${(H-padB+12).toFixed(1)}" text-anchor="middle" font-size="10" fill="var(--muted)">${seg.label}</text>`;
-
-    // Gain/loss arrow marker
     if(seg.type==='gain'||seg.type==='loss'){
       const arrow = seg.type==='gain'?'▲':'▼';
       const arrY  = yTop - 18;
@@ -629,37 +557,22 @@ function renderWaterfall() {
   });
 
   const svgHTML = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block">
-    ${gridLines}
-    ${zeroLine}
-    ${connectors}
-    ${bars}
-    ${topLabels}
-    ${botLabels}
-    <!-- X-axis line -->
+    ${gridLines}${zeroLine}${connectors}${bars}${topLabels}${botLabels}
     <line class="wf-axis-line" x1="${padL}" x2="${W-padR}" y1="${(H-padB).toFixed(1)}" y2="${(H-padB).toFixed(1)}"/>
   </svg>`;
 
   document.getElementById('wf-svg-wrap').innerHTML = svgHTML;
-
-  // Store segments for tooltip
   window._wfSegments = segments;
   window._wfTotal = totalVal;
 
-  // ── Breakdown table ───────────────────────────────────────────
   document.getElementById('wf-breakdown').innerHTML = `<div class="wf-breakdown-card">`+
     segments.map(seg => {
       const pct = totalVal>0?(Math.abs(seg.value)/totalVal*100).toFixed(1):0;
       const sign = seg.type==='loss'?'−':'';
       const amtCls = seg.type==='gain'?'td-up':seg.type==='loss'?'td-dn':'td-gold';
-      return `<div class="wf-bk-row">
-        <div class="wf-bk-dot" style="background:${seg.color}"></div>
-        <div class="wf-bk-name">${seg.label}</div>
-        <div class="wf-bk-amt ${amtCls}">${sign}${fmtL(Math.abs(seg.value))}</div>
-        <div class="wf-bk-pct">${pct}%</div>
-      </div>`;
+      return `<div class="wf-bk-row"><div class="wf-bk-dot" style="background:${seg.color}"></div><div class="wf-bk-name">${seg.label}</div><div class="wf-bk-amt ${amtCls}">${sign}${fmtL(Math.abs(seg.value))}</div><div class="wf-bk-pct">${pct}%</div></div>`;
     }).join('') + `</div>`;
 
-  // ── Composition insight ───────────────────────────────────────
   const gainTotal = (mfGain>=0?mfGain:0) + (stGain>=0?stGain:0);
   const lossTotal = (mfGain<0?Math.abs(mfGain):0) + (stGain<0?Math.abs(stGain):0);
   const gainPct   = totalVal>0?(gainTotal/totalVal*100).toFixed(1):0;
@@ -682,7 +595,6 @@ function renderWaterfall() {
     </div>`).join('') || '<div style="color:var(--muted);font-size:11px;padding:10px">Upload your Excel files to see composition analysis.</div>';
 }
 
-// ── Waterfall tooltip helpers ─────────────────────────────────
 function wfShowTip(e, idx) {
   const seg = window._wfSegments && window._wfSegments[idx];
   const total = window._wfTotal || 1;
@@ -710,25 +622,20 @@ function wfHideTip(){
   if(tt) tt.style.display='none';
 }
 
-// ── Portfolio Action Signal ───────────────────────────────────
+// ── Portfolio Action Signal (unchanged from original) ─────────
 function renderSignal() {
   const k = DATA.kpis;
   const today = new Date();
   const todayDay = today.getDate();
-  const todayMonth = today.getMonth(); // 0-indexed
+  const todayMonth = today.getMonth();
   const todayYear = today.getFullYear();
   const hasData = DATA.funds.length > 0 || DATA.stocks.length > 0;
 
-  // ── 1. Compute signals ────────────────────────────────────────
   const signals = [];
   let urgentCount = 0, watchCount = 0, goodCount = 0;
 
-  // ── SIP timing signal ─────────────────────────────────────────
-  // Detect most common SIP day from lot dates
   const sipDays = [];
-  DATA.mfLots && DATA.mfLots.forEach(lot => {
-    if(lot.date) sipDays.push(new Date(lot.date).getDate());
-  });
+  DATA.mfLots && DATA.mfLots.forEach(lot => { if(lot.date) sipDays.push(new Date(lot.date).getDate()); });
   const sipDayFreq = {};
   sipDays.forEach(d => sipDayFreq[d] = (sipDayFreq[d]||0)+1);
   const topSIPDay = Object.entries(sipDayFreq).sort((a,b)=>b[1]-a[1])[0];
@@ -737,7 +644,7 @@ function renderSignal() {
 
   if(sipDay !== null) {
     if(daysToSIP <= 0) {
-      signals.push({type:'urgent', icon:'📅', tag:'urgent', title:'SIP Due Today!', body:`Your usual SIP day is the ${sipDay}${ordinal(sipDay)}. Time to execute your monthly investment.`, metric: hasData ? `₹${(k.mfInvested / Math.max(sipDays.length/Math.max(1,new Set(DATA.mfLots&&DATA.mfLots.map(l=>new Date(l.date).getMonth()+'-'+new Date(l.date).getFullYear())||[]).size||1),1)).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,',')} est. this month`:'Check your SIP amount', metricClass:'urgent'});
+      signals.push({type:'urgent', icon:'📅', tag:'urgent', title:'SIP Due Today!', body:`Your usual SIP day is the ${sipDay}${ordinal(sipDay)}. Time to execute your monthly investment.`, metric:'Check your SIP amount', metricClass:'urgent'});
       urgentCount++;
     } else if(daysToSIP <= 3) {
       signals.push({type:'watch', icon:'⏰', tag:'watch', title:`SIP in ${Math.round(daysToSIP)} days`, body:`Your SIP is due on the ${sipDay}${ordinal(sipDay)}. Keep funds ready in your bank account.`, metric:`${Math.round(daysToSIP)} day${daysToSIP>1?'s':''} away`, metricClass:'watch'});
@@ -748,104 +655,82 @@ function renderSignal() {
     }
   }
 
-  // ── FY-end tax signal (Jan–Mar) ───────────────────────────────
-  const month1 = todayMonth + 1; // 1-indexed
+  const month1 = todayMonth + 1;
   if(month1 >= 1 && month1 <= 3) {
     const fyEnd = new Date(todayYear, 2, 31);
     const daysToFY = Math.ceil((fyEnd - today) / 86400000);
-    const stcgLosses = DATA.stocks.filter(s => {
-      const held = s.holdDays || 0;
-      return held < 365 && s.Gain < 0;
-    });
+    const stcgLosses = DATA.stocks.filter(s => { const held = s.holdDays || 0; return held < 365 && s.Gain < 0; });
     const totalHarvestable = stcgLosses.reduce((a,s)=>a+Math.abs(s.Gain||0),0);
     if(totalHarvestable > 0) {
-      signals.push({type:'urgent', icon:'🧾', tag:'urgent', title:'Tax Harvesting Window Open', body:`FY ends in ${daysToFY} days. You have STCG losses that can offset gains before March 31. Book losses, wait 31 days, rebuy.`, metric:`${fmtL(totalHarvestable)} harvestable`, metricClass:'urgent'});
+      signals.push({type:'urgent', icon:'🧾', tag:'urgent', title:'Tax Harvesting Window Open', body:`FY ends in ${daysToFY} days. You have STCG losses that can offset gains before March 31.`, metric:`${fmtL(totalHarvestable)} harvestable`, metricClass:'urgent'});
       urgentCount++;
     } else {
-      signals.push({type:'watch', icon:'📆', tag:'watch', title:`FY ends in ${daysToFY} days`, body:`March 31 deadline approaching. Review your LTCG gains — ₹1.25L is tax-free. Consider booking profits up to the exemption limit.`, metric:`${daysToFY} days to FY end`, metricClass:'watch'});
+      signals.push({type:'watch', icon:'📆', tag:'watch', title:`FY ends in ${daysToFY} days`, body:`March 31 deadline approaching. Review your LTCG gains — ₹1.25L is tax-free.`, metric:`${daysToFY} days to FY end`, metricClass:'watch'});
       watchCount++;
     }
   }
 
-  // ── Deep loss signal ──────────────────────────────────────────
   const deepLosers = DATA.stocks.filter(s => s.RetPct < -25);
   if(deepLosers.length > 0) {
     const worst = [...deepLosers].sort((a,b)=>a.RetPct-b.RetPct)[0];
-    signals.push({type:'urgent', icon:'🔴', tag:'urgent', title:`${deepLosers.length} stock${deepLosers.length>1?'s':''} down >25%`, body:`${worst.name} is your worst performer at ${fmtP(worst.RetPct)}. Deep losses rarely recover without a clear catalyst. Review your thesis.`, metric:`${fmtP(worst.RetPct)} worst position`, metricClass:'urgent'});
+    signals.push({type:'urgent', icon:'🔴', tag:'urgent', title:`${deepLosers.length} stock${deepLosers.length>1?'s':''} down >25%`, body:`${worst.name} is your worst performer at ${fmtP(worst.RetPct)}. Deep losses rarely recover without a clear catalyst.`, metric:`${fmtP(worst.RetPct)} worst position`, metricClass:'urgent'});
     urgentCount++;
   }
 
-  // ── MF laggards (negative return) ────────────────────────────
   const mfLosers = DATA.funds.filter(f => f.Gain < 0);
   if(mfLosers.length > 0) {
     const worstMF = [...mfLosers].sort((a,b)=>a.RetPct-b.RetPct)[0];
-    signals.push({type:'watch', icon:'📉', tag:'watch', title:`${mfLosers.length} MF${mfLosers.length>1?'s':''} in the red`, body:`${worstMF.name} is your worst MF at ${fmtP(worstMF.RetPct)}. Check if it's category underperformance or a specific fund issue.`, metric:`${fmtP(worstMF.RetPct)} worst fund`, metricClass:'watch'});
+    signals.push({type:'watch', icon:'📉', tag:'watch', title:`${mfLosers.length} MF${mfLosers.length>1?'s':''} in the red`, body:`${worstMF.name} is your worst MF at ${fmtP(worstMF.RetPct)}.`, metric:`${fmtP(worstMF.RetPct)} worst fund`, metricClass:'watch'});
     watchCount++;
   }
 
-  // ── Portfolio concentration risk ──────────────────────────────
   const stTotal = DATA.stocks.reduce((a,s)=>a+s.Invested,0)||1;
   const concStocks = DATA.stocks.filter(s => s.Invested/stTotal > 0.20);
   if(concStocks.length > 0) {
-    signals.push({type:'watch', icon:'⚖️', tag:'watch', title:'High concentration in single stock', body:`${concStocks.map(s=>esc(s.name)).join(', ')} each represent >20% of your stock portfolio. Consider trimming on strength.`, metric:`${concStocks.length} over-weight position${concStocks.length>1?'s':''}`, metricClass:'watch'});
+    signals.push({type:'watch', icon:'⚖️', tag:'watch', title:'High concentration in single stock', body:`${concStocks.map(s=>esc(s.name)).join(', ')} each represent >20% of your stock portfolio.`, metric:`${concStocks.length} over-weight position${concStocks.length>1?'s':''}`, metricClass:'watch'});
     watchCount++;
   }
 
-  // ── Stale portfolio check (no new investment > 60 days) ───────
   const allLotDates = [...(DATA.mfLots||[]), ...(DATA.stLots||[])].map(l => new Date(l.date)).filter(d=>!isNaN(d));
   if(allLotDates.length > 0) {
     const latestInv = new Date(Math.max(...allLotDates));
     const staleDays = Math.floor((today - latestInv)/86400000);
     if(staleDays > 60) {
-      signals.push({type:'watch', icon:'😴', tag:'watch', title:'No new investment in 60+ days', body:`Last investment was ${staleDays} days ago on ${fmtDate(latestInv)}. If this was intentional, great. If not, consider resuming your SIP.`, metric:`${staleDays} days since last buy`, metricClass:'watch'});
+      signals.push({type:'watch', icon:'😴', tag:'watch', title:'No new investment in 60+ days', body:`Last investment was ${staleDays} days ago on ${fmtDate(latestInv)}.`, metric:`${staleDays} days since last buy`, metricClass:'watch'});
       watchCount++;
     }
   }
 
-  // ── Averaging opportunities ───────────────────────────────────
   const avgCandidates = DATA.funds.filter(f => f.RetPct < -5 && f.RetPct > -25 && f.CAGR > 0);
   if(avgCandidates.length > 0) {
-    signals.push({type:'info', icon:'💡', tag:'info', title:`${avgCandidates.length} MF averaging opportunit${avgCandidates.length>1?'ies':'y'}`, body:`${avgCandidates[0].name}${avgCandidates.length>1?' and others':''} are slightly underwater but have positive long-term CAGR. A lumpsum addition here lowers your average cost.`, metric:`${fmtP(avgCandidates[0].RetPct)} on ${avgCandidates[0].name.split(' ')[0]}`, metricClass:'info'});
+    signals.push({type:'info', icon:'💡', tag:'info', title:`${avgCandidates.length} MF averaging opportunit${avgCandidates.length>1?'ies':'y'}`, body:`${avgCandidates[0].name}${avgCandidates.length>1?' and others':''} are slightly underwater but have positive long-term CAGR.`, metric:`${fmtP(avgCandidates[0].RetPct)} on ${avgCandidates[0].name.split(' ')[0]}`, metricClass:'info'});
   }
 
-  // ── Strong performers ─────────────────────────────────────────
   const stars = [...DATA.funds, ...DATA.stocks].filter(h => (h.RetPct||0) > 30);
   if(stars.length > 0) {
     const best = [...stars].sort((a,b)=>b.RetPct-a.RetPct)[0];
-    signals.push({type:'good', icon:'🌟', tag:'good', title:`${stars.length} holding${stars.length>1?'s':''} up >30%`, body:`${best.name} is your star at ${fmtP(best.RetPct)}. Consider if it's become overweight. Partial profit-booking on strength is valid.`, metric:`${fmtP(best.RetPct)} top performer`, metricClass:'good'});
+    signals.push({type:'good', icon:'🌟', tag:'good', title:`${stars.length} holding${stars.length>1?'s':''} up >30%`, body:`${best.name} is your star at ${fmtP(best.RetPct)}.`, metric:`${fmtP(best.RetPct)} top performer`, metricClass:'good'});
     goodCount++;
   }
 
-  // ── All-green signal ──────────────────────────────────────────
   if(hasData && deepLosers.length === 0 && mfLosers.length === 0 && concStocks.length === 0) {
-    signals.push({type:'good', icon:'🏆', tag:'good', title:'Portfolio is clean & healthy', body:'No deep losses, no concentration risk, no MF underperformers. Your portfolio is in good shape — stay the course.', metric:'All checks passed', metricClass:'good'});
+    signals.push({type:'good', icon:'🏆', tag:'good', title:'Portfolio is clean & healthy', body:'No deep losses, no concentration risk, no MF underperformers.', metric:'All checks passed', metricClass:'good'});
     goodCount++;
   }
 
-  // ── No data fallback ──────────────────────────────────────────
   if(!hasData) {
-    signals.push({type:'info', icon:'📂', tag:'info', title:'Upload your Excel files', body:'Go to Import Excel to load your MF and Stocks data. The signal engine will then analyse your actual portfolio.', metric:'No data yet', metricClass:'info'});
+    signals.push({type:'info', icon:'📂', tag:'info', title:'Upload your Excel files', body:'Go to Import Excel to load your MF and Stocks data.', metric:'No data yet', metricClass:'info'});
   }
 
-  // ── 2. Score (0–100) ──────────────────────────────────────────
   let score = 100;
   score -= urgentCount * 20;
   score -= watchCount * 8;
   score = Math.max(0, Math.min(100, score));
   const scoreClass = score >= 70 ? 'green' : score >= 40 ? 'amber' : 'red';
   const scoreLabel = score >= 70 ? '✦ STAY THE COURSE' : score >= 40 ? '⚠ ATTENTION NEEDED' : '🔴 ACTION REQUIRED';
-  const scoreHeadline = score >= 70
-    ? (urgentCount === 0 ? 'Your portfolio needs nothing from you today.' : 'Minor items to review — no major action needed.')
-    : score >= 40
-    ? `${urgentCount + watchCount} things need your attention this week.`
-    : `${urgentCount} urgent issue${urgentCount!==1?'s':''} require immediate attention.`;
-  const scoreSubline = score >= 70
-    ? `${goodCount} positive signal${goodCount!==1?'s':''} detected. Keep your SIPs running and resist the urge to tinker.`
-    : score >= 40
-    ? `${watchCount} item${watchCount!==1?'s':''} to monitor, ${urgentCount} urgent. Review the action cards below.`
-    : `Deep losses or high risk concentration detected. Review the urgent cards below before your next investment.`;
+  const scoreHeadline = score >= 70 ? (urgentCount === 0 ? 'Your portfolio needs nothing from you today.' : 'Minor items to review — no major action needed.') : score >= 40 ? `${urgentCount + watchCount} things need your attention this week.` : `${urgentCount} urgent issue${urgentCount!==1?'s':''} require immediate attention.`;
+  const scoreSubline = score >= 70 ? `${goodCount} positive signal${goodCount!==1?'s':''} detected.` : score >= 40 ? `${watchCount} item${watchCount!==1?'s':''} to monitor, ${urgentCount} urgent.` : `Deep losses or high risk concentration detected.`;
 
-  // ── 3. Render hero ────────────────────────────────────────────
   const hero = document.getElementById('pas-hero');
   hero.className = `pas-hero ${scoreClass}`;
   document.getElementById('pas-badge').className = `pas-score-badge ${scoreClass}`;
@@ -857,84 +742,57 @@ function renderSignal() {
   document.getElementById('pas-headline').textContent = scoreHeadline;
   document.getElementById('pas-subline').textContent = scoreSubline;
 
-  // ── 4. Mood strip ─────────────────────────────────────────────
   const fyQ = month1>=4&&month1<=6?'Q1':month1>=7&&month1<=9?'Q2':month1>=10&&month1<=12?'Q3':'Q4';
   const seasonMap = {1:'Tax Season',2:'Tax Season',3:'FY-End Rush',4:'New FY',5:'Early Bull',6:'Monsoon Dip',7:'Earnings Season',8:'Earnings Season',9:'Sept Effect',10:'Festive Rally',11:'Festive Rally',12:'Year-End'};
   const moodItems = [
     {icon:'📅', label:'Today', val: today.toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'})},
-    {icon:'🗓', label:'FY Quarter', val: fyQ + ' FY' + String(todayYear).slice(2) + (month1>=1&&month1<=3?'-'+String(todayYear).slice(2):'-'+String(todayYear+1).slice(2))},
+    {icon:'🗓', label:'FY Quarter', val: fyQ},
     {icon:'🌦', label:'Market Season', val: seasonMap[month1]||'Active'},
     {icon:'📊', label:'Holdings tracked', val: `${DATA.funds.length} MFs · ${DATA.stocks.length} Stocks`},
     {icon:'💰', label:'Portfolio value', val: fmtL(k.totalValue||0)},
   ];
-  document.getElementById('pas-mood-strip').innerHTML = moodItems.map(m=>`
-    <div class="pas-mood-item">
-      <div class="pas-mood-icon">${m.icon}</div>
-      <div><div class="pas-mood-label">${m.label}</div><div class="pas-mood-val">${m.val}</div></div>
-    </div>`).join('');
+  document.getElementById('pas-mood-strip').innerHTML = moodItems.map(m=>`<div class="pas-mood-item"><div class="pas-mood-icon">${m.icon}</div><div><div class="pas-mood-label">${m.label}</div><div class="pas-mood-val">${m.val}</div></div></div>`).join('');
 
-  // ── 5. Calendar strip (next 7 days) ──────────────────────────
   let calHTML = '';
   for(let i=0;i<7;i++) {
     const d = new Date(today); d.setDate(today.getDate()+i);
     const dd = d.getDate(), dm = d.getMonth()+1;
-    const isToday = i===0;
-    const isSIPDay = sipDay !== null && dd === sipDay;
-    const isFYEnd = dm===3 && dd===31;
-    const isWeekend = d.getDay()===0||d.getDay()===6;
-    let cls = 'pas-cal-day';
-    if(isToday) cls += ' today';
-    else if(isFYEnd) cls += ' fy-alert';
-    else if(isSIPDay) cls += ' has-sip';
+    const isToday = i===0, isSIPDay = sipDay !== null && dd === sipDay, isFYEnd = dm===3 && dd===31, isWeekend = d.getDay()===0||d.getDay()===6;
+    let cls2 = 'pas-cal-day';
+    if(isToday) cls2 += ' today'; else if(isFYEnd) cls2 += ' fy-alert'; else if(isSIPDay) cls2 += ' has-sip';
     let dotColor = isWeekend?'var(--muted2)':isSIPDay?'var(--blue)':isFYEnd?'var(--red)':'transparent';
     let dayNote = isToday?'Today':isWeekend?'Weekend':isSIPDay?'SIP Day':isFYEnd?'FY End':d.toLocaleDateString('en-IN',{weekday:'short'});
-    calHTML += `<div class="${cls}">
-      <div class="pas-cal-day-num" style="color:${isToday?'var(--gold)':isSIPDay?'var(--blue)':isFYEnd?'var(--red)':'var(--text)'}">${dd}</div>
-      <div class="pas-cal-day-label">${dayNote}</div>
-      <div class="pas-cal-day-dot" style="background:${dotColor}"></div>
-    </div>`;
+    calHTML += `<div class="${cls2}"><div class="pas-cal-day-num" style="color:${isToday?'var(--gold)':isSIPDay?'var(--blue)':isFYEnd?'var(--red)':'var(--text)'}">${dd}</div><div class="pas-cal-day-label">${dayNote}</div><div class="pas-cal-day-dot" style="background:${dotColor}"></div></div>`;
   }
   document.getElementById('pas-calendar').innerHTML = calHTML;
 
-  // ── 6. Action cards ───────────────────────────────────────────
-  const urgentFirst = [...signals].sort((a,b)=>{
-    const o={urgent:0,watch:1,good:2,info:3};
-    return (o[a.type]||3)-(o[b.type]||3);
-  });
-  document.getElementById('pas-action-count').textContent =
-    `${urgentCount} urgent · ${watchCount} watch · ${goodCount} good`;
+  const urgentFirst = [...signals].sort((a,b)=>{ const o={urgent:0,watch:1,good:2,info:3}; return (o[a.type]||3)-(o[b.type]||3); });
+  document.getElementById('pas-action-count').textContent = `${urgentCount} urgent · ${watchCount} watch · ${goodCount} good`;
   document.getElementById('pas-action-grid').innerHTML = urgentFirst.map(s=>`
     <div class="pas-action-card ${s.type}">
-      <div class="pas-card-header">
-        <span class="pas-card-icon">${s.icon}</span>
-        <span class="pas-card-tag ${s.tag}">${s.tag.toUpperCase()}</span>
-      </div>
+      <div class="pas-card-header"><span class="pas-card-icon">${s.icon}</span><span class="pas-card-tag ${s.tag}">${s.tag.toUpperCase()}</span></div>
       <div class="pas-card-title">${s.title}</div>
       <div class="pas-card-body">${s.body}</div>
       <div class="pas-card-metric ${s.metricClass}">${s.metric}</div>
     </div>`).join('');
 
-  // ── 7. Weekly checklist (persisted in localStorage) ──────────
   const weekKey = 'pas-checklist-week-' + getWeekNumber(today);
   let checked = {};
   try { checked = JSON.parse(localStorage.getItem(weekKey)||'{}'); } catch(e){}
   const checklist = [
-    {id:'sip',   title:'Confirm SIPs executed this month',       desc:'Check your bank statement or broker app to confirm all SIP debits went through successfully.'},
-    {id:'news',  title:'Skim portfolio-related news (10 min)',   desc:'Check if any of your holdings have major news: results, management change, order wins, regulatory action.'},
-    {id:'drift', title:'Check portfolio allocation drift',       desc:'Open the Rebalancer tab and see if any asset class has drifted more than 5% from your target.'},
-    {id:'loss',  title:'Review your deepest loss positions',     desc:'Look at your worst performers. Are you holding for a reason, or out of hope? Be honest with yourself.'},
-    {id:'goal',  title:'Check goal progress',                    desc:'Open Goal Planner and see if your corpus is on track. Adjust SIP if you are behind by more than 10%.'},
-    {id:'tax',   title:'Note any LTCG approaching 1-year mark',  desc:'Holdings near the 1-year mark cross from STCG (20%) to LTCG (12.5%) tax. Plan exits accordingly.'},
-    {id:'cash',  title:'Check if you have idle cash to deploy',  desc:'If any SIP was missed or you received a bonus, is there capital sitting idle? Deploy into underweight buckets.'},
+    {id:'sip',   title:'Confirm SIPs executed this month',       desc:'Check your bank statement or broker app to confirm all SIP debits went through.'},
+    {id:'news',  title:'Skim portfolio-related news (10 min)',   desc:'Check if any holdings have major news: results, management change, order wins.'},
+    {id:'drift', title:'Check portfolio allocation drift',       desc:'Open the Rebalancer tab and see if any asset class has drifted more than 5%.'},
+    {id:'loss',  title:'Review your deepest loss positions',     desc:'Look at your worst performers. Are you holding for a reason, or out of hope?'},
+    {id:'goal',  title:'Check goal progress',                    desc:'Open Goal Planner and see if your corpus is on track.'},
+    {id:'tax',   title:'Note any LTCG approaching 1-year mark',  desc:'Holdings near the 1-year mark cross from STCG (20%) to LTCG (12.5%) tax.'},
+    {id:'cash',  title:'Check if you have idle cash to deploy',  desc:'If any SIP was missed or you received a bonus, deploy into underweight buckets.'},
   ];
   document.getElementById('pas-checklist').innerHTML = checklist.map(item=>{
     const done = !!checked[item.id];
     return `<div class="pas-check-row ${done?'checked':''}" onclick="togglePasCheck('${weekKey}','${item.id}',this)">
       <div class="pas-check-box ${done?'done':''}">${done?'<span style="color:#fff;font-size:11px">✓</span>':''}</div>
-      <div class="pas-check-text">
-        <div class="pas-check-title">${item.title}</div>
-        <div class="pas-check-desc">${item.desc}</div>
-      </div>
+      <div class="pas-check-text"><div class="pas-check-title">${item.title}</div><div class="pas-check-desc">${item.desc}</div></div>
     </div>`;
   }).join('');
 }
@@ -945,15 +803,8 @@ function togglePasCheck(weekKey, id, row) {
   checked[id] = !checked[id];
   localStorage.setItem(weekKey, JSON.stringify(checked));
   const box = row.querySelector('.pas-check-box');
-  if(checked[id]) {
-    row.classList.add('checked');
-    box.classList.add('done');
-    box.innerHTML='<span style="color:#fff;font-size:11px">✓</span>';
-  } else {
-    row.classList.remove('checked');
-    box.classList.remove('done');
-    box.innerHTML='';
-  }
+  if(checked[id]) { row.classList.add('checked'); box.classList.add('done'); box.innerHTML='<span style="color:#fff;font-size:11px">✓</span>'; }
+  else { row.classList.remove('checked'); box.classList.remove('done'); box.innerHTML=''; }
 }
 
 function ordinal(n) {
@@ -965,4 +816,3 @@ function getWeekNumber(d) {
   const onejan = new Date(d.getFullYear(),0,1);
   return Math.ceil((((d-onejan)/86400000)+onejan.getDay()+1)/7);
 }
-
