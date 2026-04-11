@@ -16,8 +16,6 @@ function renderStocks() {
     {l:'Total Quantity', v:fmtN(totalQty),      s:'Shares held',     sc:'',   a:'#7d8590'},
   ].map(c=>`<div class="kpi-card" style="--accent:${c.a}"><div class="kpi-label">${c.l}</div><div class="kpi-value">${c.v}</div><div class="kpi-sub ${c.sc}">${c.s}</div></div>`).join('');
 
-  // FIX: Use data-sector attributes instead of encodeURIComponent in onclick strings.
-  // Sectors like "Energy/PSU", "Metals/Mining" contain "/" which caused double-encoding bugs.
   const secs=['All',...new Set(DATA.stocks.map(s=>s.Sector))];
   const filterContainer = document.getElementById('st-filters');
   filterContainer.innerHTML = '<span class="ctrl-label">Sector:</span>';
@@ -25,7 +23,7 @@ function renderStocks() {
     const btn = document.createElement('button');
     btn.className = 'chip' + (stFil === sec ? ' on' : '');
     btn.textContent = sec;
-    btn.dataset.sector = sec;  // store raw value, no encoding needed
+    btn.dataset.sector = sec;
     btn.addEventListener('click', () => setStFil(sec));
     filterContainer.appendChild(btn);
   });
@@ -37,10 +35,28 @@ function renderStocks() {
   stocks=[...stocks].sort((a,b)=>stAsc?a[stSort]-b[stSort]:b[stSort]-a[stSort]);
   const maxR=Math.max(...DATA.stocks.map(s=>Math.abs(s.RetPct)),1);
 
-  if(!stocks.length){document.getElementById('st-tbody').innerHTML='<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:30px">Upload your Stocks Excel file to see data</td></tr>';}
+  if(!stocks.length){document.getElementById('st-tbody').innerHTML='<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:30px">Upload your Stocks Excel file to see data</td></tr>';}
   else {
     document.getElementById('st-tbody').innerHTML=stocks.map((s,i)=>{
       const hold=fmtHoldPeriod(s.holdDays);
+
+      // Weighted average buy price across all lots
+      const lots = s.rawLots || [];
+      let wavgPrice = 0;
+      if (lots.length) {
+        const totalQtyLots = lots.reduce((a,l) => a + (l.qty || 0), 0);
+        const totalInvLots = lots.reduce((a,l) => a + (l.inv || 0), 0);
+        if (totalQtyLots > 0) {
+          wavgPrice = totalInvLots / totalQtyLots;
+        } else {
+          const priced = lots.filter(l => l.invPrice > 0);
+          if (priced.length) wavgPrice = priced.reduce((a,l) => a + l.invPrice, 0) / priced.length;
+        }
+      }
+      // Fall back to stock-level invPrice if lots missing
+      if (!wavgPrice && s.Invested > 0 && s.Qty > 0) wavgPrice = s.Invested / s.Qty;
+      const priceDisplay = wavgPrice > 0 ? '₹' + wavgPrice.toFixed(2) : '—';
+
       return `<tr style="cursor:pointer" onclick="toggleDrill('st',${i})">
       <td style="font-weight:500">
         <span class="expand-btn" id="drill-btn-st-${i}">▶</span> ${esc(s.name)}
@@ -48,7 +64,8 @@ function renderStocks() {
       <td><span class="pill" style="background:${gc(s.Sector,SEC_CLR)}22;color:${gc(s.Sector,SEC_CLR)};border:1px solid ${gc(s.Sector,SEC_CLR)}44">${esc(s.Sector)}</span></td>
       <td>${riskBadge(s)}</td>
       <td class="td-gold">${fmtN(s.Qty)}</td>
-      <td>₹${s.Latest_Price>0?s.Latest_Price.toLocaleString('en-IN'):'—'}</td>
+      <td class="td-muted">${priceDisplay}</td>
+      <td>₹${s.Latest_Price>0?s.Latest_Price.toFixed(2):'—'}</td>
       <td class="td-muted">${fmtL(s.Invested)}</td>
       <td style="font-weight:500">${fmtL(s.Current)}</td>
       <td class="${cls(s.Gain)}">${fmtL(s.Gain)}</td>
@@ -57,7 +74,7 @@ function renderStocks() {
       <td class="td-muted" style="font-size:10px">${hold}</td>
     </tr>
     <tr class="drill-row" id="drill-st-${i}" style="display:none">
-      <td colspan="11"><div class="drill-inner">${buildSTDrillHTML(s)}</div></td>
+      <td colspan="12"><div class="drill-inner">${buildSTDrillHTML(s)}</div></td>
     </tr>`;
     }).join('');
   }
@@ -83,7 +100,6 @@ function renderStocks() {
   document.getElementById('recommendations').innerHTML=recs.map(([c,tag,text])=>`<div class="rec-row"><span class="rec-tag ${c}">${tag}</span><span class="rec-text">${text}</span></div>`).join('');
 }
 
-// FIX: setStFil now receives the raw string directly (called from event listener, no encoding needed)
 function sortST(k){if(stSort===k)stAsc=!stAsc;else{stSort=k;stAsc=false;}renderStocks();}
 function setStFil(v){ stFil = v; renderStocks(); }
 
@@ -151,9 +167,9 @@ function renderTaxHarvesting(){
         <td>${fmtDate(c.date)}</td>
         <td>${c.qty>0?fmtN(c.qty):'—'}</td>
         <td>${c.invPrice>0?'₹'+c.invPrice.toFixed(2):'—'}</td>
-        <td>${c.cmp>0?'₹'+c.cmp.toLocaleString('en-IN'):'—'}</td>
+        <td>${c.cmp>0?'₹'+c.cmp.toFixed(2):'—'}</td>
         <td class="td-dn">${fmtL(c.gain)}</td>
-        <td class="td-muted">${fmtHoldPeriod(c.days)}</td>
+        <td>${fmtHoldPeriod(c.days)}</td>
         <td>${c.isLTCG?'<span class="ltcg-badge">LTCG</span>':'<span class="stcg-badge">STCG</span>'}</td>
         <td><span class="harvest-tag">HARVEST</span></td>
       </tr>`).join('')}

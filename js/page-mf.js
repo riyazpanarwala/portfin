@@ -24,15 +24,34 @@ function renderMF() {
   funds=[...funds].sort((a,b)=>mfAsc?a[mfSort]-b[mfSort]:b[mfSort]-a[mfSort]);
   const maxR=Math.max(...DATA.funds.map(f=>Math.abs(f.RetPct)),1);
 
-  if(!funds.length){document.getElementById('mf-tbody').innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:30px">Upload your MF Excel file to see fund data</td></tr>';return;}
+  if(!funds.length){document.getElementById('mf-tbody').innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:30px">Upload your MF Excel file to see fund data</td></tr>';return;}
+
   document.getElementById('mf-tbody').innerHTML=funds.map((f,i)=>{
     const hold=fmtHoldPeriod(f.holdDays);
+
+    // Weighted average buy NAV across all lots
+    const lots = f.rawLots || [];
+    let wavgNav = 0;
+    if (lots.length) {
+      const totalUnits = lots.reduce((a,l) => a + (l.qty || 0), 0);
+      const totalAmt   = lots.reduce((a,l) => a + (l.amt || 0), 0);
+      // Prefer units-weighted NAV; fall back to simple avg invPrice
+      if (totalUnits > 0) {
+        wavgNav = totalAmt / totalUnits;
+      } else {
+        const priced = lots.filter(l => l.invPrice > 0);
+        if (priced.length) wavgNav = priced.reduce((a,l) => a + l.invPrice, 0) / priced.length;
+      }
+    }
+    const navDisplay = wavgNav > 0 ? '₹' + wavgNav.toFixed(2) : '—';
+
     return `<tr style="cursor:pointer" onclick="toggleDrill('mf',${i})">
     <td style="font-weight:500;max-width:180px;overflow:hidden;text-overflow:ellipsis">
       <span class="expand-btn" id="drill-btn-mf-${i}">▶</span> ${esc(f.name)}
     </td>
     <td><span class="pill" style="background:${CAT_CLR[f.Category]||'#444'}22;color:${CAT_CLR[f.Category]||'#888'};border:1px solid ${CAT_CLR[f.Category]||'#444'}44">${esc(f.Category)}</span></td>
     <td class="td-muted">${f.Lots}</td>
+    <td class="td-muted">${navDisplay}</td>
     <td class="td-muted">${fmtL(f.Invested)}</td>
     <td style="font-weight:500">${fmtL(f.Current)}</td>
     <td class="${cls(f.Gain)}">${fmtL(f.Gain)}</td>
@@ -41,7 +60,7 @@ function renderMF() {
     <td class="td-muted" style="font-size:10px">${hold}</td>
   </tr>
   <tr class="drill-row" id="drill-mf-${i}" style="display:none">
-    <td colspan="9"><div class="drill-inner">${buildMFDrillHTML(f)}</div></td>
+    <td colspan="10"><div class="drill-inner">${buildMFDrillHTML(f)}</div></td>
   </tr>`;
   }).join('');
 
@@ -50,4 +69,3 @@ function renderMF() {
 }
 function sortMF(k){if(mfSort===k)mfAsc=!mfAsc;else{mfSort=k;mfAsc=false;}renderMF();}
 function setMfFil(v){mfFil=v;renderMF();}
-
