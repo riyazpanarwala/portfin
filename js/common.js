@@ -15,7 +15,6 @@ const DATA = {
 };
 
 // ── Formatters ────────────────────────────────────────────────
-// fmtL: Indian lakh/crore — 2 decimal places throughout
 const fmtL = n => {
   if (n == null || isNaN(n)) return '—';
   const a = Math.abs(n), s = n < 0 ? '−' : '';
@@ -24,15 +23,9 @@ const fmtL = n => {
   return s + '₹' + a.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
 };
 
-// fmtP: percentage always 2 decimal places
 const fmtP = n => (n == null || isNaN(n)) ? '—' : (n >= 0 ? '+' : '') + n.toFixed(2) + '%';
-
-// fmtN: whole-number quantities
 const fmtN = n => Math.round(n).toLocaleString('en-IN');
-
-// fmtPrice: rupee price with exactly 2 decimal places
 const fmtPrice = n => (n == null || isNaN(n) || n <= 0) ? '—' : '₹' + Number(n).toFixed(2);
-
 const cls   = n => n >= 0 ? 'td-up' : 'td-dn';
 const pSign = n => n >= 0 ? '+' : '';
 const esc   = s => String(s == null ? '' : s)
@@ -73,8 +66,12 @@ function fmtDate(d){ return d ? new Date(d).toLocaleDateString('en-IN',{day:'2-d
 function fmtMonthYear(d){ return d ? new Date(d).toLocaleDateString('en-IN',{month:'short',year:'numeric'}) : '—'; }
 
 // ── XIRR via Newton-Raphson ───────────────────────────────────
+// FIX: guard against zero-gain case to avoid false 10% result
 function calcXIRR(cashflows, dates) {
   if (!cashflows.length) return null;
+  // If net cashflow is ~zero the investment broke even; skip NR to avoid false result
+  const netFlow = cashflows.reduce((a, v) => a + v, 0);
+  if (Math.abs(netFlow) < 1) return 0;
   const base = dates[0];
   const t = dates.map(d => (d - base) / (365.25*24*3600*1000));
   let r = 0.1;
@@ -198,6 +195,7 @@ const LS_KEY = 'portfin-data-v1';
 const LS_SNAPSHOTS_KEY = 'portfin-snapshots-v1';
 const MAX_SNAPSHOTS = 24;
 
+// FIX: surface QuotaExceededError visibly instead of silently swallowing it
 function saveDataToStorage() {
   try {
     const payload = {
@@ -216,7 +214,21 @@ function saveDataToStorage() {
     };
     localStorage.setItem(LS_KEY, JSON.stringify(payload));
     return true;
-  } catch(e) { console.warn('PortFin: Could not save to localStorage', e); return false; }
+  } catch(e) {
+    console.warn('PortFin: Could not save to localStorage', e);
+    // FIX: show visible warning when storage quota is exceeded
+    if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+      const msgEl = document.getElementById('apply-msg');
+      if (msgEl) {
+        msgEl.style.background = 'var(--red-bg)';
+        msgEl.style.border = '1px solid var(--red-dim)';
+        msgEl.style.color = 'var(--red)';
+        msgEl.style.display = 'block';
+        msgEl.textContent = '⚠ Dashboard loaded but could not be saved — browser storage is full. Try clearing old data or using a different browser profile.';
+      }
+    }
+    return false;
+  }
 }
 
 function loadDataFromStorage() {
@@ -304,7 +316,6 @@ function buildMFDrillHTML(f) {
 
   const lots = [...f.rawLots].sort((a,b) => a.date - b.date);
 
-  // ── Fund-level XIRR ──────────────────────────────────────────
   let fundXirr = null;
   try {
     const cfAmounts = [], cfDates = [];
@@ -420,7 +431,7 @@ function buildMFDrillHTML(f) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// buildSTDrillHTML — lot table with XIRR (mirrors MF drill)
+// buildSTDrillHTML — lot table with XIRR
 // ══════════════════════════════════════════════════════════════
 function buildSTDrillHTML(s) {
   if (!s.rawLots || !s.rawLots.length)
@@ -429,14 +440,12 @@ function buildSTDrillHTML(s) {
   const lots = [...s.rawLots].sort((a,b) => a.date - b.date);
   const cmp  = s.Latest_Price || 0;
 
-  // ── Stock-level XIRR ─────────────────────────────────────────
   let stockXirr = null;
   try {
     const cfAmounts = [], cfDates = [];
     lots.forEach(l => {
       if (l.date && l.inv > 0) { cfAmounts.push(-l.inv); cfDates.push(new Date(l.date)); }
     });
-    // Terminal value: use CMP × total qty if available, else sum of current lot values
     const terminalValue = cmp > 0 && s.Qty > 0
       ? cmp * s.Qty
       : lots.reduce((a, l) => {
@@ -483,7 +492,6 @@ function buildSTDrillHTML(s) {
     const lotPct  = l.inv > 0 ? ((lotGain / l.inv) * 100).toFixed(2) : '0.00';
     const lotCls  = lotGain >= 0 ? 'td-up' : 'td-dn';
 
-    // Per-lot XIRR
     let lotXirr = null;
     try {
       if (l.date && l.inv > 0 && days > 7 && curVal > 0) {
@@ -513,7 +521,6 @@ function buildSTDrillHTML(s) {
     </tr>`;
   }).join('');
 
-  // Footer totals row
   const totalInv = lots.reduce((a,l) => a + (l.inv||0), 0);
   const totalCurVal = lots.reduce((a,l) => {
     const cv = cmp > 0 && l.qty > 0 ? cmp * l.qty : (l.cur || l.inv + (l.gain||0));

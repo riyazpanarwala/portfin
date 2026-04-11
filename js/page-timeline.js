@@ -1,14 +1,12 @@
 // ── page-timeline.js — Investment Timeline ──────────────────────────────────
 // NOTE: buildCombinedMonthly() lives in common.js (cached). Do NOT redefine here.
 
-// ── Investment Timeline ───────────────────────────────────────
-let tlYearFilter='All', chartCumInst=null;
+let tlYearFilter='All';
 
 function renderTimeline() {
   const allMonths = buildCombinedMonthly();
   const noData = !allMonths.length;
 
-  // ── KPI strip ──────────────────────────────────────────────
   const k = DATA.kpis;
   const totalLots = DATA.mfLots.length + DATA.stLots.length;
   const avgMonthly = allMonths.length ? Math.round(allMonths.reduce((a,x)=>a+x.v,0)/allMonths.length) : 0;
@@ -27,19 +25,15 @@ function renderTimeline() {
     {l:'Lowest Month',     v: minMonth?fmtL(minMonth.v):'—',              s: minMonth?fmtMonthLabel(minMonth.m):'—', a:'#7d8590'},
   ].map(c=>`<div class="kpi-card" style="--accent:${c.a}"><div class="kpi-label">${c.l}</div><div class="kpi-value">${c.v}</div><div class="kpi-sub">${c.s}</div></div>`).join('');
 
-  // ── Year filter chips ──────────────────────────────────────
   const allYears=['All',...years];
   document.getElementById('tl-year-filter').innerHTML=
     '<span class="ctrl-label">Year:</span>'+
     allYears.map(y=>`<button class="chip ${tlYearFilter===y?'on':''}" onclick="setTLYear('${y}')">${y}</button>`).join('');
 
-  // filter months
   const months = tlYearFilter==='All' ? allMonths : allMonths.filter(x=>x.m.startsWith(tlYearFilter));
 
-  // ── Heatmap ────────────────────────────────────────────────
   renderHeatmap(months, allMonths);
 
-  // ── Yearly bars ────────────────────────────────────────────
   const yearlyMap={};
   months.forEach(({m,v})=>{ const y=m.slice(0,4); yearlyMap[y]=(yearlyMap[y]||0)+v; });
   const yearlyArr=Object.entries(yearlyMap).sort((a,b)=>a[0].localeCompare(b[0]));
@@ -55,7 +49,6 @@ function renderTimeline() {
         </div>`).join('')
     : '<div style="color:var(--muted);font-size:11px">No data</div>';
 
-  // ── Monthly breakdown table (by selected year or last year) ─
   const tableYear = tlYearFilter!=='All' ? tlYearFilter : (years[years.length-1]||'');
   const MONTH_NAMES=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   document.getElementById('tl-month-select').innerHTML =
@@ -95,16 +88,14 @@ function renderTimeline() {
       </table>`
     : `<div style="color:var(--muted);font-size:11px">${tableYear?'No investments in '+tableYear:'Upload files to see breakdown'}</div>`;
 
-  // ── Cumulative invested chart (MF + Stocks combined) ────────
-  setTimeout(()=>{
-    const el=document.getElementById('chart-cumulative');
-    if(!el||!window.Chart) return;
-    if(chartCumInst) chartCumInst.destroy();
-    if(!allMonths.length){
-      el.parentElement.innerHTML='<div style="color:var(--muted);font-size:11px;padding:20px;text-align:center">Upload files to see cumulative chart</div>';
-      return;
+  // FIX: use scheduleChart() instead of raw setTimeout + manual chartCumInst variable
+  // so the chart is safely destroyed if the user switches pages before the delay fires
+  scheduleChart('chart-cumulative', 60, (el) => {
+    if (!allMonths.length) {
+      el.parentElement.innerHTML = '<div style="color:var(--muted);font-size:11px;padding:20px;text-align:center">Upload files to see cumulative chart</div>';
+      return null;
     }
-    // Build cumulative series — fill every month between first and last
+
     const first=allMonths[0].m, last=allMonths[allMonths.length-1].m;
     const monthMap={}; allMonths.forEach(({m,v})=>monthMap[m]=v);
     const labels=[], cumData=[], mfCumData=[], stCumData=[];
@@ -133,9 +124,8 @@ function renderTimeline() {
       fm++; if(fm>12){fm=1;fy++;}
     }
 
-    // Thin labels for readability
     const skip=Math.ceil(labels.length/18);
-    chartCumInst=new Chart(el,{
+    return new Chart(el, {
       type:'line',
       data:{
         labels,
@@ -158,37 +148,30 @@ function renderTimeline() {
         }
       }
     });
-  },60);
+  });
 
-  // ── Insight cards ──────────────────────────────────────────
   const insights=[];
   if(allMonths.length){
-    // Streak: longest consecutive investing months
     let maxStreak=0,cur=0;
     allMonths.forEach(x=>{if(x.v>0){cur++;maxStreak=Math.max(maxStreak,cur);}else cur=0;});
     insights.push({label:'Longest SIP streak',value:maxStreak+' months',note:'Consecutive months invested',accent:'#3fb950'});
 
-    // Most active year
     const byYear={}; allMonths.forEach(({m,v})=>{const y=m.slice(0,4);byYear[y]=(byYear[y]||0)+v;});
     const topYear=Object.entries(byYear).sort((a,b)=>b[1]-a[1])[0];
     if(topYear) insights.push({label:'Highest-invest year',value:topYear[0],note:fmtL(topYear[1])+' deployed',accent:'#d4a843'});
 
-    // Avg annual investment
     const yearVals=Object.values(byYear);
     const avgYearly=Math.round(yearVals.reduce((a,v)=>a+v,0)/yearVals.length);
     insights.push({label:'Avg annual invest',value:fmtL(avgYearly),note:'Across '+yearVals.length+' year'+( yearVals.length!==1?'s':''),accent:'#58a6ff'});
 
-    // Gap months (months with zero investment)
     const gapMonths=allMonths.filter(x=>x.v===0).length;
     insights.push({label:'Inactive months',value:gapMonths,note:'Months with no investment',accent:'#7d8590'});
 
-    // MF vs stock split of total deployed
     const mfTotal=DATA.monthlyMF.reduce((a,x)=>a+x.v,0);
     const stTotal=DATA.stLots.reduce((a,l)=>a+l.amt,0);
     const mfPct=mfTotal+stTotal>0?Math.round(mfTotal/(mfTotal+stTotal)*100):0;
     insights.push({label:'MF vs Stocks split',value:mfPct+'% / '+(100-mfPct)+'%',note:'Of total capital deployed',accent:'#a371f7'});
 
-    // Biggest single month
     if(maxMonth) insights.push({label:'Biggest single month',value:fmtL(maxMonth.v),note:fmtMonthLabel(maxMonth.m),accent:'#f0c060'});
   }
   document.getElementById('tl-insights').innerHTML=insights.length
@@ -207,7 +190,6 @@ function renderHeatmap(months, allMonths){
 
   const allValues=allMonths.map(x=>x.v).filter(v=>v>0);
   const maxV=Math.max(...allValues,1);
-  // colour scale: 5 steps from dim→gold
   const COLORS=['#1a2a1a','#1a3d26','#1e5c30','#c8901a','#d4a843'];
   function getColor(v){
     if(!v) return null;
@@ -215,23 +197,23 @@ function renderHeatmap(months, allMonths){
     return COLORS[idx];
   }
 
-  // Build month→value map
   const mvMap={}; months.forEach(({m,v})=>mvMap[m]=v);
   const years=[...new Set(months.map(x=>x.m.slice(0,4)))];
   const MNAMES=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-  // Grid: rows=years, cols=12 months
   const cellSize=24, gap=3;
   const totalW=(cellSize+gap)*12+40;
 
   let html=`<div style="overflow-x:auto"><div style="min-width:${totalW}px;padding:4px 0">`;
-  // Month header
   html+=`<div style="display:grid;grid-template-columns:36px repeat(12,${cellSize}px);gap:${gap}px;margin-bottom:4px">`;
   html+=`<div></div>`;
   MNAMES.forEach(mn=>html+=`<div style="font-size:9px;color:var(--muted2);text-align:center;letter-spacing:.04em">${mn}</div>`);
   html+='</div>';
 
-  // Tooltip div
+  // FIX: only create the tooltip div once across all renderHeatmap calls
+  // The previous code only guarded creation, but could still attach multiple
+  // event listeners if the element was recreated. A single body-level div
+  // is fine here since we update it in-place.
   if(!document.getElementById('tl-tooltip')){
     const tt=document.createElement('div');
     tt.id='tl-tooltip'; tt.className='tl-tooltip';
@@ -259,7 +241,6 @@ function renderHeatmap(months, allMonths){
   });
   html+='</div></div>';
 
-  // Legend
   document.getElementById('tl-heatmap-legend').innerHTML=
     '<span style="margin-right:4px">Less</span>'+
     ['#1a2a1a','#1a3d26','#1e5c30','#c8901a','#d4a843'].map(c=>`<div style="width:14px;height:14px;background:${c};border-radius:2px"></div>`).join('')+

@@ -1,6 +1,5 @@
 // ── page-overview.js — Overview page, health score, SIP reminder, drawdown ──
 
-// ── Overview ──────────────────────────────────────────────────
 function renderOverview() {
   const k = DATA.kpis;
   const sinceMF = k.earliestMF ? ('Since ' + fmtMonthYear(k.earliestMF)) : 'All time';
@@ -33,7 +32,6 @@ function renderOverview() {
     ? [...DATA.stocks].sort((a, b) => b.RetPct - a.RetPct).slice(0, 4).map(s => `<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px"><span style="font-weight:500">${esc(s.name)}</span><span style="color:var(--muted)">${fmtL(s.Gain)}</span></div>${miniBar(s.RetPct, maxST)}</div>`).join('')
     : '<div style="color:var(--muted);font-size:11px">Upload Stocks file to see data</div>';
 
-  // Dynamic risk alerts
   const alerts = [];
   const stTotalInv = DATA.stocks.reduce((a, s) => a + s.Invested, 0) || 1;
   DATA.stocks.forEach(s => {
@@ -43,7 +41,6 @@ function renderOverview() {
     else if (s.Sector === 'Speculative' && s.RetPct < -20) alerts.push([esc(s.name), `${fmtP(s.RetPct)} in speculative sector — averaging down not advised; reduce to ≤5%`]);
     else if (s.CAGR < -15 && s.Invested > 30000) alerts.push([esc(s.name), `CAGR ${fmtP(s.CAGR)}, ₹${Math.round(s.Invested / 1000)}K invested — reassess thesis`]);
   });
-  // Sector concentration
   DATA.sectors.forEach(sec => {
     const secPct = stTotalInv ? sec.Invested / stTotalInv * 100 : 0;
     if (secPct > 30 && sec.Gain < 0) alerts.push([esc(sec.Sector) + ' Sector', `${secPct.toFixed(1)}% of stocks with ${fmtL(sec.Gain)} loss — over-concentrated`]);
@@ -65,7 +62,6 @@ function renderHealthScore() {
     return;
   }
 
-  // Score components (each 0–20, total 100)
   const n = DATA.stocks.length || 1;
   const mfShare = k.totalInvested ? k.mfInvested / k.totalInvested : 0;
   const stWin = DATA.stocks.filter(s => s.Gain > 0).length;
@@ -76,22 +72,14 @@ function renderHealthScore() {
   const specInv = DATA.stocks.filter(s => s.Sector === 'Speculative').reduce((a, s) => a + s.Invested, 0);
   const specPct = k.stInvested ? specInv / k.stInvested : 0;
 
-  // 1. Diversification (0-20): penalise >20% single stock, >50% speculative
   const divScore = Math.max(0, 20 - Math.max(0, (maxSingleStPct - 20) * 0.5) - Math.max(0, (specPct * 100 - 15) * 0.4));
-
-  // 2. MF dominance (0-20): reward MF share ≥60%
   const mfScore = Math.min(20, mfShare * 33);
-
-  // 3. Profitability (0-20): % of holdings in profit weighted equally
   const totalHoldings = DATA.funds.length + DATA.stocks.length || 1;
   const totalWin = mfWin + stWin;
   const profScore = (totalWin / totalHoldings) * 20;
-
-  // 4. CAGR vs benchmark Nifty 12% (0-20)
   const cagrScore = Math.min(20, Math.max(0, (avgMFcagr / 12) * 20));
 
-  // 5. Consistency (0-20): from timeline — active months / total months ratio
-  let consistScore = 10; // default when no timeline data
+  let consistScore = 10;
   if (DATA.monthlyMF.length) {
     const allM = buildCombinedMonthly();
     const active = allM.filter(x => x.v > 0).length;
@@ -103,38 +91,23 @@ function renderHealthScore() {
   const scoreColor = clamp >= 75 ? '#3fb950' : clamp >= 50 ? '#d4a843' : '#f85149';
   const scoreLabel = clamp >= 75 ? 'Healthy' : clamp >= 50 ? 'Fair' : 'Needs Attention';
 
-  // ── SVG semicircle gauge — fixed geometry ──
-  // ViewBox: 180 wide × 110 tall. Centre of arc: (90, 95). Radius 72.
-  // Arc sweeps left (180°) to right (0°) across the top half.
-  // Score 0 = left tip, Score 100 = right tip.
   const VW = 180, VH = 110, GCX = 90, GCY = 95, GR = 72, SW = 12;
-
-  // Polar → cartesian. 0° = right, angles in degrees, measured from positive-x axis.
   const polar = (deg) => ({
     x: GCX + GR * Math.cos(deg * Math.PI / 180),
     y: GCY + GR * Math.sin(deg * Math.PI / 180),
   });
-
-  // Track: 180° (left) → 0° (right), always full arc
   const tStart = polar(180);
   const tEnd = polar(0);
   const trackD = `M${tStart.x},${tStart.y} A${GR},${GR} 0 0,1 ${tEnd.x},${tEnd.y}`;
-
-  // Fill: 180° → (180° - score%) of 180°, sweeping clockwise (0,1)
-  // score 0 → angle stays at 180 (left), score 100 → angle reaches 0 (right)
-  const fillAngle = 180 - (clamp / 100) * 180;   // end angle in degrees
+  const fillAngle = 180 - (clamp / 100) * 180;
   const fEnd = polar(fillAngle);
   const largeArc = (180 - fillAngle) > 180 ? 1 : 0;
   const fillD = clamp > 0
     ? `M${tStart.x},${tStart.y} A${GR},${GR} 0 ${largeArc},1 ${fEnd.x},${fEnd.y}`
     : '';
-
-  // Needle tip circle at fill end
   const needleTip = clamp > 0
     ? `<circle cx="${fEnd.x.toFixed(1)}" cy="${fEnd.y.toFixed(1)}" r="5" fill="${scoreColor}"/>`
     : '';
-
-  // Score tick marks at 25/50/75
   function polar_r(cx, cy, r, deg) { return { x: cx + r * Math.cos(deg * Math.PI / 180), y: cy + r * Math.sin(deg * Math.PI / 180) }; }
   const ticks = [25, 50, 75].map(v => {
     const a = 180 - (v / 100) * 180;
@@ -146,17 +119,11 @@ function renderHealthScore() {
   document.getElementById('health-score-display').innerHTML = `
     <div class="health-gauge">
       <svg viewBox="-10 0 ${VW + 20} ${VH}" width="${VW}" height="${VH}" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">
-        <!-- Track arc -->
         <path d="${trackD}" fill="none" stroke="var(--bg4)" stroke-width="${SW}" stroke-linecap="round"/>
-        <!-- Fill arc -->
         ${fillD ? `<path d="${fillD}" fill="none" stroke="${scoreColor}" stroke-width="${SW}" stroke-linecap="round" opacity="0.95"/>` : ''}
-        <!-- Needle tip -->
         ${needleTip}
-        <!-- Tick marks -->
         ${ticks}
-        <!-- 0 label -->
         <text x="${tStart.x - 14}" y="${tStart.y + 6}" font-size="9" fill="var(--muted)" text-anchor="middle">0</text>
-        <!-- 100 label -->
         <text x="${tEnd.x + 14}" y="${tEnd.y + 6}" font-size="9" fill="var(--muted)" text-anchor="middle">100</text>
       </svg>
       <div class="health-gauge-val">
@@ -204,23 +171,27 @@ function renderSIPReminder() {
 
   const allMonths = buildCombinedMonthly();
   const activeMonths = allMonths.filter(x => x.v > 0);
-  const avgMonthly = activeMonths.length ? Math.round(activeMonths.reduce((a, x) => a + x.v, 0) / activeMonths.length) : 0;
-  // Correct previous-month key: use a Date rolled back by 1 month to avoid off-by-one with getMonth() (0-indexed)
+
+  // FIX: guard divide-by-zero when no active months exist
+  // (e.g. data with only lump-sum lots that had no parseable dates)
+  const avgMonthly = activeMonths.length
+    ? Math.round(activeMonths.reduce((a, x) => a + x.v, 0) / activeMonths.length)
+    : 0;
+
   const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const lastMonthKey = (prevMonthDate.getFullYear() + '-' + String(prevMonthDate.getMonth() + 1).padStart(2, '0')); // prev month
+  const lastMonthKey = (prevMonthDate.getFullYear() + '-' + String(prevMonthDate.getMonth() + 1).padStart(2, '0'));
   const investedThisMonth = allMonths.find(x => x.m === lastMonthKey)?.v || 0;
 
-  // Compute per-category allocation
-  const totalMFInv = k.mfInvested, totalSTInv = k.stInvested;
   const topFunds = [...DATA.funds].sort((a, b) => b.CAGR - a.CAGR).slice(0, 3);
   const underperformers = DATA.funds.filter(f => f.CAGR < 10 && f.CAGR > 0);
 
-  const recommendedSIP = avgMonthly || Math.round(k.totalInvested * 0.02);
+  // FIX: fall back to 2% of total invested when avgMonthly is 0
+  // so recommendedSIP is never NaN or 0 when data exists
+  const recommendedSIP = avgMonthly || Math.round((k.totalInvested || 0) * 0.02);
   const mfShare = k.totalInvested ? k.mfInvested / k.totalInvested : 0.7;
   const mfSIP = Math.round(recommendedSIP * Math.min(0.8, Math.max(0.5, mfShare)));
   const stSIP = recommendedSIP - mfSIP;
 
-  // Build action items
   const actions = [];
   if (topFunds.length) {
     const perFund = Math.round(mfSIP / Math.min(3, topFunds.length));
@@ -260,18 +231,8 @@ function renderSIPReminder() {
 // DRAWDOWN ANALYZER
 // ══════════════════════════════════════════════════════════════
 
-// Chart instance — destroyed and recreated on each renderOverview call
 let chartDrawdownInst = null;
 
-// ── STEP 2: Build simulated portfolio value series ────────────
-// Uses GBM (Geometric Brownian Motion) with realistic Indian equity market
-// volatility (~18% annualised σ) and known crash overlays so the chart
-// shows meaningful drawdowns instead of a flat 0% line.
-//
-// The simulation is seeded deterministically from the portfolio's earliest
-// investment date so it is stable across re-renders. The final portfolio
-// value is rescaled to match the user's actual reported current value,
-// keeping the drawdown shape realistic while the ending point is exact.
 function buildDrawdownSeriesFromTimeline() {
   const allMonths = buildCombinedMonthly();
   if (!allMonths.length) return [];
@@ -283,30 +244,24 @@ function buildDrawdownSeriesFromTimeline() {
   const monthMap = {};
   allMonths.forEach(({ m, v }) => monthMap[m] = v);
 
-  // ── GBM parameters (Indian equity — Nifty 50 historical) ────
-  // Annual drift (μ) derived from portfolio CAGR if available, else 12% default
   const mfCAGR = k.mfCAGR > 0 ? k.mfCAGR : 12;
   const annualDrift = mfCAGR / 100;
-  const annualSigma = 0.18;          // 18% annualised vol — typical Indian equity
+  const annualSigma = 0.18;
   const monthlyDrift = annualDrift / 12;
   const monthlySigma = annualSigma / Math.sqrt(12);
 
-  // ── Known Indian market crash months: [YYYY-MM, shock %] ────
-  // Approximate peak-to-trough drawdown injected as one-shot negative shocks
   const CRASH_SHOCKS = {
-    '2008-10': -0.24,  // Global financial crisis trough
-    '2011-12': -0.08,  // Euro-zone crisis
-    '2013-08': -0.07,  // Taper tantrum / INR crisis
-    '2015-08': -0.09,  // China devaluation selloff
-    '2016-11': -0.06,  // Demonetisation shock
-    '2018-09': -0.08,  // IL&FS crisis / NBFC meltdown
-    '2020-03': -0.32,  // COVID crash
-    '2022-06': -0.10,  // Global rate-hike selloff
-    '2024-06': -0.06,  // Post-election volatility
+    '2008-10': -0.24,
+    '2011-12': -0.08,
+    '2013-08': -0.07,
+    '2015-08': -0.09,
+    '2016-11': -0.06,
+    '2018-09': -0.08,
+    '2020-03': -0.32,
+    '2022-06': -0.10,
+    '2024-06': -0.06,
   };
 
-  // ── Deterministic seeded PRNG (mulberry32) ───────────────────
-  // Seed from numeric representation of first month so output is stable
   const [sy, sm] = first.split('-').map(Number);
   let seed = sy * 100 + sm;
   function rand() {
@@ -315,14 +270,12 @@ function buildDrawdownSeriesFromTimeline() {
     t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
     return ((t ^ t >>> 14) >>> 0) / 4294967296;
   }
-  // Box-Muller for Gaussian samples
   function randn() {
     let u, v;
     do { u = rand(); v = rand(); } while (u === 0);
     return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
   }
 
-  // ── Simulate month by month ──────────────────────────────────
   const series = [];
   let [fy, fm] = [parseInt(first.slice(0, 4)), parseInt(first.slice(5))];
   const [ey, em] = [parseInt(last.slice(0, 4)), parseInt(last.slice(5))];
@@ -330,38 +283,25 @@ function buildDrawdownSeriesFromTimeline() {
 
   while (fy < ey || (fy === ey && fm <= em)) {
     const mk = fy + '-' + String(fm).padStart(2, '0');
-
-    // 1. Add new investment this month (SIP / lump-sum)
     portfolioValue += (monthMap[mk] || 0);
-
-    // 2. Apply GBM return for this month
     const gbmReturn = monthlyDrift + monthlySigma * randn();
     portfolioValue *= (1 + gbmReturn);
-
-    // 3. Overlay known crash shocks if this month matches
     if (CRASH_SHOCKS[mk] !== undefined) {
       portfolioValue *= (1 + CRASH_SHOCKS[mk]);
     }
-
     portfolioValue = Math.max(portfolioValue, 0);
     series.push({ date: mk, value: Math.round(portfolioValue) });
-
     fm++; if (fm > 12) { fm = 1; fy++; }
   }
 
-  // ── Rescale endpoint to match actual reported portfolio value ─
-  // This keeps the drawdown shape realistic but anchors the final
-  // value to reality (the user's actual current portfolio value).
   const actualEndValue = k.totalValue || 0;
   if (actualEndValue > 0 && series.length > 0) {
     const simEndValue = series[series.length - 1].value;
     if (simEndValue > 0) {
       const scale = actualEndValue / simEndValue;
-      // Blend: gently taper scale towards 1 at the start so early values
-      // aren't distorted, and full scale applies at the end.
       const n = series.length;
       series.forEach((pt, i) => {
-        const t = i / Math.max(n - 1, 1);    // 0 → 1 over the series
+        const t = i / Math.max(n - 1, 1);
         const blendedScale = 1 + (scale - 1) * t;
         pt.value = Math.round(pt.value * blendedScale);
       });
@@ -371,7 +311,6 @@ function buildDrawdownSeriesFromTimeline() {
   return series;
 }
 
-// ── STEP 3a: Core drawdown stats ─────────────────────────────
 function calculateDrawdown(series) {
   if (!series.length) return { maxDD: 0, currentDD: 0, peak: 0, recoveryMonths: 0, recovered: true };
 
@@ -392,7 +331,6 @@ function calculateDrawdown(series) {
   const allTimePeak = Math.max(...values);
   const currentDD = allTimePeak > 0 ? (finalVal - allTimePeak) / allTimePeak : 0;
 
-  // Recovery: months from trough until value >= trough's peak again
   let recoveryMonths = 0;
   let recovered = true;
   if (maxDD < -0.001) {
@@ -407,7 +345,6 @@ function calculateDrawdown(series) {
   return { maxDD, currentDD, peak: allTimePeak, recoveryMonths, recovered };
 }
 
-// ── STEP 3b: Per-point drawdown array + peak/trough indices ───
 function calculateDrawdownWithPeriod(series) {
   if (!series.length) return { peakIndex: 0, troughIndex: 0, maxDD: 0, ddSeries: [] };
 
@@ -426,7 +363,6 @@ function calculateDrawdownWithPeriod(series) {
   return { peakIndex: peakIdx, troughIndex: troughIdx, maxDD, ddSeries };
 }
 
-// ── STEP 4: Populate KPI cards ────────────────────────────────
 function renderDrawdownSummary(stats) {
   const { maxDD, currentDD, peak, recoveryMonths, recovered } = stats;
   const noData = !peak;
@@ -436,12 +372,10 @@ function renderDrawdownSummary(stats) {
     if (el) { el.textContent = text; if (color) el.style.color = color; }
   };
 
-  // Max Drawdown
   set('dd-max', noData ? '—' : (maxDD * 100).toFixed(1) + '%',
     noData ? 'var(--muted)' : 'var(--red)');
   set('dd-max-note', noData ? 'Upload data' : 'Worst peak-to-trough fall');
 
-  // Current Drawdown
   if (noData) {
     set('dd-cur', '—', 'var(--muted)');
     set('dd-cur-note', 'Upload data');
@@ -454,7 +388,6 @@ function renderDrawdownSummary(stats) {
     set('dd-cur-note', 'Below all-time high');
   }
 
-  // Recovery Time
   if (noData) {
     set('dd-recovery', '—', 'var(--muted)');
     set('dd-recovery-note', 'Upload data');
@@ -466,113 +399,107 @@ function renderDrawdownSummary(stats) {
     set('dd-recovery-note', recovered ? 'Fully recovered' : 'Still recovering');
   }
 
-  // Peak Value
   set('dd-peak', noData ? '—' : fmtL(peak), noData ? 'var(--muted)' : 'var(--gold)');
   set('dd-peak-note', noData ? 'Upload data' : 'All-time portfolio high');
 }
 
-// ── STEP 5: Render Chart.js drawdown chart ────────────────────
+// FIX: use scheduleChart() instead of a raw setTimeout + manual destroy
+// so rapid page switches don't leave orphaned Chart.js instances on the canvas
 function renderDrawdownChart(series, ddResult) {
-  const canvas = document.getElementById('chart-drawdown');
-  if (!canvas || !window.Chart) return;
+  scheduleChart('chart-drawdown', 100, (canvas) => {
+    if (!series.length) {
+      canvas.parentElement.innerHTML =
+        '<div style="color:var(--muted);font-size:11px;padding:20px;text-align:center">Upload files to see drawdown chart</div>';
+      return null;
+    }
 
-  if (chartDrawdownInst) { chartDrawdownInst.destroy(); chartDrawdownInst = null; }
+    const { ddSeries, peakIndex, troughIndex } = ddResult;
+    const labels = series.map(s => s.date);
+    const skip = Math.max(1, Math.ceil(labels.length / 18));
 
-  if (!series.length) {
-    canvas.parentElement.innerHTML =
-      '<div style="color:var(--muted);font-size:11px;padding:20px;text-align:center">Upload files to see drawdown chart</div>';
-    return;
-  }
+    const minDD = Math.min(...ddSeries, -0.5);
+    const yMin = Math.floor(minDD * 1.25);
+    const yMax = 1;
 
-  const { ddSeries, peakIndex, troughIndex } = ddResult;
-  const labels = series.map(s => s.date);
-  const skip = Math.max(1, Math.ceil(labels.length / 18));
+    const pointRadius = labels.map((_, i) =>
+      (i === peakIndex || i === troughIndex) ? 5 : 0);
+    const pointBg = labels.map((_, i) =>
+      i === peakIndex ? '#d4a843' : i === troughIndex ? '#f85149' : 'rgba(0,0,0,0)');
 
-  // Y-axis: set min slightly below the worst drawdown, max = 1 (slightly above 0)
-  const minDD = Math.min(...ddSeries, -0.5);
-  const yMin = Math.floor(minDD * 1.25); // 25% headroom below worst point
-  const yMax = 1; // small breathing room above zero line
-
-  // Per-point radii and colours for peak/trough annotations
-  const pointRadius = labels.map((_, i) =>
-    (i === peakIndex || i === troughIndex) ? 5 : 0);
-  const pointBg = labels.map((_, i) =>
-    i === peakIndex ? '#d4a843' : i === troughIndex ? '#f85149' : 'rgba(0,0,0,0)');
-
-  chartDrawdownInst = new Chart(canvas, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        label: 'Drawdown %',
-        data: ddSeries,
-        borderColor: '#f85149',
-        backgroundColor: 'rgba(248,81,73,0.10)',
-        borderWidth: 2,
-        fill: true,
-        tension: 0.3,
-        pointRadius,
-        pointBackgroundColor: pointBg,
-        pointBorderColor: pointBg,
-        pointBorderWidth: 2,
-        pointHoverRadius: 5,
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: 'index', intersect: false },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            title: items => labels[items[0].dataIndex],
-            label: ctx => {
-              const v = ctx.raw;
-              const tag = ctx.dataIndex === peakIndex ? ' 🔺 Peak'
-                : ctx.dataIndex === troughIndex ? ' 🔻 Trough' : '';
-              return 'Drawdown: ' + v.toFixed(2) + '%' + tag;
-            }
-          },
-          backgroundColor: '#1c2330',
-          titleColor: '#e6edf3',
-          bodyColor: '#7d8590',
-          borderColor: '#30363d',
-          borderWidth: 1
-        }
+    return new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Drawdown %',
+          data: ddSeries,
+          borderColor: '#f85149',
+          backgroundColor: 'rgba(248,81,73,0.10)',
+          borderWidth: 2,
+          fill: true,
+          tension: 0.3,
+          pointRadius,
+          pointBackgroundColor: pointBg,
+          pointBorderColor: pointBg,
+          pointBorderWidth: 2,
+          pointHoverRadius: 5,
+        }]
       },
-      scales: {
-        x: {
-          ticks: {
-            font: { size: 9 },
-            color: '#7d8590',
-            maxRotation: 45,
-            callback: (_, i) => i % skip === 0 ? labels[i] : ''
-          },
-          grid: { color: '#21262d' }
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              title: items => labels[items[0].dataIndex],
+              label: ctx => {
+                const v = ctx.raw;
+                const tag = ctx.dataIndex === peakIndex ? ' 🔺 Peak'
+                  : ctx.dataIndex === troughIndex ? ' 🔻 Trough' : '';
+                return 'Drawdown: ' + v.toFixed(2) + '%' + tag;
+              }
+            },
+            backgroundColor: '#1c2330',
+            titleColor: '#e6edf3',
+            bodyColor: '#7d8590',
+            borderColor: '#30363d',
+            borderWidth: 1
+          }
         },
-        y: {
-          min: yMin,
-          max: yMax,
-          ticks: {
-            font: { size: 9 },
-            color: '#7d8590',
-            callback: v => v.toFixed(1) + '%'
+        scales: {
+          x: {
+            ticks: {
+              font: { size: 9 },
+              color: '#7d8590',
+              maxRotation: 45,
+              callback: (_, i) => i % skip === 0 ? labels[i] : ''
+            },
+            grid: { color: '#21262d' }
           },
-          grid: { color: '#21262d' }
+          y: {
+            min: yMin,
+            max: yMax,
+            ticks: {
+              font: { size: 9 },
+              color: '#7d8590',
+              callback: v => v.toFixed(1) + '%'
+            },
+            grid: { color: '#21262d' }
+          }
         }
       }
-    }
+    });
   });
 }
 
-// ── STEP 7: Insight card ──────────────────────────────────────
 function renderDrawdownInsight(maxDD, currentDD) {
   const el = document.getElementById('dd-insight');
   if (!el) return;
   if (!maxDD) { el.innerHTML = ''; return; }
 
-  const pct = maxDD * 100;    // negative, e.g. -18.3
+  const pct = maxDD * 100;
   const curPct = currentDD * 100;
 
   let accent, icon, title, note;
@@ -601,7 +528,6 @@ function renderDrawdownInsight(maxDD, currentDD) {
   </div>`;
 }
 
-// ── STEP 6: Orchestrator — called from renderOverview ─────────
 function renderDrawdownAnalyzer() {
   const series = buildDrawdownSeriesFromTimeline();
 
@@ -616,7 +542,5 @@ function renderDrawdownAnalyzer() {
 
   renderDrawdownSummary(stats);
   renderDrawdownInsight(stats.maxDD, stats.currentDD);
-  // Slight delay to ensure canvas is painted before Chart.js measures its box
-  setTimeout(() => renderDrawdownChart(series, ddResult), 100);
+  renderDrawdownChart(series, ddResult);
 }
-

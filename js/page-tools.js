@@ -53,10 +53,16 @@ function handleExcel(file, type) {
   reader.readAsArrayBuffer(file);
 }
 
+// FIX: handle non-breaking space (U+00A0), en-dash and em-dash as used by
+// some broker Excel exports — previously these would cause parseFloat to return NaN
 function cleanNum(v){
   if(v===''||v===null||v===undefined) return 0;
   if(typeof v==='number') return v;
-  return parseFloat(String(v).replace(/[₹,\s*]/g,''))||0;
+  const s = String(v)
+    .replace(/[\u00a0\u202f\u2009]/g, '')   // non-breaking / narrow spaces
+    .replace(/[₹,\s*]/g, '')                 // original: rupee, commas, whitespace, asterisks
+    .replace(/\u2013|\u2014/g, '-');          // en-dash / em-dash → minus
+  return parseFloat(s) || 0;
 }
 
 function parseInvDate(v){
@@ -273,15 +279,12 @@ function tryApplyData(){
     DATA.mfLots=pendingMF.lots;
     DATA.stLots=pendingST.lots;
 
-    // FIX: Invalidate all caches on new data
     DATA._cachedMonthly = null;
     _fundAnalysisCache = null;
 
-    // Persist to localStorage and save snapshot
     saveDataToStorage();
     saveSnapshot();
 
-    // Remove persist banner if shown (fresh data loaded)
     const banner = document.getElementById('persist-banner');
     if (banner) banner.remove();
 
@@ -595,6 +598,8 @@ function renderWaterfall() {
     </div>`).join('') || '<div style="color:var(--muted);font-size:11px;padding:10px">Upload your Excel files to see composition analysis.</div>';
 }
 
+// FIX: use pageX/pageY instead of clientX/clientY so tooltip stays
+// correctly positioned when the page is scrolled
 function wfShowTip(e, idx) {
   const seg = window._wfSegments && window._wfSegments[idx];
   const total = window._wfTotal || 1;
@@ -614,15 +619,16 @@ function wfShowTip(e, idx) {
     document.getElementById('wf-tt-sub-l').textContent = '';
   }
   tt.style.display='block';
-  tt.style.left=(e.clientX+14)+'px';
-  tt.style.top=(e.clientY-10)+'px';
+  // FIX: pageX/pageY accounts for scroll offset; clientX/clientY did not
+  tt.style.left=(e.pageX+14)+'px';
+  tt.style.top=(e.pageY-10)+'px';
 }
 function wfHideTip(){
   const tt=document.getElementById('wf-tooltip');
   if(tt) tt.style.display='none';
 }
 
-// ── Portfolio Action Signal (unchanged from original) ─────────
+// ── Portfolio Action Signal ───────────────────────────────────
 function renderSignal() {
   const k = DATA.kpis;
   const today = new Date();
@@ -797,11 +803,17 @@ function renderSignal() {
   }).join('');
 }
 
+// FIX: wrap localStorage write in try/catch — Safari private mode throws
+// QuotaExceededError synchronously and would silently break the checklist
 function togglePasCheck(weekKey, id, row) {
   let checked = {};
   try { checked = JSON.parse(localStorage.getItem(weekKey)||'{}'); } catch(e){}
   checked[id] = !checked[id];
-  localStorage.setItem(weekKey, JSON.stringify(checked));
+  try {
+    localStorage.setItem(weekKey, JSON.stringify(checked));
+  } catch(e) {
+    console.warn('PortFin: could not persist checklist state', e);
+  }
   const box = row.querySelector('.pas-check-box');
   if(checked[id]) { row.classList.add('checked'); box.classList.add('done'); box.innerHTML='<span style="color:#fff;font-size:11px">✓</span>'; }
   else { row.classList.remove('checked'); box.classList.remove('done'); box.innerHTML=''; }

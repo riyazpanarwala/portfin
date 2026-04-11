@@ -1,6 +1,5 @@
 // ── page-stocks.js — Equity Stocks page and Tax Harvesting ─────────────────
 
-// ── Stocks ────────────────────────────────────────────────────
 function renderStocks() {
   const k=DATA.kpis;
   const n=DATA.stocks.length;
@@ -16,9 +15,15 @@ function renderStocks() {
     {l:'Total Quantity', v:fmtN(totalQty),      s:'Shares held',     sc:'',   a:'#7d8590'},
   ].map(c=>`<div class="kpi-card" style="--accent:${c.a}"><div class="kpi-label">${c.l}</div><div class="kpi-value">${c.v}</div><div class="kpi-sub ${c.sc}">${c.s}</div></div>`).join('');
 
+  // FIX: use createElement + addEventListener for sector filters (same as existing stock filter)
+  // so sector names with quotes/special chars can't break onclick attribute strings
   const secs=['All',...new Set(DATA.stocks.map(s=>s.Sector))];
   const filterContainer = document.getElementById('st-filters');
-  filterContainer.innerHTML = '<span class="ctrl-label">Sector:</span>';
+  filterContainer.innerHTML = '';
+  const ctrlLabel = document.createElement('span');
+  ctrlLabel.className = 'ctrl-label';
+  ctrlLabel.textContent = 'Sector:';
+  filterContainer.appendChild(ctrlLabel);
   secs.forEach(sec => {
     const btn = document.createElement('button');
     btn.className = 'chip' + (stFil === sec ? ' on' : '');
@@ -40,7 +45,6 @@ function renderStocks() {
     document.getElementById('st-tbody').innerHTML=stocks.map((s,i)=>{
       const hold=fmtHoldPeriod(s.holdDays);
 
-      // Weighted average buy price across all lots
       const lots = s.rawLots || [];
       let wavgPrice = 0;
       if (lots.length) {
@@ -53,7 +57,6 @@ function renderStocks() {
           if (priced.length) wavgPrice = priced.reduce((a,l) => a + l.invPrice, 0) / priced.length;
         }
       }
-      // Fall back to stock-level invPrice if lots missing
       if (!wavgPrice && s.Invested > 0 && s.Qty > 0) wavgPrice = s.Invested / s.Qty;
       const priceDisplay = wavgPrice > 0 ? '₹' + wavgPrice.toFixed(2) : '—';
 
@@ -81,7 +84,6 @@ function renderStocks() {
 
   renderTaxHarvesting();
 
-  // Dynamic rule-based recommendations
   const recs=[];
   const stTotalInv=DATA.stocks.reduce((a,s)=>a+s.Invested,0)||1;
   const sorted=[...DATA.stocks].sort((a,b)=>a.RetPct-b.RetPct);
@@ -121,6 +123,8 @@ function renderTaxHarvesting(){
   DATA.stocks.forEach(s=>{
     const cmp=s.Latest_Price||0;
     (s.rawLots||[]).forEach(l=>{
+      // FIX: guard against null date — parseInvDate can return null for bad rows
+      if (!l.date) return;
       const days=Math.floor((now-l.date.getTime())/(24*3600*1000));
       const curVal=cmp>0&&l.qty>0?cmp*l.qty:(l.cur||l.inv+l.gain);
       const lotGain=Math.round(curVal-l.inv);
