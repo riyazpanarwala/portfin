@@ -195,7 +195,6 @@ const MAX_SNAPSHOTS = 24;
 
 function saveDataToStorage() {
   try {
-    // Serialize DATA — dates need special handling
     const payload = {
       kpis: { ...DATA.kpis, earliestMF: DATA.kpis.earliestMF ? new Date(DATA.kpis.earliestMF).toISOString() : null, earliestST: DATA.kpis.earliestST ? new Date(DATA.kpis.earliestST).toISOString() : null, latestDate: DATA.kpis.latestDate ? new Date(DATA.kpis.latestDate).toISOString() : null },
       funds: DATA.funds.map(f => ({ ...f, dates: f.dates.map(d => new Date(d).toISOString()), rawLots: f.rawLots.map(l => ({ ...l, date: new Date(l.date).toISOString() })) })),
@@ -222,7 +221,6 @@ function loadDataFromStorage() {
     const payload = JSON.parse(raw);
     if (!payload || !payload.funds) return false;
 
-    // Rehydrate dates
     const reDate = v => v ? new Date(v) : null;
     DATA.kpis = { ...payload.kpis, earliestMF: reDate(payload.kpis.earliestMF), earliestST: reDate(payload.kpis.earliestST), latestDate: reDate(payload.kpis.latestDate) };
     DATA.funds = payload.funds.map(f => ({ ...f, dates: (f.dates||[]).map(d => new Date(d)), rawLots: (f.rawLots||[]).map(l => ({ ...l, date: new Date(l.date) })) }));
@@ -252,7 +250,6 @@ function saveSnapshot() {
     if (!k.totalInvested) return;
     const snapshots = getSnapshots();
     const now = new Date();
-    // Key by YYYY-MM — overwrite same month
     const monthKey = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
     const snap = {
       monthKey,
@@ -270,10 +267,8 @@ function saveSnapshot() {
       fundCount: DATA.funds.length,
       stockCount: DATA.stocks.length
     };
-    // Replace existing same-month snap or append
     const idx = snapshots.findIndex(s => s.monthKey === monthKey);
     if (idx >= 0) snapshots[idx] = snap; else snapshots.push(snap);
-    // Keep latest MAX_SNAPSHOTS
     snapshots.sort((a,b) => a.monthKey.localeCompare(b.monthKey));
     while (snapshots.length > MAX_SNAPSHOTS) snapshots.shift();
     localStorage.setItem(LS_SNAPSHOTS_KEY, JSON.stringify(snapshots));
@@ -323,33 +318,153 @@ function fmtHoldPeriod(days){
   return `${days}d`;
 }
 
-function buildMFDrillHTML(f){
-  if(!f.rawLots||!f.rawLots.length) return '<div style="color:var(--muted);font-size:11px;padding:6px">No lot-level data available</div>';
-  const lots=[...f.rawLots].sort((a,b)=>a.date-b.date);
-  const rows=lots.map(l=>{
-    const days=Math.floor((Date.now()-l.date.getTime())/(24*3600*1000));
-    const holdStr=fmtHoldPeriod(days);
-    const taxTag=days>=365?'<span class="ltcg-badge">LTCG</span>':'<span class="stcg-badge">STCG</span>';
-    const lotGainPct=l.amt>0?((l.gain/l.amt)*100).toFixed(1):0;
-    const lotCls=l.gain>=0?'td-up':'td-dn';
+// ══════════════════════════════════════════════════════════════
+// buildMFDrillHTML — per-fund + per-lot XIRR (updated)
+// ══════════════════════════════════════════════════════════════
+function buildMFDrillHTML(f) {
+  if (!f.rawLots || !f.rawLots.length)
+    return '<div style="color:var(--muted);font-size:11px;padding:6px">No lot-level data available</div>';
+
+  const lots = [...f.rawLots].sort((a, b) => a.date - b.date);
+
+  // ── Fund-level XIRR ─────────────────────────────────────────
+  // Outflows = each purchase (negative), inflow = current fund value today
+  let fundXirr = null;
+  try {
+    const cfAmounts = [];
+    const cfDates   = [];
+    lots.forEach(l => {
+      if (l.date && l.amt > 0) {
+        cfAmounts.push(-l.amt);
+        cfDates.push(new Date(l.date));
+      }
+    });
+    const currentValue = f.Current || (f.Invested + (f.Gain || 0));
+    if (currentValue > 0 && cfAmounts.length) {
+      cfAmounts.push(currentValue);
+      cfDates.push(new Date());
+      fundXirr = calcXIRR(cfAmounts, cfDates);
+    }
+  } catch(e) { fundXirr = null; }
+
+  const xirrColor = fundXirr === null ? 'var(--muted)'
+    : fundXirr >= 15 ? 'var(--green)'
+    : fundXirr >=  8 ? 'var(--gold)'
+    : 'var(--red)';
+
+  const xirrDisplay = fundXirr !== null
+    ? `<span style="color:${xirrColor};font-weight:600">${fundXirr >= 0 ? '+' : ''}${fundXirr.toFixed(1)}%</span>`
+    : '<span style="color:var(--muted)">—</span>';
+
+  // XIRR vs CAGR delta badge (only show when difference > 1pp — meaningful gap)
+  const cagrDelta = fundXirr !== null ? (fundXirr - f.CAGR) : null;
+  const deltaBadge = cagrDelta !== null && Math.abs(cagrDelta) > 1 ? `
+    <span style="font-size:10px;color:var(--muted2);margin-left:6px">
+      vs CAGR ${f.CAGR >= 0 ? '+' : ''}${f.CAGR.toFixed(1)}%
+      <span style="color:${cagrDelta > 0 ? 'var(--green)' : 'var(--red)'}">
+        (${cagrDelta > 0 ? '+' : ''}${cagrDelta.toFixed(1)}pp)
+      </span>
+    </span>` : '';
+
+  // ── XIRR summary pill shown above the lot table ──────────────
+  const xiBadge = fundXirr !== null ? `
+    <div style="display:inline-flex;align-items:center;gap:8px;
+                background:var(--bg3);border:1px solid var(--border);
+                border-radius:5px;padding:6px 12px;margin-bottom:10px;font-size:11px">
+      <span style="color:var(--muted)">Fund XIRR (money-weighted):</span>
+      <span style="color:${xirrColor};font-weight:700;font-family:var(--sans);font-size:14px">
+        ${fundXirr >= 0 ? '+' : ''}${fundXirr.toFixed(1)}%
+      </span>
+      <span style="color:var(--muted2);font-size:10px">p.a.</span>
+      ${deltaBadge}
+    </div>` : '';
+
+  // ── Lot rows ─────────────────────────────────────────────────
+  let totalAmt = 0, totalGain = 0;
+
+  const rows = lots.map(l => {
+    const days     = Math.floor((Date.now() - l.date.getTime()) / (24 * 3600 * 1000));
+    const holdStr  = fmtHoldPeriod(days);
+    const taxTag   = days >= 365
+      ? '<span class="ltcg-badge">LTCG</span>'
+      : '<span class="stcg-badge">STCG</span>';
+    const lotGainPct = l.amt > 0 ? ((l.gain / l.amt) * 100).toFixed(1) : 0;
+    const lotCls     = l.gain >= 0 ? 'td-up' : 'td-dn';
+
+    // Per-lot XIRR: single outflow → single inflow today
+    let lotXirr = null;
+    try {
+      if (l.date && l.amt > 0) {
+        const lotCurVal = l.cur || (l.amt + (l.gain || 0));
+        if (lotCurVal > 0 && days > 7) {           // skip near-zero holding periods
+          lotXirr = calcXIRR([-l.amt, lotCurVal], [new Date(l.date), new Date()]);
+        }
+      }
+    } catch(e) { lotXirr = null; }
+
+    const lotXirrColor = lotXirr === null ? 'var(--muted)'
+      : lotXirr >= 15 ? 'var(--green)'
+      : lotXirr >=  8 ? 'var(--gold)'
+      : 'var(--red)';
+
+    totalAmt  += (l.amt  || 0);
+    totalGain += (l.gain || 0);
+
     return `<tr>
       <td>${fmtDate(l.date)}</td>
-      <td>${l.invPrice>0?'₹'+l.invPrice.toFixed(3):'—'}</td>
-      <td>${l.qty>0?l.qty.toFixed(3):'—'}</td>
+      <td>${l.invPrice > 0 ? '₹' + l.invPrice.toFixed(3) : '—'}</td>
+      <td>${l.qty > 0 ? l.qty.toFixed(3) : '—'}</td>
       <td>${fmtL(l.amt)}</td>
       <td class="${lotCls}">${fmtL(l.gain)}</td>
-      <td class="${lotCls}">${l.amt>0?(l.gain>=0?'+':'')+lotGainPct+'%':'—'}</td>
+      <td class="${lotCls}">${l.amt > 0 ? (l.gain >= 0 ? '+' : '') + lotGainPct + '%' : '—'}</td>
+      <td style="color:${lotXirrColor};font-weight:${lotXirr !== null ? '600' : '400'}">
+        ${lotXirr !== null ? (lotXirr >= 0 ? '+' : '') + lotXirr.toFixed(1) + '%' : '—'}
+      </td>
       <td>${holdStr}</td>
       <td>${taxTag}</td>
     </tr>`;
   }).join('');
-  return `<table class="drill-table">
-    <thead><tr>
-      <th>Buy Date</th><th>Buy NAV</th><th>Units</th><th>Invested</th>
-      <th>Gain/Loss</th><th>Return</th><th>Holding</th><th>Tax</th>
-    </tr></thead>
-    <tbody>${rows}</tbody>
-  </table>`;
+
+  // ── Footer totals row ────────────────────────────────────────
+  const totalRetPct = totalAmt > 0 ? ((totalGain / totalAmt) * 100).toFixed(1) : 0;
+  const totCls      = totalGain >= 0 ? 'td-up' : 'td-dn';
+  const footer = `
+    <tr style="background:var(--bg3)">
+      <td style="color:var(--muted);font-size:10px;text-transform:uppercase;
+                 letter-spacing:.06em;font-weight:600">
+        Total · ${lots.length} lot${lots.length !== 1 ? 's' : ''}
+      </td>
+      <td></td><td></td>
+      <td style="font-weight:600">${fmtL(totalAmt)}</td>
+      <td class="${totCls}" style="font-weight:600">${fmtL(totalGain)}</td>
+      <td class="${totCls}" style="font-weight:600">
+        ${totalAmt > 0 ? (totalGain >= 0 ? '+' : '') + totalRetPct + '%' : '—'}
+      </td>
+      <td style="color:${xirrColor};font-weight:700">${xirrDisplay}</td>
+      <td colspan="2" style="color:var(--muted2);font-size:10px">← fund XIRR</td>
+    </tr>`;
+
+  return `
+    ${xiBadge}
+    <table class="drill-table">
+      <thead><tr>
+        <th>Buy date</th>
+        <th>Buy NAV</th>
+        <th>Units</th>
+        <th>Invested</th>
+        <th>Gain / Loss</th>
+        <th>Return %</th>
+        <th title="Money-weighted annualised return for this lot">XIRR</th>
+        <th>Holding</th>
+        <th>Tax</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot>${footer}</tfoot>
+    </table>
+    <div style="font-size:10px;color:var(--muted2);margin-top:8px;line-height:1.6">
+      XIRR = money-weighted return — accounts for exact timing of each purchase.
+      Early lots invested when the fund was cheaper tend to show the highest XIRR.
+    </div>`;
 }
 
 function buildSTDrillHTML(s){
