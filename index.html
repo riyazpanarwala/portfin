@@ -399,6 +399,28 @@
     <div class="sec-head"><div class="sec-title">Milestone tracker</div></div>
     <div id="goal-milestones"></div>
   </div>
+
+  <!-- Monte Carlo probability display -->
+  <div class="card" style="margin-bottom:16px">
+    <div class="sec-head">
+      <div class="sec-title">Monte Carlo SIP simulator</div>
+      <div style="font-size:10px;color:var(--muted)">
+        ${MC_SIMS} randomised market paths · P10 / P50 / P90 probability corridors · 18% annualised volatility
+      </div>
+    </div>
+    <div id="mc-prob-display" style="margin-bottom:16px;padding:14px;background:var(--bg3);border:1px solid var(--border);border-radius:8px">
+      <div style="color:var(--muted);font-size:11px">Adjust goal sliders above to run simulation.</div>
+    </div>
+    <div class="chart-box" style="height:300px"><canvas id="chart-monte-carlo"></canvas></div>
+    <div style="margin-top:12px;font-size:10px;color:var(--muted2);line-height:1.7">
+      Each path simulates monthly SIP investing with random GBM returns drawn from historical Indian equity volatility.
+      The <span style="color:#3fb950">green band</span> is the optimistic range (P75–P90),
+      the <span style="color:#f85149">red band</span> is pessimistic (P10–P25),
+      and the <span style="color:#3fb950;font-weight:600">solid green line</span> is the median outcome.
+      The <span style="color:#58a6ff">dashed blue line</span> is the deterministic projection at exact target rate.
+      The <span style="color:#f85149">dashed red line</span> is your goal corpus.
+    </div>
+  </div>
 </div>
 
 <!-- REBALANCING ADVISOR -->

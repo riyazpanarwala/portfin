@@ -1,23 +1,8 @@
 // ── page-timeline.js — Investment Timeline ──────────────────────────────────
+// NOTE: buildCombinedMonthly() lives in common.js (cached). Do NOT redefine here.
 
 // ── Investment Timeline ───────────────────────────────────────
 let tlYearFilter='All', chartCumInst=null;
-
-function buildCombinedMonthly() {
-  // Merge MF monthly + stock lots into a single month→amount map
-  const map={};
-  // MF monthly data (already aggregated)
-  DATA.monthlyMF.forEach(({m,v})=>{ map[m]=(map[m]||0)+v; });
-  // Stock lots grouped by month
-  DATA.stLots.forEach(l=>{
-    if(!l.date||!l.amt) return;
-    const d=new Date(l.date);
-    if(isNaN(d)) return;
-    const mk=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
-    map[mk]=(map[mk]||0)+l.amt;
-  });
-  return Object.entries(map).sort((a,b)=>a[0].localeCompare(b[0])).map(([m,v])=>({m,v:Math.round(v)}));
-}
 
 function renderTimeline() {
   const allMonths = buildCombinedMonthly();
@@ -296,4 +281,3 @@ function hideTLTip(){
   if(tt) tt.style.display='none';
 }
 function setTLYear(y){ tlYearFilter=y; renderTimeline(); }
-

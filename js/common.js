@@ -346,7 +346,6 @@ function buildMFDrillHTML(f) {
       ${deltaBadge}
     </div>` : '';
 
-  // ── Lot rows ─────────────────────────────────────────────────
   let totalAmt = 0, totalGain = 0;
 
   const rows = lots.map(l => {
@@ -421,7 +420,7 @@ function buildMFDrillHTML(f) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// buildSTDrillHTML — lot table with buy price (2 decimal)
+// buildSTDrillHTML — lot table with XIRR (mirrors MF drill)
 // ══════════════════════════════════════════════════════════════
 function buildSTDrillHTML(s) {
   if (!s.rawLots || !s.rawLots.length)
@@ -429,6 +428,51 @@ function buildSTDrillHTML(s) {
 
   const lots = [...s.rawLots].sort((a,b) => a.date - b.date);
   const cmp  = s.Latest_Price || 0;
+
+  // ── Stock-level XIRR ─────────────────────────────────────────
+  let stockXirr = null;
+  try {
+    const cfAmounts = [], cfDates = [];
+    lots.forEach(l => {
+      if (l.date && l.inv > 0) { cfAmounts.push(-l.inv); cfDates.push(new Date(l.date)); }
+    });
+    // Terminal value: use CMP × total qty if available, else sum of current lot values
+    const terminalValue = cmp > 0 && s.Qty > 0
+      ? cmp * s.Qty
+      : lots.reduce((a, l) => {
+          const cv = cmp > 0 && l.qty > 0 ? cmp * l.qty : (l.cur || l.inv + (l.gain || 0));
+          return a + cv;
+        }, 0);
+    if (terminalValue > 0 && cfAmounts.length) {
+      cfAmounts.push(terminalValue); cfDates.push(new Date());
+      stockXirr = calcXIRR(cfAmounts, cfDates);
+    }
+  } catch(e) { stockXirr = null; }
+
+  const sXirrColor = stockXirr === null ? 'var(--muted)'
+    : stockXirr >= 15 ? 'var(--green)'
+    : stockXirr >=  8 ? 'var(--gold)'
+    : 'var(--red)';
+
+  const cagrDelta = stockXirr !== null ? (stockXirr - (s.CAGR || 0)) : null;
+  const deltaBadge = cagrDelta !== null && Math.abs(cagrDelta) > 1 ? `
+    <span style="font-size:10px;color:var(--muted2);margin-left:6px">
+      vs CAGR ${(s.CAGR||0) >= 0 ? '+' : ''}${(s.CAGR||0).toFixed(2)}%
+      <span style="color:${cagrDelta > 0 ? 'var(--green)' : 'var(--red)'}">
+        (${cagrDelta > 0 ? '+' : ''}${cagrDelta.toFixed(2)}pp)
+      </span>
+    </span>` : '';
+
+  const xiBadge = stockXirr !== null ? `
+    <div style="display:inline-flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border);
+                border-radius:5px;padding:6px 12px;margin-bottom:10px;font-size:11px">
+      <span style="color:var(--muted)">Stock XIRR (money-weighted):</span>
+      <span style="color:${sXirrColor};font-weight:700;font-family:var(--sans);font-size:14px">
+        ${stockXirr >= 0 ? '+' : ''}${stockXirr.toFixed(2)}%
+      </span>
+      <span style="color:var(--muted2);font-size:10px">p.a.</span>
+      ${deltaBadge}
+    </div>` : '';
 
   const rows = lots.map(l => {
     const days    = Math.floor((Date.now() - l.date.getTime()) / (24*3600*1000));
@@ -438,6 +482,20 @@ function buildSTDrillHTML(s) {
     const lotGain = curVal - l.inv;
     const lotPct  = l.inv > 0 ? ((lotGain / l.inv) * 100).toFixed(2) : '0.00';
     const lotCls  = lotGain >= 0 ? 'td-up' : 'td-dn';
+
+    // Per-lot XIRR
+    let lotXirr = null;
+    try {
+      if (l.date && l.inv > 0 && days > 7 && curVal > 0) {
+        lotXirr = calcXIRR([-l.inv, curVal], [new Date(l.date), new Date()]);
+      }
+    } catch(e) { lotXirr = null; }
+
+    const lotXirrColor = lotXirr === null ? 'var(--muted)'
+      : lotXirr >= 15 ? 'var(--green)'
+      : lotXirr >=  8 ? 'var(--gold)'
+      : 'var(--red)';
+
     return `<tr>
       <td>${fmtDate(l.date)}</td>
       <td>${l.qty > 0 ? fmtN(l.qty) : '—'}</td>
@@ -447,19 +505,58 @@ function buildSTDrillHTML(s) {
       <td style="font-weight:500">${fmtL(curVal)}</td>
       <td class="${lotCls}">${fmtL(lotGain)}</td>
       <td class="${lotCls}">${l.inv > 0 ? (lotGain >= 0 ? '+' : '') + lotPct + '%' : '—'}</td>
+      <td style="color:${lotXirrColor};font-weight:${lotXirr !== null ? '600' : '400'}">
+        ${lotXirr !== null ? (lotXirr >= 0 ? '+' : '') + lotXirr.toFixed(2) + '%' : '—'}
+      </td>
       <td>${holdStr}</td>
       <td>${taxTag}</td>
     </tr>`;
   }).join('');
 
-  return `<table class="drill-table">
-    <thead><tr>
-      <th>Buy Date</th><th>Qty</th><th>Buy Price</th><th>CMP</th>
-      <th>Invested</th><th>Cur. Value</th><th>P&amp;L</th><th>Return %</th>
-      <th>Holding</th><th>Tax</th>
-    </tr></thead>
-    <tbody>${rows}</tbody>
-  </table>`;
+  // Footer totals row
+  const totalInv = lots.reduce((a,l) => a + (l.inv||0), 0);
+  const totalCurVal = lots.reduce((a,l) => {
+    const cv = cmp > 0 && l.qty > 0 ? cmp * l.qty : (l.cur || l.inv + (l.gain||0));
+    return a + cv;
+  }, 0);
+  const totalGainAmt = totalCurVal - totalInv;
+  const totalRetPct = totalInv > 0 ? ((totalGainAmt / totalInv) * 100).toFixed(2) : '0.00';
+  const totCls = totalGainAmt >= 0 ? 'td-up' : 'td-dn';
+
+  const xirrDisplay = stockXirr !== null
+    ? `<span style="color:${sXirrColor};font-weight:700">${stockXirr >= 0 ? '+' : ''}${stockXirr.toFixed(2)}%</span>`
+    : '<span style="color:var(--muted)">—</span>';
+
+  const footer = `
+    <tr style="background:var(--bg3)">
+      <td style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.06em;font-weight:600">
+        Total · ${lots.length} lot${lots.length !== 1 ? 's' : ''}
+      </td>
+      <td></td><td></td><td></td>
+      <td style="font-weight:600">${fmtL(totalInv)}</td>
+      <td style="font-weight:600">${fmtL(totalCurVal)}</td>
+      <td class="${totCls}" style="font-weight:600">${fmtL(totalGainAmt)}</td>
+      <td class="${totCls}" style="font-weight:600">${totalInv > 0 ? (totalGainAmt >= 0 ? '+' : '') + totalRetPct + '%' : '—'}</td>
+      <td style="color:${sXirrColor};font-weight:700">${xirrDisplay}</td>
+      <td colspan="2" style="color:var(--muted2);font-size:10px">← stock XIRR</td>
+    </tr>`;
+
+  return `
+    ${xiBadge}
+    <table class="drill-table">
+      <thead><tr>
+        <th>Buy Date</th><th>Qty</th><th>Buy Price</th><th>CMP</th>
+        <th>Invested</th><th>Cur. Value</th><th>P&amp;L</th><th>Return %</th>
+        <th title="Money-weighted annualised return for this lot">XIRR</th>
+        <th>Holding</th><th>Tax</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot>${footer}</tfoot>
+    </table>
+    <div style="font-size:10px;color:var(--muted2);margin-top:8px;line-height:1.6">
+      XIRR = money-weighted return — accounts for exact timing of each purchase.
+      Lots bought during dips or earlier in a bull run tend to show the highest XIRR.
+    </div>`;
 }
 
 const drillState = {};

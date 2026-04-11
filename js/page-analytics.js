@@ -2,7 +2,6 @@
 
 // ── Analytics ─────────────────────────────────────────────────
 function renderAnalytics() {
-  // FIX: use scheduleChart() to prevent race conditions on rapid tab switching
   scheduleChart('chart-monthly', 50, (el) => {
     const d = DATA.monthlyMF;
     if(!d.length){
@@ -81,7 +80,6 @@ function renderHoldingPeriodChart() {
   const el = document.getElementById('holding-period-chart-wrap');
   if (!el) return;
 
-  // Collect all lots from both MF and stocks
   const allLots = [];
   DATA.funds.forEach(f => {
     (f.rawLots || []).forEach(l => {
@@ -101,7 +99,6 @@ function renderHoldingPeriodChart() {
     return;
   }
 
-  // Buckets: 0-3m, 3-6m, 6-12m (STCG), 1-2y, 2-3y, 3-5y, 5y+ (LTCG)
   const BUCKETS = [
     { label: '0–3 months',  min:   0, max:  91,  isLTCG: false },
     { label: '3–6 months',  min:  91, max: 182,  isLTCG: false },
@@ -125,7 +122,6 @@ function renderHoldingPeriodChart() {
     return;
   }
 
-  // Summary KPIs
   const totalAmt  = allLots.reduce((a,l)=>a+l.amt,0);
   const ltcgAmt   = allLots.filter(l=>l.isLTCG).reduce((a,l)=>a+l.amt,0);
   const stcgAmt   = totalAmt - ltcgAmt;
@@ -154,7 +150,6 @@ function renderHoldingPeriodChart() {
     <div style="margin-top:14px" id="holding-period-detail-rows"></div>
   `;
 
-  // Render per-bucket detail rows
   const maxTotal = Math.max(...bucketData.map(b=>b.total), 1);
   document.getElementById('holding-period-detail-rows').innerHTML = bucketData.map(b => {
     const pct = Math.round(b.total / totalAmt * 100);
@@ -174,12 +169,10 @@ function renderHoldingPeriodChart() {
     </div>`;
   }).join('');
 
-  // FIX: Use scheduleChart for race-condition-safe chart creation
   scheduleChart('chart-holding-period', 60, (canvas) => {
     const labels = bucketData.map(b => b.label);
     const mfData = bucketData.map(b => Math.round(b.mfAmt));
     const stData = bucketData.map(b => Math.round(b.stAmt));
-    const bgColors = bucketData.map(b => b.isLTCG ? 'rgba(63,185,80,.25)' : 'rgba(227,179,65,.15)');
 
     return new Chart(canvas, {
       type: 'bar',
@@ -216,7 +209,7 @@ function renderHoldingPeriodChart() {
   });
 }
 
-// ── Benchmark Comparison (same as original) ──────────────────
+// ── Benchmark Comparison ──────────────────────────────────────
 const BM_ANNUAL = {
   'Nifty 50':        {1:8.5,  2:10.2, 3:12.8, 5:14.2, 7:13.4, 10:12.9, 15:13.5},
   'Nifty Next 50':   {1:6.1,  2:8.4,  3:10.4, 5:12.1, 7:11.8, 10:11.2, 15:11.8},
@@ -267,7 +260,12 @@ function buildFundAnalysis(){
 }
 
 let bmPeriod = '5y';
-function setBMPeriod(p){ bmPeriod=p; renderBenchmark(); }
+function setBMPeriod(p){
+  bmPeriod=p;
+  // BUG FIX: clear fund analysis cache so per-fund alpha table re-aligns to new period
+  _fundAnalysisCache = null;
+  renderBenchmark();
+}
 
 function renderBenchmark() {
   const bmKpisEl=document.getElementById('bm-kpis');
@@ -323,7 +321,6 @@ function _renderBMChart({nMF,yourMFCagr,yourStCagr,yourCombinedCagr,nifty50Ref,p
   if(nMF&&DATA.stocks.length) push('Your Combined',yourCombinedCagr,yourCombinedCagr>=nifty50Ref?'rgba(212,168,67,.90)':'rgba(248,81,73,.70)',yourCombinedCagr>=nifty50Ref?'#d4a843':'#f85149');
   BM_CHART_ORDER.forEach(bmKey=>{const val=calculateBenchmarkCAGR(bmKey,periodDays);if(val===null)return;const[bg,bd]=BM_CHART_COLORS[bmKey]||['rgba(125,133,144,.5)','#7d8590'];push(bmKey,val,bg,bd);});
 
-  // FIX: use scheduleChart helper
   scheduleChart('chart-benchmark', 60, (el) => {
     return new Chart(el, {
       type:'bar', data:{labels,datasets:[{label:'CAGR %',data:vals,backgroundColor:bgColors,borderColor:bdColors,borderWidth:1.5,borderRadius:4,borderSkipped:false}]},
