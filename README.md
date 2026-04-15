@@ -258,12 +258,13 @@ portfin/
 │   └── style.css           # Full design system & component styles
 └── js/
     ├── common.js           # DATA store, formatters, helpers, theme, sidebar
-    ├── page-overview.js    # Overview, health score, SIP reminder, drawdown analyzer
+    ├── page-overview.js    # Overview, health score, SIP reminder, drawdown analyzer, risk-return
     ├── page-mf.js          # Mutual Funds page
     ├── page-stocks.js      # Stocks page + tax harvesting
-    ├── page-analytics.js   # Analytics + benchmark comparison engine
+    ├── page-analytics.js   # Analytics + benchmark comparison engine + holding period chart
     ├── page-timeline.js    # Investment timeline + heatmap
-    ├── page-goals.js       # Goal planner
+    ├── page-goals.js       # Goal planner + Monte Carlo simulator
+    ├── page-snapshots.js   # Snapshot history
     ├── page-tools.js       # Rebalancer, wealth waterfall, action signal, upload/parsing
     └── boot.js             # PAGES router + boot sequence (loads last)
 ```
