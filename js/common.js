@@ -66,10 +66,8 @@ function fmtDate(d){ return d ? new Date(d).toLocaleDateString('en-IN',{day:'2-d
 function fmtMonthYear(d){ return d ? new Date(d).toLocaleDateString('en-IN',{month:'short',year:'numeric'}) : '—'; }
 
 // ── XIRR via Newton-Raphson ───────────────────────────────────
-// FIX: guard against zero-gain case to avoid false 10% result
 function calcXIRR(cashflows, dates) {
   if (!cashflows.length) return null;
-  // If net cashflow is ~zero the investment broke even; skip NR to avoid false result
   const netFlow = cashflows.reduce((a, v) => a + v, 0);
   if (Math.abs(netFlow) < 1) return 0;
   const base = dates[0];
@@ -195,7 +193,6 @@ const LS_KEY = 'portfin-data-v1';
 const LS_SNAPSHOTS_KEY = 'portfin-snapshots-v1';
 const MAX_SNAPSHOTS = 24;
 
-// FIX: surface QuotaExceededError visibly instead of silently swallowing it
 function saveDataToStorage() {
   try {
     const payload = {
@@ -216,7 +213,6 @@ function saveDataToStorage() {
     return true;
   } catch(e) {
     console.warn('PortFin: Could not save to localStorage', e);
-    // FIX: show visible warning when storage quota is exceeded
     if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
       const msgEl = document.getElementById('apply-msg');
       if (msgEl) {
@@ -308,13 +304,174 @@ function fmtHoldPeriod(days) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// buildMFDrillHTML — lot table + fund-level & per-lot XIRR
+// buildMonthlyBreakupHTML — shared helper for MF & Stock monthly breakup
+// ══════════════════════════════════════════════════════════════
+function buildMonthlyBreakupHTML(lots, type) {
+  // type = 'mf' | 'st'
+  // lots for MF: [{date, amt, qty, invPrice, gain, cur}, ...]
+  // lots for ST: [{date, inv, qty, invPrice, gain, cur}, ...]
+
+  const monthMap = {};
+  lots.forEach(l => {
+    if (!l.date) return;
+    const d = new Date(l.date);
+    if (isNaN(d)) return;
+    const mk = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    if (!monthMap[mk]) {
+      monthMap[mk] = { invested: 0, gain: 0, lots: 0, units: 0 };
+    }
+    const invested = type === 'mf' ? (l.amt || 0) : (l.inv || 0);
+    const gain     = l.gain || 0;
+    const units    = l.qty  || 0;
+    monthMap[mk].invested += invested;
+    monthMap[mk].gain     += gain;
+    monthMap[mk].lots     += 1;
+    monthMap[mk].units    += units;
+  });
+
+  const months = Object.entries(monthMap)
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([mk, v]) => ({ mk, ...v, retPct: v.invested > 0 ? (v.gain / v.invested) * 100 : 0 }));
+
+  if (!months.length) {
+    return '<div style="color:var(--muted);font-size:11px;padding:10px">No monthly data available</div>';
+  }
+
+  const totalInvested = months.reduce((a, m) => a + m.invested, 0);
+  const totalGain     = months.reduce((a, m) => a + m.gain, 0);
+  const maxInvested   = Math.max(...months.map(m => m.invested), 1);
+
+  // Group by year for summary
+  const yearMap = {};
+  months.forEach(m => {
+    const y = m.mk.slice(0, 4);
+    if (!yearMap[y]) yearMap[y] = { invested: 0, gain: 0, lots: 0 };
+    yearMap[y].invested += m.invested;
+    yearMap[y].gain     += m.gain;
+    yearMap[y].lots     += m.lots;
+  });
+
+  const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  // Build year summary KPIs
+  const yearEntries = Object.entries(yearMap).sort((a, b) => a[0].localeCompare(b[0]));
+  const yearKpis = yearEntries.map(([y, yv]) => {
+    const retPct = yv.invested > 0 ? (yv.gain / yv.invested * 100) : 0;
+    const retColor = retPct >= 0 ? 'var(--green)' : 'var(--red)';
+    return `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 12px;min-width:100px;flex-shrink:0">
+      <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">${y}</div>
+      <div style="font-family:var(--sans);font-size:15px;font-weight:700;color:var(--gold)">${fmtL(yv.invested)}</div>
+      <div style="font-size:10px;color:${retColor};margin-top:2px">${retPct >= 0 ? '+' : ''}${retPct.toFixed(1)}% · ${yv.lots} lot${yv.lots !== 1 ? 's' : ''}</div>
+    </div>`;
+  }).join('');
+
+  // Build monthly rows
+  const monthRows = months.map(m => {
+    const [y, mo] = m.mk.split('-');
+    const monthName = MONTH_NAMES[parseInt(mo) - 1] + ' ' + y;
+    const barWidth  = Math.round(m.invested / maxInvested * 100);
+    const retColor  = m.retPct >= 0 ? 'var(--green)' : 'var(--red)';
+    const gainCls   = m.gain >= 0 ? 'td-up' : 'td-dn';
+    const unitsCol  = type === 'mf'
+      ? `<td style="font-size:11px;color:var(--muted);text-align:right">${m.units > 0 ? m.units.toFixed(3) : '—'}</td>`
+      : `<td style="font-size:11px;color:var(--muted);text-align:right">${m.units > 0 ? fmtN(m.units) : '—'}</td>`;
+
+    return `<tr>
+      <td style="font-size:11px;font-weight:500;white-space:nowrap">${monthName}</td>
+      <td style="min-width:120px">
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="flex:1;height:6px;background:var(--bg4);border-radius:3px;overflow:hidden;min-width:60px">
+            <div style="height:100%;width:${barWidth}%;background:#58a6ff;border-radius:3px;transition:width .4s"></div>
+          </div>
+          <span style="font-size:11px;font-weight:500;min-width:72px;text-align:right">${fmtL(m.invested)}</span>
+        </div>
+      </td>
+      ${unitsCol}
+      <td class="${gainCls}" style="font-size:11px;text-align:right">${fmtL(m.gain)}</td>
+      <td style="font-size:11px;text-align:right;color:${retColor};font-weight:500">${m.retPct >= 0 ? '+' : ''}${m.retPct.toFixed(2)}%</td>
+      <td style="font-size:10px;color:var(--muted);text-align:right">${m.lots}</td>
+    </tr>`;
+  }).join('');
+
+  const unitsHeader = type === 'mf' ? '<th style="text-align:right">Units</th>' : '<th style="text-align:right">Qty</th>';
+  const totalRetPct  = totalInvested > 0 ? (totalGain / totalInvested * 100) : 0;
+  const totGainCls   = totalGain >= 0 ? 'td-up' : 'td-dn';
+  const totalRetColor = totalRetPct >= 0 ? 'var(--green)' : 'var(--red)';
+
+  return `
+    <div style="margin-bottom:12px">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Year-wise summary</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">${yearKpis}</div>
+    </div>
+
+    <div style="overflow-x:auto">
+      <table class="drill-table" style="min-width:480px">
+        <thead>
+          <tr>
+            <th>Month</th>
+            <th style="min-width:160px">Invested (with bar)</th>
+            ${unitsHeader}
+            <th style="text-align:right">Gain / Loss</th>
+            <th style="text-align:right">Return %</th>
+            <th style="text-align:right">Lots</th>
+          </tr>
+        </thead>
+        <tbody>${monthRows}</tbody>
+        <tfoot>
+          <tr style="background:var(--bg3)">
+            <td style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600">
+              Total · ${months.length} months
+            </td>
+            <td style="font-size:11px;font-weight:700;color:var(--gold);padding-left:8px">${fmtL(totalInvested)}</td>
+            <td></td>
+            <td class="${totGainCls}" style="font-size:11px;font-weight:700;text-align:right">${fmtL(totalGain)}</td>
+            <td style="font-size:11px;font-weight:700;text-align:right;color:${totalRetColor}">${totalRetPct >= 0 ? '+' : ''}${totalRetPct.toFixed(2)}%</td>
+            <td style="font-size:10px;color:var(--muted);text-align:right">${lots.length}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    <div style="font-size:10px;color:var(--muted2);margin-top:8px;line-height:1.6">
+      Monthly breakup shows total capital deployed and unrealised gain per calendar month.
+      Gain figures reflect current value minus cost for all lots purchased in that month.
+    </div>`;
+}
+
+// ══════════════════════════════════════════════════════════════
+// Drill-down tab switcher helper
+// ══════════════════════════════════════════════════════════════
+function switchDrillTab(tabGroupId, tabId) {
+  const group = document.getElementById(tabGroupId);
+  if (!group) return;
+  // Hide all panels in group
+  group.querySelectorAll('.drill-tab-panel').forEach(p => p.style.display = 'none');
+  // Deactivate all tab buttons
+  group.querySelectorAll('.drill-tab-btn').forEach(b => {
+    b.style.background = 'transparent';
+    b.style.color = 'var(--muted)';
+    b.style.borderBottomColor = 'transparent';
+  });
+  // Show selected panel
+  const panel = document.getElementById(tabId);
+  if (panel) panel.style.display = 'block';
+  // Activate selected button
+  const btn = group.querySelector(`[data-tab="${tabId}"]`);
+  if (btn) {
+    btn.style.background = 'var(--bg4)';
+    btn.style.color = 'var(--gold)';
+    btn.style.borderBottomColor = 'var(--gold)';
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// buildMFDrillHTML — lot table + monthly breakup tabs + fund-level XIRR
 // ══════════════════════════════════════════════════════════════
 function buildMFDrillHTML(f) {
   if (!f.rawLots || !f.rawLots.length)
     return '<div style="color:var(--muted);font-size:11px;padding:6px">No lot-level data available</div>';
 
   const lots = [...f.rawLots].sort((a,b) => a.date - b.date);
+  const drillId = 'mf-drill-' + Math.random().toString(36).slice(2, 8);
 
   let fundXirr = null;
   try {
@@ -412,8 +569,7 @@ function buildMFDrillHTML(f) {
       <td colspan="2" style="color:var(--muted2);font-size:10px">← fund XIRR</td>
     </tr>`;
 
-  return `
-    ${xiBadge}
+  const lotTableHTML = `
     <table class="drill-table">
       <thead><tr>
         <th>Buy date</th><th>Buy NAV</th><th>Units</th><th>Invested</th>
@@ -428,10 +584,35 @@ function buildMFDrillHTML(f) {
       XIRR = money-weighted return — accounts for exact timing of each purchase.
       Early lots invested when the fund was cheaper tend to show the highest XIRR.
     </div>`;
+
+  const monthlyHTML = buildMonthlyBreakupHTML(lots, 'mf');
+
+  // Tab styles (inline to stay self-contained)
+  const tabBarStyle = `display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:14px;`;
+  const tabBtnStyle = `padding:7px 16px;font-size:11px;font-family:var(--mono);border:none;border-bottom:2px solid transparent;background:transparent;color:var(--muted);cursor:pointer;transition:all .15s;`;
+
+  return `
+    ${xiBadge}
+    <div id="${drillId}" style="margin-top:4px">
+      <div style="${tabBarStyle}">
+        <button class="drill-tab-btn" data-tab="${drillId}-lots"
+          style="${tabBtnStyle}background:var(--bg4);color:var(--gold);border-bottom-color:var(--gold);"
+          onclick="switchDrillTab('${drillId}','${drillId}-lots')">
+          📋 Lot-wise breakup
+        </button>
+        <button class="drill-tab-btn" data-tab="${drillId}-monthly"
+          style="${tabBtnStyle}"
+          onclick="switchDrillTab('${drillId}','${drillId}-monthly')">
+          📅 Monthly breakup
+        </button>
+      </div>
+      <div class="drill-tab-panel" id="${drillId}-lots">${lotTableHTML}</div>
+      <div class="drill-tab-panel" id="${drillId}-monthly" style="display:none">${monthlyHTML}</div>
+    </div>`;
 }
 
 // ══════════════════════════════════════════════════════════════
-// buildSTDrillHTML — lot table with XIRR
+// buildSTDrillHTML — lot table + monthly breakup tabs + stock XIRR
 // ══════════════════════════════════════════════════════════════
 function buildSTDrillHTML(s) {
   if (!s.rawLots || !s.rawLots.length)
@@ -439,6 +620,7 @@ function buildSTDrillHTML(s) {
 
   const lots = [...s.rawLots].sort((a,b) => a.date - b.date);
   const cmp  = s.Latest_Price || 0;
+  const drillId = 'st-drill-' + Math.random().toString(36).slice(2, 8);
 
   let stockXirr = null;
   try {
@@ -548,8 +730,13 @@ function buildSTDrillHTML(s) {
       <td colspan="2" style="color:var(--muted2);font-size:10px">← stock XIRR</td>
     </tr>`;
 
-  return `
-    ${xiBadge}
+  // Build lot-level gain for monthly breakup (using current value per lot)
+  const lotsForMonthly = lots.map(l => {
+    const curVal = cmp > 0 && l.qty > 0 ? cmp * l.qty : (l.cur || l.inv + (l.gain || 0));
+    return { ...l, gain: curVal - l.inv };
+  });
+
+  const lotTableHTML = `
     <table class="drill-table">
       <thead><tr>
         <th>Buy Date</th><th>Qty</th><th>Buy Price</th><th>CMP</th>
@@ -563,6 +750,30 @@ function buildSTDrillHTML(s) {
     <div style="font-size:10px;color:var(--muted2);margin-top:8px;line-height:1.6">
       XIRR = money-weighted return — accounts for exact timing of each purchase.
       Lots bought during dips or earlier in a bull run tend to show the highest XIRR.
+    </div>`;
+
+  const monthlyHTML = buildMonthlyBreakupHTML(lotsForMonthly, 'st');
+
+  const tabBarStyle = `display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:14px;`;
+  const tabBtnStyle = `padding:7px 16px;font-size:11px;font-family:var(--mono);border:none;border-bottom:2px solid transparent;background:transparent;color:var(--muted);cursor:pointer;transition:all .15s;`;
+
+  return `
+    ${xiBadge}
+    <div id="${drillId}" style="margin-top:4px">
+      <div style="${tabBarStyle}">
+        <button class="drill-tab-btn" data-tab="${drillId}-lots"
+          style="${tabBtnStyle}background:var(--bg4);color:var(--gold);border-bottom-color:var(--gold);"
+          onclick="switchDrillTab('${drillId}','${drillId}-lots')">
+          📋 Lot-wise breakup
+        </button>
+        <button class="drill-tab-btn" data-tab="${drillId}-monthly"
+          style="${tabBtnStyle}"
+          onclick="switchDrillTab('${drillId}','${drillId}-monthly')">
+          📅 Monthly breakup
+        </button>
+      </div>
+      <div class="drill-tab-panel" id="${drillId}-lots">${lotTableHTML}</div>
+      <div class="drill-tab-panel" id="${drillId}-monthly" style="display:none">${monthlyHTML}</div>
     </div>`;
 }
 
