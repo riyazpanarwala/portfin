@@ -368,3 +368,19 @@ tr:hover td{background:var(--bg3)}
 .pas-mood-icon{font-size:22px;line-height:1;flex-shrink:0}
 .pas-mood-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:2px}
 .pas-mood-val{font-size:13px;font-weight:600}
+.risk-score-box, .return-score-box {
+  transition: all 0.2s ease;
+}
+
+.risk-score-box:hover, .return-score-box:hover {
+  transform: translateY(-2px);
+  background: var(--bg3);
+}
+
+.recommendation-box {
+  transition: all 0.2s ease;
+}
+
+.recommendation-box:hover {
+  background: var(--bg4);
+}
