@@ -2,61 +2,71 @@
 
 // ── Goal Planner ──────────────────────────────────────────────
 let chartGoalInst = null;
-let chartMCInst   = null;   // Monte Carlo chart instance
+let chartMCInst = null; // Monte Carlo chart instance
 
-function renderGoalPlanner(){
+function renderGoalPlanner() {
   updateGoal();
+  renderStepUpPlanner();
 }
 
-function updateGoal(){
-  const corpus  = parseInt(document.getElementById('goal-corpus').value)  || 10000000;
-  const year    = parseInt(document.getElementById('goal-year').value)    || 2035;
-  const rate    = parseFloat(document.getElementById('goal-rate').value)  || 12;
+function updateGoal() {
+  const corpus =
+    parseInt(document.getElementById("goal-corpus").value) || 10000000;
+  const year = parseInt(document.getElementById("goal-year").value) || 2035;
+  const rate = parseFloat(document.getElementById("goal-rate").value) || 12;
 
-  document.getElementById('goal-corpus-val').textContent = fmtL(corpus);
-  document.getElementById('goal-year-val').textContent   = year;
-  document.getElementById('goal-rate-val').textContent   = rate.toFixed(1) + '%';
+  document.getElementById("goal-corpus-val").textContent = fmtL(corpus);
+  document.getElementById("goal-year-val").textContent = year;
+  document.getElementById("goal-rate-val").textContent = rate.toFixed(1) + "%";
 
-  const k          = DATA.kpis;
+  const k = DATA.kpis;
   const currentVal = k.totalValue || 0;
-  const nowYear    = new Date().getFullYear();
-  const yrsLeft    = Math.max(0.5, year - nowYear);
-  const r          = rate / 100;
-  const rM         = r / 12;
-  const n          = yrsLeft * 12;
+  const nowYear = new Date().getFullYear();
+  const yrsLeft = Math.max(0.5, year - nowYear);
+  const r = rate / 100;
+  const rM = r / 12;
+  const n = yrsLeft * 12;
 
   // FV of current portfolio at given rate
-  const fvCurrent  = currentVal * Math.pow(1 + r, yrsLeft);
-  const remaining  = Math.max(0, corpus - fvCurrent);
-  const sipNeeded  = remaining > 0 && rM > 0
-    ? Math.round(remaining * rM / (Math.pow(1 + rM, n) - 1))
-    : 0;
+  const fvCurrent = currentVal * Math.pow(1 + r, yrsLeft);
+  const remaining = Math.max(0, corpus - fvCurrent);
+  const sipNeeded =
+    remaining > 0 && rM > 0
+      ? Math.round((remaining * rM) / (Math.pow(1 + rM, n) - 1))
+      : 0;
 
   // Current trajectory using historical avg monthly
-  const allMonths    = buildCombinedMonthly();
-  const avgMonthly   = allMonths.length
-    ? Math.round(allMonths.reduce((a,x) => a + x.v, 0) / allMonths.filter(x => x.v > 0).length)
+  const allMonths = buildCombinedMonthly();
+  const avgMonthly = allMonths.length
+    ? Math.round(
+        allMonths.reduce((a, x) => a + x.v, 0) /
+          allMonths.filter((x) => x.v > 0).length,
+      )
     : 0;
-  const fvWithSip    = currentVal * Math.pow(1 + r, yrsLeft)
-    + (avgMonthly > 0 ? avgMonthly * ((Math.pow(1 + rM, n) - 1) / rM) * (1 + rM) : 0);
-  const onTrack      = fvWithSip >= corpus;
-  const gap          = corpus - fvWithSip;
+  const fvWithSip =
+    currentVal * Math.pow(1 + r, yrsLeft) +
+    (avgMonthly > 0
+      ? avgMonthly * ((Math.pow(1 + rM, n) - 1) / rM) * (1 + rM)
+      : 0);
+  const onTrack = fvWithSip >= corpus;
+  const gap = corpus - fvWithSip;
 
-  document.getElementById('goal-result-box').innerHTML = `
+  document.getElementById("goal-result-box").innerHTML = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
       <div>
         <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">SIP needed</div>
-        <div style="font-family:var(--sans);font-size:18px;font-weight:700;color:var(--gold)">${sipNeeded > 0 ? fmtL(sipNeeded) + '/mo' : 'Already on track!'}</div>
+        <div style="font-family:var(--sans);font-size:18px;font-weight:700;color:var(--gold)">${sipNeeded > 0 ? fmtL(sipNeeded) + "/mo" : "Already on track!"}</div>
       </div>
       <div>
         <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">Projected at current pace</div>
-        <div style="font-family:var(--sans);font-size:18px;font-weight:700;color:${onTrack ? 'var(--green)' : 'var(--red)'}">${fmtL(Math.round(fvWithSip))}</div>
+        <div style="font-family:var(--sans);font-size:18px;font-weight:700;color:${onTrack ? "var(--green)" : "var(--red)"}">${fmtL(Math.round(fvWithSip))}</div>
       </div>
     </div>
-    <div style="font-size:11px;color:${onTrack ? 'var(--green)' : 'var(--amber)'}">
-      ${onTrack
-        ? `✓ On track! Your current avg SIP of ${fmtL(avgMonthly)}/mo will reach ${fmtL(Math.round(fvWithSip))} by ${year} — ${fmtL(Math.round(fvWithSip - corpus))} surplus.`
-        : `You need to increase SIP by ${fmtL(Math.max(0, sipNeeded - avgMonthly))}/mo. Current trajectory falls short by ${fmtL(Math.round(gap))}.`
+    <div style="font-size:11px;color:${onTrack ? "var(--green)" : "var(--amber)"}">
+      ${
+        onTrack
+          ? `✓ On track! Your current avg SIP of ${fmtL(avgMonthly)}/mo will reach ${fmtL(Math.round(fvWithSip))} by ${year} — ${fmtL(Math.round(fvWithSip - corpus))} surplus.`
+          : `You need to increase SIP by ${fmtL(Math.max(0, sipNeeded - avgMonthly))}/mo. Current trajectory falls short by ${fmtL(Math.round(gap))}.`
       }
     </div>`;
 
@@ -64,101 +74,231 @@ function updateGoal(){
   renderGoalChart(corpus, year, rate, currentVal, avgMonthly, sipNeeded);
 
   // Summary KPIs
-  document.getElementById('goal-summary-kpis').innerHTML = [
-    {l:'Goal Corpus',       v: fmtL(corpus),               s:'Target by ' + year,        a:'#d4a843'},
-    {l:'Current Portfolio', v: fmtL(currentVal),            s:'As of today',               a:'#58a6ff'},
-    {l:'Years Remaining',   v: yrsLeft.toFixed(1) + 'y',   s:'To target date',            a:'#a371f7'},
-    {l:'SIP Required',      v: sipNeeded > 0 ? fmtL(sipNeeded) + '/mo' : 'On track!', s:'At ' + rate + '% p.a.', a: sipNeeded > 0 ? '#f85149' : '#3fb950'},
-    {l:'Projected Value',   v: fmtL(Math.round(fvWithSip)), s: onTrack ? 'Exceeds goal' : 'Below goal', a: onTrack ? '#3fb950' : '#f85149'},
-    {l:'Avg Current SIP',   v: avgMonthly ? fmtL(avgMonthly) + '/mo' : '—', s:'Historical monthly avg', a:'#7d8590'},
-  ].map(c => `<div class="kpi-card" style="--accent:${c.a}"><div class="kpi-label">${c.l}</div><div class="kpi-value">${c.v}</div><div class="kpi-sub">${c.s}</div></div>`).join('');
+  document.getElementById("goal-summary-kpis").innerHTML = [
+    { l: "Goal Corpus", v: fmtL(corpus), s: "Target by " + year, a: "#d4a843" },
+    {
+      l: "Current Portfolio",
+      v: fmtL(currentVal),
+      s: "As of today",
+      a: "#58a6ff",
+    },
+    {
+      l: "Years Remaining",
+      v: yrsLeft.toFixed(1) + "y",
+      s: "To target date",
+      a: "#a371f7",
+    },
+    {
+      l: "SIP Required",
+      v: sipNeeded > 0 ? fmtL(sipNeeded) + "/mo" : "On track!",
+      s: "At " + rate + "% p.a.",
+      a: sipNeeded > 0 ? "#f85149" : "#3fb950",
+    },
+    {
+      l: "Projected Value",
+      v: fmtL(Math.round(fvWithSip)),
+      s: onTrack ? "Exceeds goal" : "Below goal",
+      a: onTrack ? "#3fb950" : "#f85149",
+    },
+    {
+      l: "Avg Current SIP",
+      v: avgMonthly ? fmtL(avgMonthly) + "/mo" : "—",
+      s: "Historical monthly avg",
+      a: "#7d8590",
+    },
+  ]
+    .map(
+      (c) =>
+        `<div class="kpi-card" style="--accent:${c.a}"><div class="kpi-label">${c.l}</div><div class="kpi-value">${c.v}</div><div class="kpi-sub">${c.s}</div></div>`,
+    )
+    .join("");
 
   // Scenarios
-  const rates   = [8, 10, 12, 15, 18];
-  const maxSip  = Math.max(...rates.map(rt => {
-    const rv = rt / 100, rMv = rv / 12;
-    const fvC = currentVal * Math.pow(1 + rv, yrsLeft);
-    const rem = Math.max(0, corpus - fvC);
-    return rem > 0 && rMv > 0 ? Math.round(rem * rMv / (Math.pow(1 + rMv, n) - 1)) : 0;
-  }), 1);
-  document.getElementById('goal-scenarios').innerHTML = rates.map(rt => {
-    const rv = rt / 100, rMv = rv / 12;
-    const fvC = currentVal * Math.pow(1 + rv, yrsLeft);
-    const rem = Math.max(0, corpus - fvC);
-    const sip = rem > 0 && rMv > 0 ? Math.round(rem * rMv / (Math.pow(1 + rMv, n) - 1)) : 0;
-    const isSelected = Math.abs(rt - rate) < 1;
-    return `<div class="goal-scenario-row">
-      <span class="goal-scen-rate" style="color:${isSelected ? 'var(--gold)' : 'var(--muted)'}">${rt}% p.a.${isSelected ? ' ◀' : ''}</span>
-      <span class="goal-scen-sip" style="color:${sip === 0 ? 'var(--green)' : 'var(--text)'}">${sip > 0 ? fmtL(sip) + '/mo' : 'On track!'}</span>
-      <div class="goal-scen-bar"><div class="goal-scen-fill" style="width:${sip > 0 ? Math.round(sip / maxSip * 100) : 0}%"></div></div>
-      <span class="goal-scen-note">${sip > 0 ? 'vs avg ' + fmtL(avgMonthly) : fmtL(Math.round(currentVal * Math.pow(1 + rv, yrsLeft)))}</span>
+  const rates = [8, 10, 12, 15, 18];
+  const maxSip = Math.max(
+    ...rates.map((rt) => {
+      const rv = rt / 100,
+        rMv = rv / 12;
+      const fvC = currentVal * Math.pow(1 + rv, yrsLeft);
+      const rem = Math.max(0, corpus - fvC);
+      return rem > 0 && rMv > 0
+        ? Math.round((rem * rMv) / (Math.pow(1 + rMv, n) - 1))
+        : 0;
+    }),
+    1,
+  );
+  document.getElementById("goal-scenarios").innerHTML = rates
+    .map((rt) => {
+      const rv = rt / 100,
+        rMv = rv / 12;
+      const fvC = currentVal * Math.pow(1 + rv, yrsLeft);
+      const rem = Math.max(0, corpus - fvC);
+      const sip =
+        rem > 0 && rMv > 0
+          ? Math.round((rem * rMv) / (Math.pow(1 + rMv, n) - 1))
+          : 0;
+      const isSelected = Math.abs(rt - rate) < 1;
+      return `<div class="goal-scenario-row">
+      <span class="goal-scen-rate" style="color:${isSelected ? "var(--gold)" : "var(--muted)"}">${rt}% p.a.${isSelected ? " ◀" : ""}</span>
+      <span class="goal-scen-sip" style="color:${sip === 0 ? "var(--green)" : "var(--text)"}">${sip > 0 ? fmtL(sip) + "/mo" : "On track!"}</span>
+      <div class="goal-scen-bar"><div class="goal-scen-fill" style="width:${sip > 0 ? Math.round((sip / maxSip) * 100) : 0}%"></div></div>
+      <span class="goal-scen-note">${sip > 0 ? "vs avg " + fmtL(avgMonthly) : fmtL(Math.round(currentVal * Math.pow(1 + rv, yrsLeft)))}</span>
     </div>`;
-  }).join('');
+    })
+    .join("");
 
   // Milestones
-  const milestones = [0.25, 0.50, 0.75, 1.0];
-  document.getElementById('goal-milestones').innerHTML = milestones.map(pct => {
-    const target  = corpus * pct;
-    const reached = currentVal >= target;
-    let reachYear = null;
-    for (let y2 = nowYear; y2 <= 2060; y2++) {
-      const yrs2 = y2 - nowYear;
-      const fv = currentVal * Math.pow(1 + r, yrs2)
-        + (avgMonthly * ((Math.pow(1 + rM, yrs2 * 12) - 1) / rM) * (1 + rM));
-      if (fv >= target) { reachYear = y2; break; }
-    }
-    const dotColor = reached ? 'var(--green)' : reachYear ? 'var(--gold)' : 'var(--red)';
-    return `<div class="milestone-row">
+  const milestones = [0.25, 0.5, 0.75, 1.0];
+  document.getElementById("goal-milestones").innerHTML = milestones
+    .map((pct) => {
+      const target = corpus * pct;
+      const reached = currentVal >= target;
+      let reachYear = null;
+      for (let y2 = nowYear; y2 <= 2060; y2++) {
+        const yrs2 = y2 - nowYear;
+        const fv =
+          currentVal * Math.pow(1 + r, yrs2) +
+          avgMonthly * ((Math.pow(1 + rM, yrs2 * 12) - 1) / rM) * (1 + rM);
+        if (fv >= target) {
+          reachYear = y2;
+          break;
+        }
+      }
+      const dotColor = reached
+        ? "var(--green)"
+        : reachYear
+          ? "var(--gold)"
+          : "var(--red)";
+      return `<div class="milestone-row">
       <div class="milestone-dot" style="background:${dotColor}"></div>
       <span class="milestone-year">${Math.round(pct * 100)}%</span>
       <span class="milestone-corpus" style="color:var(--text)">${fmtL(target)}</span>
-      <span class="milestone-status" style="color:${dotColor}">${reached ? '✓ Reached' : reachYear ? 'Est. ' + reachYear : 'Beyond ' + year}</span>
+      <span class="milestone-status" style="color:${dotColor}">${reached ? "✓ Reached" : reachYear ? "Est. " + reachYear : "Beyond " + year}</span>
     </div>`;
-  }).join('');
+    })
+    .join("");
 
   // Monte Carlo simulation
   renderMonteCarloChart(corpus, year, rate, currentVal, avgMonthly, sipNeeded);
 }
 
 // ── Deterministic projection chart ───────────────────────────
-function renderGoalChart(corpus, year, rate, currentVal, avgMonthly, sipNeeded){
+function renderGoalChart(
+  corpus,
+  year,
+  rate,
+  currentVal,
+  avgMonthly,
+  sipNeeded,
+) {
   setTimeout(() => {
-    const el = document.getElementById('chart-goal');
+    const el = document.getElementById("chart-goal");
     if (!el || !window.Chart) return;
     if (chartGoalInst) chartGoalInst.destroy();
-    const r = rate / 100, rM = r / 12;
+    const r = rate / 100,
+      rM = r / 12;
     const nowYear = new Date().getFullYear();
-    const labels = [], actualTraj = [], sipTraj = [], goalLine = [];
+    const labels = [],
+      actualTraj = [],
+      sipTraj = [],
+      goalLine = [];
     for (let y = nowYear; y <= year; y++) {
       const yrs = y - nowYear;
-      const n2  = yrs * 12;
+      const n2 = yrs * 12;
       const fvCurrent = currentVal * Math.pow(1 + r, yrs);
-      const fvActual  = fvCurrent + (avgMonthly > 0 ? avgMonthly * ((Math.pow(1 + rM, n2) - 1) / rM) * (1 + rM) : 0);
-      const fvSip     = fvCurrent + (sipNeeded > 0 ? sipNeeded * ((Math.pow(1 + rM, n2) - 1) / rM) * (1 + rM) : fvCurrent);
+      const fvActual =
+        fvCurrent +
+        (avgMonthly > 0
+          ? avgMonthly * ((Math.pow(1 + rM, n2) - 1) / rM) * (1 + rM)
+          : 0);
+      const fvSip =
+        fvCurrent +
+        (sipNeeded > 0
+          ? sipNeeded * ((Math.pow(1 + rM, n2) - 1) / rM) * (1 + rM)
+          : fvCurrent);
       labels.push(y);
       actualTraj.push(Math.round(fvActual));
       sipTraj.push(sipNeeded > 0 ? Math.round(fvSip) : null);
       goalLine.push(corpus);
     }
     const datasets = [
-      {label:'Goal',         data:goalLine,   borderColor:'#f85149', borderWidth:1.5, borderDash:[6,4], pointRadius:0, fill:false, tension:0},
-      {label:'Current pace', data:actualTraj, borderColor:'#58a6ff', backgroundColor:'rgba(88,166,255,.07)', borderWidth:2, pointRadius:0, fill:true, tension:0.3},
+      {
+        label: "Goal",
+        data: goalLine,
+        borderColor: "#f85149",
+        borderWidth: 1.5,
+        borderDash: [6, 4],
+        pointRadius: 0,
+        fill: false,
+        tension: 0,
+      },
+      {
+        label: "Current pace",
+        data: actualTraj,
+        borderColor: "#58a6ff",
+        backgroundColor: "rgba(88,166,255,.07)",
+        borderWidth: 2,
+        pointRadius: 0,
+        fill: true,
+        tension: 0.3,
+      },
     ];
-    if (sipNeeded > 0) datasets.push({label:'With required SIP', data:sipTraj, borderColor:'#3fb950', backgroundColor:'rgba(63,185,80,.06)', borderWidth:2, pointRadius:0, fill:true, tension:0.3, borderDash:[3,2]});
+    if (sipNeeded > 0)
+      datasets.push({
+        label: "With required SIP",
+        data: sipTraj,
+        borderColor: "#3fb950",
+        backgroundColor: "rgba(63,185,80,.06)",
+        borderWidth: 2,
+        pointRadius: 0,
+        fill: true,
+        tension: 0.3,
+        borderDash: [3, 2],
+      });
     chartGoalInst = new Chart(el, {
-      type:'line', data:{labels, datasets},
-      options:{
-        responsive:true, maintainAspectRatio:false,
-        interaction:{mode:'index', intersect:false},
-        plugins:{
-          legend:{display:true, position:'top', labels:{color:'#7d8590', font:{size:10}, boxWidth:12, padding:10}},
-          tooltip:{callbacks:{label:ctx => ctx.dataset.label + ': ' + fmtL(ctx.raw)}, backgroundColor:'#1c2330', titleColor:'#e6edf3', bodyColor:'#7d8590', borderColor:'#30363d', borderWidth:1}
+      type: "line",
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: {
+            display: true,
+            position: "top",
+            labels: {
+              color: "#7d8590",
+              font: { size: 10 },
+              boxWidth: 12,
+              padding: 10,
+            },
+          },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => ctx.dataset.label + ": " + fmtL(ctx.raw),
+            },
+            backgroundColor: "#1c2330",
+            titleColor: "#e6edf3",
+            bodyColor: "#7d8590",
+            borderColor: "#30363d",
+            borderWidth: 1,
+          },
         },
-        scales:{
-          x:{ticks:{font:{size:9}, color:'#7d8590'}, grid:{color:'#21262d'}},
-          y:{ticks:{font:{size:9}, color:'#7d8590', callback:v => fmtL(v)}, grid:{color:'#21262d'}}
-        }
-      }
+        scales: {
+          x: {
+            ticks: { font: { size: 9 }, color: "#7d8590" },
+            grid: { color: "#21262d" },
+          },
+          y: {
+            ticks: {
+              font: { size: 9 },
+              color: "#7d8590",
+              callback: (v) => fmtL(v),
+            },
+            grid: { color: "#21262d" },
+          },
+        },
+      },
     });
   }, 60);
 }
@@ -168,14 +308,14 @@ function renderGoalChart(corpus, year, rate, currentVal, avgMonthly, sipNeeded){
 // Runs N_SIMS GBM paths; shows P10 / P50 / P90 corridors
 // plus the deterministic "current pace" line and goal line.
 // ══════════════════════════════════════════════════════════════
-const MC_SIMS    = 500;   // number of simulation paths
-const MC_SIGMA   = 0.18;  // annualised vol — Indian equity historical avg
+const MC_SIMS = 500; // number of simulation paths
+const MC_SIGMA = 0.18; // annualised vol — Indian equity historical avg
 
 // Seeded mulberry32 PRNG for stable outputs on each render
 function _mcPRNG(seed) {
   let s = seed | 0;
-  return function() {
-    s = (s + 0x6D2B79F5) | 0;
+  return function () {
+    s = (s + 0x6d2b79f5) | 0;
     let t = Math.imul(s ^ (s >>> 15), 1 | s);
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
@@ -185,21 +325,31 @@ function _mcPRNG(seed) {
 // Box-Muller using a given rand function
 function _randn(rand) {
   let u, v;
-  do { u = rand(); v = rand(); } while (u === 0);
+  do {
+    u = rand();
+    v = rand();
+  } while (u === 0);
   return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
 }
 
-function renderMonteCarloChart(corpus, year, rate, currentVal, avgMonthly, sipNeeded) {
-  const el = document.getElementById('chart-monte-carlo');
+function renderMonteCarloChart(
+  corpus,
+  year,
+  rate,
+  currentVal,
+  avgMonthly,
+  sipNeeded,
+) {
+  const el = document.getElementById("chart-monte-carlo");
   if (!el || !window.Chart) return;
 
-  const nowYear  = new Date().getFullYear();
-  const yrsLeft  = Math.max(1, year - nowYear);
-  const months   = Math.round(yrsLeft * 12);
-  const r        = rate / 100;
+  const nowYear = new Date().getFullYear();
+  const yrsLeft = Math.max(1, year - nowYear);
+  const months = Math.round(yrsLeft * 12);
+  const r = rate / 100;
   const monthlyDrift = r / 12;
   const monthlySigma = MC_SIGMA / Math.sqrt(12);
-  const monthlyInv   = avgMonthly > 0 ? avgMonthly : 0;
+  const monthlyInv = avgMonthly > 0 ? avgMonthly : 0;
 
   // Build N_SIMS paths
   const rand = _mcPRNG(42 + Math.round(rate * 100) + Math.round(yrsLeft));
@@ -209,9 +359,9 @@ function renderMonteCarloChart(corpus, year, rate, currentVal, avgMonthly, sipNe
     let pv = currentVal;
     const path = [pv];
     for (let m = 0; m < months; m++) {
-      pv += monthlyInv;                                     // invest monthly SIP
+      pv += monthlyInv; // invest monthly SIP
       const gbm = monthlyDrift + monthlySigma * _randn(rand);
-      pv *= (1 + gbm);
+      pv *= 1 + gbm;
       if (pv < 0) pv = 0;
       path.push(Math.round(pv));
     }
@@ -219,27 +369,29 @@ function renderMonteCarloChart(corpus, year, rate, currentVal, avgMonthly, sipNe
   }
 
   // Build year-spaced labels and percentile series
-  const labels        = [];
-  const p10Series     = [];
-  const p25Series     = [];
-  const p50Series     = [];
-  const p75Series     = [];
-  const p90Series     = [];
-  const goalSeries    = [];
-  const detSeries     = [];   // deterministic "current pace"
+  const labels = [];
+  const p10Series = [];
+  const p25Series = [];
+  const p50Series = [];
+  const p75Series = [];
+  const p90Series = [];
+  const goalSeries = [];
+  const detSeries = []; // deterministic "current pace"
   const rM = r / 12;
 
-  const totalSteps = months + 1;                           // step 0 = today
+  const totalSteps = months + 1; // step 0 = today
   const stepInterval = Math.max(1, Math.round(months / yrsLeft)); // ~12 steps per year
 
   for (let step = 0; step < totalSteps; step += stepInterval) {
-    const yr       = nowYear + step / 12;
+    const yr = nowYear + step / 12;
     const yrsElapsed = step / 12;
     labels.push(Math.round(yr));
 
     // Collect this step's values across all simulations
-    const vals = allPaths.map(p => p[Math.min(step, p.length - 1)]).sort((a,b) => a - b);
-    const pct  = (q) => vals[Math.max(0, Math.floor(q * vals.length / 100))];
+    const vals = allPaths
+      .map((p) => p[Math.min(step, p.length - 1)])
+      .sort((a, b) => a - b);
+    const pct = (q) => vals[Math.max(0, Math.floor((q * vals.length) / 100))];
 
     p10Series.push(pct(10));
     p25Series.push(pct(25));
@@ -250,14 +402,20 @@ function renderMonteCarloChart(corpus, year, rate, currentVal, avgMonthly, sipNe
 
     // Deterministic path
     const n2 = yrsElapsed * 12;
-    const fvDet = currentVal * Math.pow(1 + r, yrsElapsed)
-      + (monthlyInv > 0 ? monthlyInv * ((Math.pow(1 + rM, n2) - 1) / rM) * (1 + rM) : 0);
+    const fvDet =
+      currentVal * Math.pow(1 + r, yrsElapsed) +
+      (monthlyInv > 0
+        ? monthlyInv * ((Math.pow(1 + rM, n2) - 1) / rM) * (1 + rM)
+        : 0);
     detSeries.push(Math.round(fvDet));
   }
   // Ensure final year is included
   if (labels[labels.length - 1] !== year) {
-    const finalVals = allPaths.map(p => p[p.length - 1]).sort((a,b) => a - b);
-    const fpct = (q) => finalVals[Math.max(0, Math.floor(q * finalVals.length / 100))];
+    const finalVals = allPaths
+      .map((p) => p[p.length - 1])
+      .sort((a, b) => a - b);
+    const fpct = (q) =>
+      finalVals[Math.max(0, Math.floor((q * finalVals.length) / 100))];
     labels.push(year);
     p10Series.push(fpct(10));
     p25Series.push(fpct(25));
@@ -265,20 +423,35 @@ function renderMonteCarloChart(corpus, year, rate, currentVal, avgMonthly, sipNe
     p75Series.push(fpct(75));
     p90Series.push(fpct(90));
     goalSeries.push(corpus);
-    const n2  = yrsLeft * 12;
-    detSeries.push(Math.round(currentVal * Math.pow(1 + r, yrsLeft)
-      + (monthlyInv > 0 ? monthlyInv * ((Math.pow(1 + rM, n2) - 1) / rM) * (1 + rM) : 0)));
+    const n2 = yrsLeft * 12;
+    detSeries.push(
+      Math.round(
+        currentVal * Math.pow(1 + r, yrsLeft) +
+          (monthlyInv > 0
+            ? monthlyInv * ((Math.pow(1 + rM, n2) - 1) / rM) * (1 + rM)
+            : 0),
+      ),
+    );
   }
 
   // Probability of reaching goal
-  const finalVals   = allPaths.map(p => p[p.length - 1]);
-  const probSuccess = Math.round(finalVals.filter(v => v >= corpus).length / MC_SIMS * 100);
-  const medianFinal = [...finalVals].sort((a,b) => a - b)[Math.floor(MC_SIMS / 2)];
+  const finalVals = allPaths.map((p) => p[p.length - 1]);
+  const probSuccess = Math.round(
+    (finalVals.filter((v) => v >= corpus).length / MC_SIMS) * 100,
+  );
+  const medianFinal = [...finalVals].sort((a, b) => a - b)[
+    Math.floor(MC_SIMS / 2)
+  ];
 
   // Update probability display
-  const probEl = document.getElementById('mc-prob-display');
+  const probEl = document.getElementById("mc-prob-display");
   if (probEl) {
-    const probColor = probSuccess >= 70 ? 'var(--green)' : probSuccess >= 40 ? 'var(--amber)' : 'var(--red)';
+    const probColor =
+      probSuccess >= 70
+        ? "var(--green)"
+        : probSuccess >= 40
+          ? "var(--amber)"
+          : "var(--red)";
     probEl.innerHTML = `
       <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
         <div>
@@ -299,7 +472,7 @@ function renderMonteCarloChart(corpus, year, rate, currentVal, avgMonthly, sipNe
         </div>
         <div style="flex:1;min-width:200px;font-size:11px;color:var(--muted);line-height:1.7">
           Based on ${MC_SIMS} simulated market paths using 18% annualised volatility (Indian equity historical). 
-          ${probSuccess >= 70 ? '✓ Strong probability — stay the course.' : probSuccess >= 40 ? '⚠ Moderate probability — consider increasing SIP.' : '✗ Low probability — a higher SIP or longer horizon is recommended.'}
+          ${probSuccess >= 70 ? "✓ Strong probability — stay the course." : probSuccess >= 40 ? "⚠ Moderate probability — consider increasing SIP." : "✗ Low probability — a higher SIP or longer horizon is recommended."}
         </div>
       </div>`;
   }
@@ -307,29 +480,29 @@ function renderMonteCarloChart(corpus, year, rate, currentVal, avgMonthly, sipNe
   if (chartMCInst) chartMCInst.destroy();
 
   chartMCInst = new Chart(el, {
-    type: 'line',
+    type: "line",
     data: {
       labels,
       datasets: [
         // P90 upper band (filled down to P10)
         {
-          label: 'P90 (optimistic)',
-          data:  p90Series,
-          borderColor: 'rgba(63,185,80,.5)',
-          backgroundColor: 'rgba(63,185,80,.08)',
+          label: "P90 (optimistic)",
+          data: p90Series,
+          borderColor: "rgba(63,185,80,.5)",
+          backgroundColor: "rgba(63,185,80,.08)",
           borderWidth: 1.5,
-          borderDash: [3,3],
+          borderDash: [3, 3],
           pointRadius: 0,
-          fill: '+3',   // fill down to P10 dataset (index offset)
+          fill: "+3", // fill down to P10 dataset (index offset)
           tension: 0.3,
           order: 5,
         },
         // P75
         {
-          label: 'P75',
-          data:  p75Series,
-          borderColor: 'rgba(63,185,80,.3)',
-          backgroundColor: 'rgba(63,185,80,.06)',
+          label: "P75",
+          data: p75Series,
+          borderColor: "rgba(63,185,80,.3)",
+          backgroundColor: "rgba(63,185,80,.06)",
           borderWidth: 1,
           pointRadius: 0,
           fill: false,
@@ -338,10 +511,10 @@ function renderMonteCarloChart(corpus, year, rate, currentVal, avgMonthly, sipNe
         },
         // P50 median — most prominent
         {
-          label: 'Median (P50)',
-          data:  p50Series,
-          borderColor: '#3fb950',
-          backgroundColor: 'transparent',
+          label: "Median (P50)",
+          data: p50Series,
+          borderColor: "#3fb950",
+          backgroundColor: "transparent",
           borderWidth: 2.5,
           pointRadius: 0,
           pointHoverRadius: 5,
@@ -351,10 +524,10 @@ function renderMonteCarloChart(corpus, year, rate, currentVal, avgMonthly, sipNe
         },
         // P25
         {
-          label: 'P25',
-          data:  p25Series,
-          borderColor: 'rgba(248,81,73,.3)',
-          backgroundColor: 'rgba(248,81,73,.06)',
+          label: "P25",
+          data: p25Series,
+          borderColor: "rgba(248,81,73,.3)",
+          backgroundColor: "rgba(248,81,73,.06)",
           borderWidth: 1,
           pointRadius: 0,
           fill: false,
@@ -363,12 +536,12 @@ function renderMonteCarloChart(corpus, year, rate, currentVal, avgMonthly, sipNe
         },
         // P10 lower band
         {
-          label: 'P10 (pessimistic)',
-          data:  p10Series,
-          borderColor: 'rgba(248,81,73,.5)',
-          backgroundColor: 'rgba(248,81,73,.08)',
+          label: "P10 (pessimistic)",
+          data: p10Series,
+          borderColor: "rgba(248,81,73,.5)",
+          backgroundColor: "rgba(248,81,73,.08)",
           borderWidth: 1.5,
-          borderDash: [3,3],
+          borderDash: [3, 3],
           pointRadius: 0,
           fill: false,
           tension: 0.3,
@@ -376,12 +549,12 @@ function renderMonteCarloChart(corpus, year, rate, currentVal, avgMonthly, sipNe
         },
         // Deterministic line
         {
-          label: 'Avg SIP (deterministic)',
-          data:  detSeries,
-          borderColor: '#58a6ff',
-          backgroundColor: 'transparent',
+          label: "Avg SIP (deterministic)",
+          data: detSeries,
+          borderColor: "#58a6ff",
+          backgroundColor: "transparent",
           borderWidth: 2,
-          borderDash: [5,4],
+          borderDash: [5, 4],
           pointRadius: 0,
           fill: false,
           tension: 0.3,
@@ -389,50 +562,60 @@ function renderMonteCarloChart(corpus, year, rate, currentVal, avgMonthly, sipNe
         },
         // Goal horizontal line
         {
-          label: 'Goal',
-          data:  goalSeries,
-          borderColor: '#f85149',
-          backgroundColor: 'transparent',
+          label: "Goal",
+          data: goalSeries,
+          borderColor: "#f85149",
+          backgroundColor: "transparent",
           borderWidth: 1.5,
-          borderDash: [8,5],
+          borderDash: [8, 5],
           pointRadius: 0,
           fill: false,
           tension: 0,
           order: 7,
         },
-      ]
+      ],
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      interaction: { mode:'index', intersect:false },
+      interaction: { mode: "index", intersect: false },
       plugins: {
         legend: {
           display: true,
-          position: 'top',
+          position: "top",
           labels: {
-            color: '#7d8590',
+            color: "#7d8590",
             font: { size: 9 },
             boxWidth: 12,
             padding: 8,
-            filter: item => !['P75','P25'].includes(item.text),  // hide interior bands from legend
-          }
+            filter: (item) => !["P75", "P25"].includes(item.text), // hide interior bands from legend
+          },
         },
         tooltip: {
           callbacks: {
-            label: ctx => ctx.dataset.label + ': ' + fmtL(ctx.raw)
+            label: (ctx) => ctx.dataset.label + ": " + fmtL(ctx.raw),
           },
-          backgroundColor: '#1c2330',
-          titleColor: '#e6edf3',
-          bodyColor: '#7d8590',
-          borderColor: '#30363d',
+          backgroundColor: "#1c2330",
+          titleColor: "#e6edf3",
+          bodyColor: "#7d8590",
+          borderColor: "#30363d",
           borderWidth: 1,
-        }
+        },
       },
       scales: {
-        x: { ticks:{ font:{size:9}, color:'#7d8590' }, grid:{ color:'#21262d' } },
-        y: { ticks:{ font:{size:9}, color:'#7d8590', callback: v => fmtL(v) }, grid:{ color:'#21262d' } }
-      }
-    }
+        x: {
+          ticks: { font: { size: 9 }, color: "#7d8590" },
+          grid: { color: "#21262d" },
+        },
+        y: {
+          ticks: {
+            font: { size: 9 },
+            color: "#7d8590",
+            callback: (v) => fmtL(v),
+          },
+          grid: { color: "#21262d" },
+        },
+      },
+    },
   });
 }

@@ -1,0 +1,31 @@
+/* ══════════════════════════════════════════════════════════════
+   SIP STEP-UP PLANNER & SECTOR ROTATION WHEEL — append to style.css
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── SIP Step-Up Planner ── */
+.su-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 28px 0 20px;
+  padding: 14px 20px;
+  background: linear-gradient(90deg, rgba(212,168,67,.10) 0%, transparent 100%);
+  border-left: 3px solid var(--gold);
+  border-radius: 0 8px 8px 0;
+}
+
+/* ── Sector Rotation Wheel ── */
+.sw-segment {
+  transition: opacity .2s, filter .2s;
+}
+.sw-segment:hover {
+  filter: brightness(1.15);
+}
+
+/* Responsive radar */
+@media (max-width: 680px) {
+  #sw-svg-wrap svg { width: 240px !important; height: 240px !important; }
+}
+
+/* Light theme radar grid */
+:root.light .sw-segment { opacity: 0.90; }

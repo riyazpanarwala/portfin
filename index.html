@@ -52,6 +52,7 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/diff-panel.css">
+<link rel="stylesheet" href="css/step-wheel.css">
 
 </head>
 <body>
@@ -310,6 +311,17 @@
     <div id="overlap-detector-wrap"></div>
   </div>
 
+  <!-- ══ SECTOR ROTATION WHEEL ══ -->
+  <div class="card" style="margin-bottom:16px">
+  <div class="sec-head">
+    <div class="sec-title">Sector Rotation Wheel</div>
+    <div style="font-size:10px;color:var(--muted)">
+      Combined MF implied + direct stock sector exposure · overweight / neutral / underweight vs equal-weight benchmark
+    </div>
+  </div>
+  <div id="sector-wheel-wrap"></div>
+</div>
+
   <!-- Benchmark Comparison -->
   <div class="card" style="margin-bottom:16px">
     <div class="sec-head">
@@ -445,6 +457,117 @@
       The <span style="color:#f85149">dashed red line</span> is your goal corpus.
     </div>
   </div>
+
+<!-- Step-up section divider -->
+<div style="
+  display:flex;align-items:center;gap:12px;margin:28px 0 20px;
+  padding:14px 20px;
+  background:linear-gradient(90deg,rgba(212,168,67,.10) 0%,transparent 100%);
+  border-left:3px solid var(--gold);border-radius:0 8px 8px 0
+">
+  <span style="font-size:22px">📈</span>
+  <div>
+    <div style="font-family:var(--sans);font-size:15px;font-weight:700;color:var(--gold)">SIP Step-Up Planner</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:2px">
+      Model the impact of increasing your SIP by a fixed % every year — the most powerful wealth-building habit.
+    </div>
+  </div>
+</div>
+
+<!-- KPI strip -->
+<div class="kpi-grid" id="su-kpis" style="margin-bottom:20px"></div>
+
+<!-- Controls + growth chart row -->
+<div class="grid2" style="margin-bottom:16px">
+  <!-- Sliders -->
+  <div class="card">
+    <div class="sec-head"><div class="sec-title">Configure step-up</div></div>
+    <div style="display:flex;flex-direction:column;gap:16px">
+
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:6px">
+          <span style="color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Starting monthly SIP</span>
+          <span id="su-sip-val" style="color:var(--gold);font-weight:700"></span>
+        </div>
+        <input type="range" id="su-sip" min="1000" max="200000" step="1000" value="10000"
+          style="width:100%;accent-color:var(--gold)">
+      </div>
+
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:6px">
+          <span style="color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Annual step-up rate</span>
+          <span id="su-steprate-val" style="color:var(--green);font-weight:700"></span>
+        </div>
+        <input type="range" id="su-steprate" min="0" max="30" step="1" value="10"
+          style="width:100%;accent-color:var(--green)">
+        <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted2);margin-top:3px">
+          <span>0% (flat)</span><span>10% (typical)</span><span>20%</span><span>30%</span>
+        </div>
+      </div>
+
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:6px">
+          <span style="color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Expected return p.a.</span>
+          <span id="su-rate-val" style="color:var(--blue);font-weight:700"></span>
+        </div>
+        <input type="range" id="su-rate" min="6" max="22" step="0.5" value="12"
+          style="width:100%;accent-color:var(--blue)">
+      </div>
+
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:6px">
+          <span style="color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Investment horizon</span>
+          <span id="su-year-val" style="color:var(--amber);font-weight:700"></span>
+        </div>
+        <input type="range" id="su-year" min="3" max="35" step="1" value="15"
+          style="width:100%;accent-color:var(--amber)">
+        <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted2);margin-top:3px">
+          <span>3y</span><span>10y</span><span>20y</span><span>35y</span>
+        </div>
+      </div>
+
+      <!-- Insight box -->
+      <div id="su-insight" style="
+        background:var(--bg3);border:1px solid var(--border);
+        border-radius:8px;padding:14px;margin-top:4px
+      "></div>
+    </div>
+  </div>
+
+  <!-- Corpus growth chart -->
+  <div class="card">
+    <div class="sec-head"><div class="sec-title">Corpus growth — flat vs step-up</div></div>
+    <div class="chart-box" style="height:300px"><canvas id="chart-stepup-growth"></canvas></div>
+  </div>
+</div>
+
+<!-- Monthly SIP escalation chart + scenario table -->
+<div class="grid2" style="margin-bottom:16px">
+  <div class="card">
+    <div class="sec-head">
+      <div class="sec-title">Monthly SIP over time</div>
+      <div style="font-size:10px;color:var(--muted)">Step-up vs flat — see how the burden grows</div>
+    </div>
+    <div class="chart-box" style="height:220px"><canvas id="chart-stepup-compare"></canvas></div>
+  </div>
+
+  <div class="card">
+    <div class="sec-head">
+      <div class="sec-title">Step-up rate scenarios</div>
+      <div style="font-size:10px;color:var(--muted)">Final corpus comparison across annual escalation rates</div>
+    </div>
+    <div id="su-scenarios"></div>
+  </div>
+</div>
+
+<!-- Year-by-year schedule -->
+<div class="card" style="margin-bottom:20px">
+  <div class="sec-head">
+    <div class="sec-title">SIP escalation schedule</div>
+    <div style="font-size:10px;color:var(--muted)">Your SIP amount, cumulative investment, and projected corpus at each milestone year</div>
+  </div>
+  <div style="overflow-x:auto" id="su-schedule"></div>
+</div>
 </div>
 
 <!-- REBALANCING ADVISOR -->
@@ -626,6 +749,8 @@
 <script src="js/page-tools.js"></script>
 <script src="js/page-snapshots.js"></script>
 <script src="js/portfolio-diff.js"></script>
+<script src="js/page-stepup.js"></script>
+<script src="js/page-sector-wheel.js"></script>
 <!-- boot.js MUST be last: registers PAGES router and calls boot functions -->
 <script src="js/boot.js"></script>
 
