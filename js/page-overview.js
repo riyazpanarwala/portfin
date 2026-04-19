@@ -5,7 +5,7 @@ function renderOverview() {
   const sinceMF = k.earliestMF
     ? "Since " + fmtMonthYear(k.earliestMF)
     : "All time";
-  document.getElementById("kpi-overview").innerHTML = [
+  document.getElementById("kpi-overview").innerHTML = renderKpiCards([
     {
       l: "Total Invested",
       v: fmtL(k.totalInvested),
@@ -42,12 +42,7 @@ function renderOverview() {
       sc: k.stGain >= 0 ? "up" : "dn",
       a: "#f85149",
     },
-  ]
-    .map(
-      (c) =>
-        `<div class="kpi-card" style="--accent:${c.a}"><div class="kpi-label">${c.l}</div><div class="kpi-value">${c.v}</div><div class="kpi-sub ${c.sc}">${c.s}</div></div>`,
-    )
-    .join("");
+  ]);
 
   const mfP = k.totalInvested
       ? Math.round((k.mfInvested / k.totalInvested) * 100)

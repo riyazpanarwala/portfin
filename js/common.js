@@ -356,19 +356,23 @@ function saveDataToStorage() {
       funds: DATA.funds.map((f) => ({
         ...f,
         dates: f.dates.map((d) => new Date(d).toISOString()),
-        rawLots: f.rawLots.map((l) => ({
-          ...l,
-          date: new Date(l.date).toISOString(),
-        })),
+        rawLots: f.rawLots
+          .filter((l) => l.date && !isNaN(new Date(l.date)))
+          .map((l) => ({
+            ...l,
+            date: new Date(l.date).toISOString(),
+          })),
       })),
       mfCategories: DATA.mfCategories,
       stocks: DATA.stocks.map((s) => ({
         ...s,
         dates: s.dates.map((d) => new Date(d).toISOString()),
-        rawLots: s.rawLots.map((l) => ({
-          ...l,
-          date: new Date(l.date).toISOString(),
-        })),
+        rawLots: s.rawLots
+          .filter((l) => l.date && !isNaN(new Date(l.date)))
+          .map((l) => ({
+            ...l,
+            date: new Date(l.date).toISOString(),
+          })),
       })),
       sectors: DATA.sectors,
       monthlyMF: DATA.monthlyMF,
@@ -787,7 +791,9 @@ function buildMFDrillHTML(f) {
   if (!f.rawLots || !f.rawLots.length)
     return '<div style="color:var(--muted);font-size:11px;padding:6px">No lot-level data available</div>';
 
-  const lots = [...f.rawLots].sort((a, b) => a.date - b.date);
+  const lots = [...f.rawLots]
+    .filter((l) => l.date && !isNaN(new Date(l.date)))
+    .sort((a, b) => a.date - b.date);
   const drillId = "mf-drill-" + Math.random().toString(36).slice(2, 8);
 
   let fundXirr = null;
@@ -835,19 +841,7 @@ function buildMFDrillHTML(f) {
     </span>`
       : "";
 
-  const xiBadge =
-    fundXirr !== null
-      ? `
-    <div style="display:inline-flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border);
-                border-radius:5px;padding:6px 12px;margin-bottom:10px;font-size:11px">
-      <span style="color:var(--muted)">Fund XIRR (money-weighted):</span>
-      <span style="color:${xirrColor};font-weight:700;font-family:var(--sans);font-size:14px">
-        ${fundXirr >= 0 ? "+" : ""}${fundXirr.toFixed(2)}%
-      </span>
-      <span style="color:var(--muted2);font-size:10px">p.a.</span>
-      ${deltaBadge}
-    </div>`
-      : "";
+  const xiBadge = buildXirrBadge(fundXirr, f.CAGR, "Fund XIRR");
 
   let totalAmt = 0,
     totalGain = 0;
@@ -942,28 +936,14 @@ function buildMFDrillHTML(f) {
 
   const monthlyHTML = buildMonthlyBreakupHTML(lots, "mf");
 
-  // Tab styles (inline to stay self-contained)
-  const tabBarStyle = `display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:14px;`;
-  const tabBtnStyle = `padding:7px 16px;font-size:11px;font-family:var(--mono);border:none;border-bottom:2px solid transparent;background:transparent;color:var(--muted);cursor:pointer;transition:all .15s;`;
+  const tabBar = buildDrillTabBar(drillId, [
+    { id: "lots", label: "📋 Lot-wise breakup" },
+    { id: "monthly", label: "📅 Monthly breakup" },
+  ]);
 
   return `
     ${xiBadge}
-    <div id="${drillId}" style="margin-top:4px">
-      <div style="${tabBarStyle}">
-        <button class="drill-tab-btn" data-tab="${drillId}-lots"
-          style="${tabBtnStyle}background:var(--bg4);color:var(--gold);border-bottom-color:var(--gold);"
-          onclick="switchDrillTab('${drillId}','${drillId}-lots')">
-          📋 Lot-wise breakup
-        </button>
-        <button class="drill-tab-btn" data-tab="${drillId}-monthly"
-          style="${tabBtnStyle}"
-          onclick="switchDrillTab('${drillId}','${drillId}-monthly')">
-          📅 Monthly breakup
-        </button>
-      </div>
-      <div class="drill-tab-panel" id="${drillId}-lots">${lotTableHTML}</div>
-      <div class="drill-tab-panel" id="${drillId}-monthly" style="display:none">${monthlyHTML}</div>
-    </div>`;
+    ${tabBar}`;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -973,7 +953,9 @@ function buildSTDrillHTML(s) {
   if (!s.rawLots || !s.rawLots.length)
     return '<div style="color:var(--muted);font-size:11px;padding:6px">No lot-level data available</div>';
 
-  const lots = [...s.rawLots].sort((a, b) => a.date - b.date);
+  const lots = [...s.rawLots]
+    .filter((l) => l.date && !isNaN(new Date(l.date)))
+    .sort((a, b) => a.date - b.date);
   const cmp = s.Latest_Price || 0;
   const drillId = "st-drill-" + Math.random().toString(36).slice(2, 8);
 
@@ -1027,19 +1009,7 @@ function buildSTDrillHTML(s) {
     </span>`
       : "";
 
-  const xiBadge =
-    stockXirr !== null
-      ? `
-    <div style="display:inline-flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border);
-                border-radius:5px;padding:6px 12px;margin-bottom:10px;font-size:11px">
-      <span style="color:var(--muted)">Stock XIRR (money-weighted):</span>
-      <span style="color:${sXirrColor};font-weight:700;font-family:var(--sans);font-size:14px">
-        ${stockXirr >= 0 ? "+" : ""}${stockXirr.toFixed(2)}%
-      </span>
-      <span style="color:var(--muted2);font-size:10px">p.a.</span>
-      ${deltaBadge}
-    </div>`
-      : "";
+  const xiBadge = buildXirrBadge(stockXirr, s.CAGR, "Stock XIRR");
 
   const rows = lots
     .map((l) => {
@@ -1148,27 +1118,14 @@ function buildSTDrillHTML(s) {
 
   const monthlyHTML = buildMonthlyBreakupHTML(lotsForMonthly, "st");
 
-  const tabBarStyle = `display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:14px;`;
-  const tabBtnStyle = `padding:7px 16px;font-size:11px;font-family:var(--mono);border:none;border-bottom:2px solid transparent;background:transparent;color:var(--muted);cursor:pointer;transition:all .15s;`;
+  const tabBar = buildDrillTabBar(drillId, [
+    { id: "lots", label: "📋 Lot-wise breakup" },
+    { id: "monthly", label: "📅 Monthly breakup" },
+  ]);
 
   return `
     ${xiBadge}
-    <div id="${drillId}" style="margin-top:4px">
-      <div style="${tabBarStyle}">
-        <button class="drill-tab-btn" data-tab="${drillId}-lots"
-          style="${tabBtnStyle}background:var(--bg4);color:var(--gold);border-bottom-color:var(--gold);"
-          onclick="switchDrillTab('${drillId}','${drillId}-lots')">
-          📋 Lot-wise breakup
-        </button>
-        <button class="drill-tab-btn" data-tab="${drillId}-monthly"
-          style="${tabBtnStyle}"
-          onclick="switchDrillTab('${drillId}','${drillId}-monthly')">
-          📅 Monthly breakup
-        </button>
-      </div>
-      <div class="drill-tab-panel" id="${drillId}-lots">${lotTableHTML}</div>
-      <div class="drill-tab-panel" id="${drillId}-monthly" style="display:none">${monthlyHTML}</div>
-    </div>`;
+    ${tabBar}`;
 }
 
 const drillState = {};
@@ -1285,4 +1242,54 @@ function exportCSV(type) {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+/**
+ * Shared KPI card grid renderer.
+ * @param {Array<{l, v, s, sc?, a?}>} cards
+ * @returns {string} HTML
+ */
+function renderKpiCards(cards) {
+  return cards
+    .map(
+      (c) =>
+        `<div class="kpi-card" style="--accent:${c.a || "var(--gold)"}">` +
+        `<div class="kpi-label">${c.l}</div>` +
+        `<div class="kpi-value">${c.v}</div>` +
+        `<div class="kpi-sub ${c.sc || ""}">${c.s || ""}</div>` +
+        `</div>`,
+    )
+    .join("");
+}
+
+function buildXirrBadge(xirr, cagr, label) {
+  if (xirr === null) return "";
+  const xirrColor =
+    xirr >= 15 ? "var(--green)" : xirr >= 8 ? "var(--gold)" : "var(--red)";
+  const cagrDelta = xirr - (cagr || 0);
+  const deltaBadge =
+    Math.abs(cagrDelta) > 1
+      ? `<span style="font-size:10px;color:var(--muted2);margin-left:6px">vs CAGR ${(cagr || 0) >= 0 ? "+" : ""}${(cagr || 0).toFixed(2)}%<span style="color:${cagrDelta > 0 ? "var(--green)" : "var(--red)"}">(${cagrDelta > 0 ? "+" : ""}${cagrDelta.toFixed(2)}pp)</span></span>`
+      : "";
+  return `<div style="display:inline-flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:6px 12px;margin-bottom:10px;font-size:11px"><span style="color:var(--muted)">${label} (money-weighted):</span><span style="color:${xirrColor};font-weight:700;font-family:var(--sans);font-size:14px">${xirr >= 0 ? "+" : ""}${xirr.toFixed(2)}%</span><span style="color:var(--muted2);font-size:10px">p.a.</span>${deltaBadge}</div>`;
+}
+
+function buildDrillTabBar(drillId, tabs) {
+  const bar =
+    "display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:14px;";
+  const base =
+    "padding:7px 16px;font-size:11px;font-family:var(--mono);border:none;border-bottom:2px solid transparent;background:transparent;color:var(--muted);cursor:pointer;transition:all .15s;";
+  return (
+    `<div style="${bar}">` +
+    tabs
+      .map((tab, i) => {
+        const active =
+          i === 0
+            ? "background:var(--bg4);color:var(--gold);border-bottom-color:var(--gold);"
+            : "";
+        return `<button class="drill-tab-btn" data-tab="${drillId}-${tab.id}" style="${base}${active}" onclick="switchDrillTab('${drillId}','${drillId}-${tab.id}')">${tab.label}</button>`;
+      })
+      .join("") +
+    "</div>"
+  );
 }

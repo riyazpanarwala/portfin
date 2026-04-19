@@ -1,163 +1,336 @@
 // ── page-stocks.js — Equity Stocks page and Tax Harvesting ─────────────────
 
 function renderStocks() {
-  const k=DATA.kpis;
-  const n=DATA.stocks.length;
-  const win=DATA.stocks.filter(s=>s.Gain>0).length;
-  const los=DATA.stocks.filter(s=>s.Gain<0).length;
-  const totalQty=DATA.stocks.reduce((s,x)=>s+x.Qty,0);
-  document.getElementById('kpi-stocks').innerHTML=[
-    {l:'Invested',       v:fmtL(k.stInvested), s:'',                sc:'',   a:'#58a6ff'},
-    {l:'Market Value',   v:fmtL(k.stValue),    s:'Current holdings',sc:'',   a:'#d4a843'},
-    {l:'Total P&L',      v:fmtL(k.stGain),     s:fmtP(k.stReturn), sc:k.stGain>=0?'up':'dn', a:'#f85149'},
-    {l:'Winners',        v:win+'/'+n,           s:'In profit',       sc:'up', a:'#3fb950'},
-    {l:'Losers',         v:los+'/'+n,           s:'In red',          sc:'dn', a:'#f85149'},
-    {l:'Total Quantity', v:fmtN(totalQty),      s:'Shares held',     sc:'',   a:'#7d8590'},
-  ].map(c=>`<div class="kpi-card" style="--accent:${c.a}"><div class="kpi-label">${c.l}</div><div class="kpi-value">${c.v}</div><div class="kpi-sub ${c.sc}">${c.s}</div></div>`).join('');
+  const k = DATA.kpis;
+  const n = DATA.stocks.length;
+  const win = DATA.stocks.filter((s) => s.Gain > 0).length;
+  const los = DATA.stocks.filter((s) => s.Gain < 0).length;
+  const totalQty = DATA.stocks.reduce((s, x) => s + x.Qty, 0);
+  document.getElementById("kpi-stocks").innerHTML = renderKpiCards([
+    { l: "Invested", v: fmtL(k.stInvested), s: "", sc: "", a: "#58a6ff" },
+    {
+      l: "Market Value",
+      v: fmtL(k.stValue),
+      s: "Current holdings",
+      sc: "",
+      a: "#d4a843",
+    },
+    {
+      l: "Total P&L",
+      v: fmtL(k.stGain),
+      s: fmtP(k.stReturn),
+      sc: k.stGain >= 0 ? "up" : "dn",
+      a: "#f85149",
+    },
+    { l: "Winners", v: win + "/" + n, s: "In profit", sc: "up", a: "#3fb950" },
+    { l: "Losers", v: los + "/" + n, s: "In red", sc: "dn", a: "#f85149" },
+    {
+      l: "Total Quantity",
+      v: fmtN(totalQty),
+      s: "Shares held",
+      sc: "",
+      a: "#7d8590",
+    },
+  ]);
 
   // FIX: use createElement + addEventListener for sector filters (same as existing stock filter)
   // so sector names with quotes/special chars can't break onclick attribute strings
-  const secs=['All',...new Set(DATA.stocks.map(s=>s.Sector))];
-  const filterContainer = document.getElementById('st-filters');
-  filterContainer.innerHTML = '';
-  const ctrlLabel = document.createElement('span');
-  ctrlLabel.className = 'ctrl-label';
-  ctrlLabel.textContent = 'Sector:';
+  const secs = ["All", ...new Set(DATA.stocks.map((s) => s.Sector))];
+  const filterContainer = document.getElementById("st-filters");
+  filterContainer.innerHTML = "";
+  const ctrlLabel = document.createElement("span");
+  ctrlLabel.className = "ctrl-label";
+  ctrlLabel.textContent = "Sector:";
   filterContainer.appendChild(ctrlLabel);
-  secs.forEach(sec => {
-    const btn = document.createElement('button');
-    btn.className = 'chip' + (stFil === sec ? ' on' : '');
+  secs.forEach((sec) => {
+    const btn = document.createElement("button");
+    btn.className = "chip" + (stFil === sec ? " on" : "");
     btn.textContent = sec;
     btn.dataset.sector = sec;
-    btn.addEventListener('click', () => setStFil(sec));
+    btn.addEventListener("click", () => setStFil(sec));
     filterContainer.appendChild(btn);
   });
 
-  const sOpts=[['RetPct','Return'],['Gain','P&L'],['Qty','Qty'],['Invested','Invested'],['Current','Value'],['CAGR','CAGR'],['Latest_Price','CMP']];
-  document.getElementById('st-sorts').innerHTML='<span class="ctrl-label">Sort:</span>'+sOpts.map(([k,l])=>`<button class="chip ${stSort===k?'on':''}" onclick="sortST('${k}')">${l}${stSort===k?(stAsc?' ↑':' ↓'):''}</button>`).join('');
+  const sOpts = [
+    ["RetPct", "Return"],
+    ["Gain", "P&L"],
+    ["Qty", "Qty"],
+    ["Invested", "Invested"],
+    ["Current", "Value"],
+    ["CAGR", "CAGR"],
+    ["Latest_Price", "CMP"],
+  ];
+  document.getElementById("st-sorts").innerHTML =
+    '<span class="ctrl-label">Sort:</span>' +
+    sOpts
+      .map(
+        ([k, l]) =>
+          `<button class="chip ${stSort === k ? "on" : ""}" onclick="sortST('${k}')">${l}${stSort === k ? (stAsc ? " ↑" : " ↓") : ""}</button>`,
+      )
+      .join("");
 
-  let stocks=stFil==='All'?DATA.stocks:DATA.stocks.filter(s=>s.Sector===stFil);
-  stocks=[...stocks].sort((a,b)=>stAsc?a[stSort]-b[stSort]:b[stSort]-a[stSort]);
-  const maxR=Math.max(...DATA.stocks.map(s=>Math.abs(s.RetPct)),1);
+  let stocks =
+    stFil === "All"
+      ? DATA.stocks
+      : DATA.stocks.filter((s) => s.Sector === stFil);
+  stocks = [...stocks].sort((a, b) =>
+    stAsc ? a[stSort] - b[stSort] : b[stSort] - a[stSort],
+  );
+  const maxR = Math.max(...DATA.stocks.map((s) => Math.abs(s.RetPct)), 1);
 
-  if(!stocks.length){document.getElementById('st-tbody').innerHTML='<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:30px">Upload your Stocks Excel file to see data</td></tr>';}
-  else {
-    document.getElementById('st-tbody').innerHTML=stocks.map((s,i)=>{
-      const hold=fmtHoldPeriod(s.holdDays);
+  if (!stocks.length) {
+    document.getElementById("st-tbody").innerHTML =
+      '<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:30px">Upload your Stocks Excel file to see data</td></tr>';
+  } else {
+    document.getElementById("st-tbody").innerHTML = stocks
+      .map((s, i) => {
+        const hold = fmtHoldPeriod(s.holdDays);
 
-      const lots = s.rawLots || [];
-      let wavgPrice = 0;
-      if (lots.length) {
-        const totalQtyLots = lots.reduce((a,l) => a + (l.qty || 0), 0);
-        const totalInvLots = lots.reduce((a,l) => a + (l.inv || 0), 0);
-        if (totalQtyLots > 0) {
-          wavgPrice = totalInvLots / totalQtyLots;
-        } else {
-          const priced = lots.filter(l => l.invPrice > 0);
-          if (priced.length) wavgPrice = priced.reduce((a,l) => a + l.invPrice, 0) / priced.length;
+        const lots = s.rawLots || [];
+        let wavgPrice = 0;
+        if (lots.length) {
+          const totalQtyLots = lots.reduce((a, l) => a + (l.qty || 0), 0);
+          const totalInvLots = lots.reduce((a, l) => a + (l.inv || 0), 0);
+          if (totalQtyLots > 0) {
+            wavgPrice = totalInvLots / totalQtyLots;
+          } else {
+            const priced = lots.filter((l) => l.invPrice > 0);
+            if (priced.length)
+              wavgPrice =
+                priced.reduce((a, l) => a + l.invPrice, 0) / priced.length;
+          }
         }
-      }
-      if (!wavgPrice && s.Invested > 0 && s.Qty > 0) wavgPrice = s.Invested / s.Qty;
-      const priceDisplay = wavgPrice > 0 ? '₹' + wavgPrice.toFixed(2) : '—';
+        if (!wavgPrice && s.Invested > 0 && s.Qty > 0)
+          wavgPrice = s.Invested / s.Qty;
+        const priceDisplay = wavgPrice > 0 ? "₹" + wavgPrice.toFixed(2) : "—";
 
-      return `<tr style="cursor:pointer" onclick="toggleDrill('st',${i})">
+        return `<tr style="cursor:pointer" onclick="toggleDrill('st',${i})">
       <td style="font-weight:500">
         <span class="expand-btn" id="drill-btn-st-${i}">▶</span> ${esc(s.name)}
       </td>
-      <td><span class="pill" style="background:${gc(s.Sector,SEC_CLR)}22;color:${gc(s.Sector,SEC_CLR)};border:1px solid ${gc(s.Sector,SEC_CLR)}44">${esc(s.Sector)}</span></td>
+      <td><span class="pill" style="background:${gc(s.Sector, SEC_CLR)}22;color:${gc(s.Sector, SEC_CLR)};border:1px solid ${gc(s.Sector, SEC_CLR)}44">${esc(s.Sector)}</span></td>
       <td>${riskBadge(s)}</td>
       <td class="td-gold">${fmtN(s.Qty)}</td>
       <td class="td-muted">${priceDisplay}</td>
-      <td>₹${s.Latest_Price>0?s.Latest_Price.toFixed(2):'—'}</td>
+      <td>₹${s.Latest_Price > 0 ? s.Latest_Price.toFixed(2) : "—"}</td>
       <td class="td-muted">${fmtL(s.Invested)}</td>
       <td style="font-weight:500">${fmtL(s.Current)}</td>
       <td class="${cls(s.Gain)}">${fmtL(s.Gain)}</td>
-      <td style="min-width:130px">${miniBar(s.RetPct,maxR)}</td>
-      <td class="${s.CAGR>=15?'td-up':s.CAGR>=0?'td-gold':'td-dn'}">${fmtP(s.CAGR)}</td>
+      <td style="min-width:130px">${miniBar(s.RetPct, maxR)}</td>
+      <td class="${s.CAGR >= 15 ? "td-up" : s.CAGR >= 0 ? "td-gold" : "td-dn"}">${fmtP(s.CAGR)}</td>
       <td class="td-muted" style="font-size:10px">${hold}</td>
     </tr>
     <tr class="drill-row" id="drill-st-${i}" style="display:none">
       <td colspan="12"><div class="drill-inner">${buildSTDrillHTML(s)}</div></td>
     </tr>`;
-    }).join('');
+      })
+      .join("");
   }
 
   renderTaxHarvesting();
 
-  const recs=[];
-  const stTotalInv=DATA.stocks.reduce((a,s)=>a+s.Invested,0)||1;
-  const sorted=[...DATA.stocks].sort((a,b)=>a.RetPct-b.RetPct);
+  const recs = [];
+  const stTotalInv = DATA.stocks.reduce((a, s) => a + s.Invested, 0) || 1;
+  const sorted = [...DATA.stocks].sort((a, b) => a.RetPct - b.RetPct);
 
-  const exits=sorted.filter(s=>s.RetPct<-40);
-  if(exits.length) recs.push(['tag-exit','EXIT',exits.map(s=>`${esc(s.name)} (${fmtP(s.RetPct)})`).join(', ')+' — no recovery thesis, free up capital']);
-  const reduces=sorted.filter(s=>s.RetPct<=-25&&s.RetPct>=-40&&(s.Invested/stTotalInv*100)>8);
-  if(reduces.length) recs.push(['tag-reduce','REDUCE',reduces.map(s=>`${esc(s.name)} (${fmtP(s.RetPct)}, ${(s.Invested/stTotalInv*100).toFixed(1)}% of stocks)`).join(', ')+' — trim to ≤5% of portfolio']);
-  const holds=sorted.filter(s=>s.RetPct<-10&&s.RetPct>=-25&&['Finance/PSU','Energy/PSU','Infra/PSU','Renewables'].includes(s.Sector));
-  if(holds.length) recs.push(['tag-hold','HOLD',holds.map(s=>`${esc(s.name)} (${fmtP(s.RetPct)})`).join(', ')+' — await rate-cut cycle / sector tailwinds before selling']);
-  const addFunds=[...DATA.funds].filter(f=>f.CAGR>=15).sort((a,b)=>b.CAGR-a.CAGR).slice(0,3);
-  if(addFunds.length) recs.push(['tag-add','ADD SIP',addFunds.map(f=>`${esc(f.name)} (CAGR ${fmtP(f.CAGR)})`).join(', ')+' — top performers, consider increasing SIP amount']);
-  const switchFunds=[...DATA.funds].filter(f=>f.CAGR<8&&f.CAGR>0&&f.Invested>50000).sort((a,b)=>a.CAGR-b.CAGR).slice(0,2);
-  if(switchFunds.length) recs.push(['tag-switch','SWITCH',switchFunds.map(f=>`${esc(f.name)} (CAGR ${fmtP(f.CAGR)})`).join(', ')+' → consider switching to low-cost Nifty 50 index fund']);
-  if(!recs.length) recs.push(['tag-hold','HOLD','Portfolio looks stable — continue SIPs and review quarterly']);
-  document.getElementById('recommendations').innerHTML=recs.map(([c,tag,text])=>`<div class="rec-row"><span class="rec-tag ${c}">${tag}</span><span class="rec-text">${text}</span></div>`).join('');
+  const exits = sorted.filter((s) => s.RetPct < -40);
+  if (exits.length)
+    recs.push([
+      "tag-exit",
+      "EXIT",
+      exits.map((s) => `${esc(s.name)} (${fmtP(s.RetPct)})`).join(", ") +
+        " — no recovery thesis, free up capital",
+    ]);
+  const reduces = sorted.filter(
+    (s) =>
+      s.RetPct <= -25 && s.RetPct >= -40 && (s.Invested / stTotalInv) * 100 > 8,
+  );
+  if (reduces.length)
+    recs.push([
+      "tag-reduce",
+      "REDUCE",
+      reduces
+        .map(
+          (s) =>
+            `${esc(s.name)} (${fmtP(s.RetPct)}, ${((s.Invested / stTotalInv) * 100).toFixed(1)}% of stocks)`,
+        )
+        .join(", ") + " — trim to ≤5% of portfolio",
+    ]);
+  const holds = sorted.filter(
+    (s) =>
+      s.RetPct < -10 &&
+      s.RetPct >= -25 &&
+      ["Finance/PSU", "Energy/PSU", "Infra/PSU", "Renewables"].includes(
+        s.Sector,
+      ),
+  );
+  if (holds.length)
+    recs.push([
+      "tag-hold",
+      "HOLD",
+      holds.map((s) => `${esc(s.name)} (${fmtP(s.RetPct)})`).join(", ") +
+        " — await rate-cut cycle / sector tailwinds before selling",
+    ]);
+  const addFunds = [...DATA.funds]
+    .filter((f) => f.CAGR >= 15)
+    .sort((a, b) => b.CAGR - a.CAGR)
+    .slice(0, 3);
+  if (addFunds.length)
+    recs.push([
+      "tag-add",
+      "ADD SIP",
+      addFunds.map((f) => `${esc(f.name)} (CAGR ${fmtP(f.CAGR)})`).join(", ") +
+        " — top performers, consider increasing SIP amount",
+    ]);
+  const switchFunds = [...DATA.funds]
+    .filter((f) => f.CAGR < 8 && f.CAGR > 0 && f.Invested > 50000)
+    .sort((a, b) => a.CAGR - b.CAGR)
+    .slice(0, 2);
+  if (switchFunds.length)
+    recs.push([
+      "tag-switch",
+      "SWITCH",
+      switchFunds
+        .map((f) => `${esc(f.name)} (CAGR ${fmtP(f.CAGR)})`)
+        .join(", ") + " → consider switching to low-cost Nifty 50 index fund",
+    ]);
+  if (!recs.length)
+    recs.push([
+      "tag-hold",
+      "HOLD",
+      "Portfolio looks stable — continue SIPs and review quarterly",
+    ]);
+  document.getElementById("recommendations").innerHTML = recs
+    .map(
+      ([c, tag, text]) =>
+        `<div class="rec-row"><span class="rec-tag ${c}">${tag}</span><span class="rec-text">${text}</span></div>`,
+    )
+    .join("");
 }
 
-function sortST(k){if(stSort===k)stAsc=!stAsc;else{stSort=k;stAsc=false;}renderStocks();}
-function setStFil(v){ stFil = v; renderStocks(); }
+function sortST(k) {
+  if (stSort === k) stAsc = !stAsc;
+  else {
+    stSort = k;
+    stAsc = false;
+  }
+  renderStocks();
+}
+function setStFil(v) {
+  stFil = v;
+  renderStocks();
+}
 
 // ── Tax Harvesting ────────────────────────────────────────────
-function renderTaxHarvesting(){
-  const taxKpisEl=document.getElementById('tax-kpis');
-  const taxTableEl=document.getElementById('tax-table');
-  if(!taxKpisEl||!taxTableEl) return;
+function renderTaxHarvesting() {
+  const taxKpisEl = document.getElementById("tax-kpis");
+  const taxTableEl = document.getElementById("tax-table");
+  if (!taxKpisEl || !taxTableEl) return;
 
-  if(!DATA.stocks.length){
-    taxKpisEl.innerHTML=''; taxTableEl.innerHTML='<div style="color:var(--muted);font-size:11px">Upload Stocks file to see tax analysis</div>'; return;
+  if (!DATA.stocks.length) {
+    taxKpisEl.innerHTML = "";
+    taxTableEl.innerHTML =
+      '<div style="color:var(--muted);font-size:11px">Upload Stocks file to see tax analysis</div>';
+    return;
   }
 
-  const LTCG_EXEMPT=125000;
-  const now=Date.now();
-  let totalLTCGGain=0, totalSTCGGain=0, totalLTCGLoss=0, totalSTCGLoss=0;
-  let harvestCandidates=[];
+  const LTCG_EXEMPT = 125000;
+  const now = Date.now();
+  let totalLTCGGain = 0,
+    totalSTCGGain = 0,
+    totalLTCGLoss = 0,
+    totalSTCGLoss = 0;
+  let harvestCandidates = [];
 
-  DATA.stocks.forEach(s=>{
-    const cmp=s.Latest_Price||0;
-    (s.rawLots||[]).forEach(l=>{
+  DATA.stocks.forEach((s) => {
+    const cmp = s.Latest_Price || 0;
+    (s.rawLots || []).forEach((l) => {
       // FIX: guard against null date — parseInvDate can return null for bad rows
       if (!l.date) return;
-      const days=Math.floor((now-l.date.getTime())/(24*3600*1000));
-      const curVal=cmp>0&&l.qty>0?cmp*l.qty:(l.cur||l.inv+l.gain);
-      const lotGain=Math.round(curVal-l.inv);
-      const isLTCG=days>=365;
-      if(isLTCG){ if(lotGain>0) totalLTCGGain+=lotGain; else totalLTCGLoss+=Math.abs(lotGain); }
-      else       { if(lotGain>0) totalSTCGGain+=lotGain; else totalSTCGLoss+=Math.abs(lotGain); }
-      if(lotGain<0&&Math.abs(lotGain)>1000){
-        harvestCandidates.push({name:s.name,date:l.date,days,inv:l.inv,curVal,gain:lotGain,isLTCG,qty:l.qty,invPrice:l.invPrice,cmp});
+      const days = Math.floor((now - l.date.getTime()) / (24 * 3600 * 1000));
+      const curVal =
+        cmp > 0 && l.qty > 0 ? cmp * l.qty : l.cur || l.inv + l.gain;
+      const lotGain = Math.round(curVal - l.inv);
+      const isLTCG = days >= 365;
+      if (isLTCG) {
+        if (lotGain > 0) totalLTCGGain += lotGain;
+        else totalLTCGLoss += Math.abs(lotGain);
+      } else {
+        if (lotGain > 0) totalSTCGGain += lotGain;
+        else totalSTCGLoss += Math.abs(lotGain);
+      }
+      if (lotGain < 0 && Math.abs(lotGain) > 1000) {
+        harvestCandidates.push({
+          name: s.name,
+          date: l.date,
+          days,
+          inv: l.inv,
+          curVal,
+          gain: lotGain,
+          isLTCG,
+          qty: l.qty,
+          invPrice: l.invPrice,
+          cmp,
+        });
       }
     });
   });
 
-  const taxableLTCG=Math.max(0,totalLTCGGain-LTCG_EXEMPT);
-  const estLTCGTax=Math.round(taxableLTCG*0.125);
-  const estSTCGTax=Math.round(totalSTCGGain*0.20);
-  const totalEstTax=estLTCGTax+estSTCGTax;
-  const harvestSaving=Math.round(Math.min(harvestCandidates.reduce((a,c)=>a+Math.abs(c.gain),0),totalSTCGGain)*0.20
-    +Math.min(harvestCandidates.filter(c=>c.isLTCG).reduce((a,c)=>a+Math.abs(c.gain),0),taxableLTCG)*0.125);
+  const taxableLTCG = Math.max(0, totalLTCGGain - LTCG_EXEMPT);
+  const estLTCGTax = Math.round(taxableLTCG * 0.125);
+  const estSTCGTax = Math.round(totalSTCGGain * 0.2);
+  const totalEstTax = estLTCGTax + estSTCGTax;
+  const harvestSaving = Math.round(
+    Math.min(
+      harvestCandidates.reduce((a, c) => a + Math.abs(c.gain), 0),
+      totalSTCGGain,
+    ) *
+      0.2 +
+      Math.min(
+        harvestCandidates
+          .filter((c) => c.isLTCG)
+          .reduce((a, c) => a + Math.abs(c.gain), 0),
+        taxableLTCG,
+      ) *
+        0.125,
+  );
 
-  taxKpisEl.innerHTML=[
-    {l:'LTCG Gains',  v:fmtL(totalLTCGGain), c:totalLTCGGain>0?'var(--green)':'var(--muted)'},
-    {l:'STCG Gains',  v:fmtL(totalSTCGGain), c:totalSTCGGain>0?'var(--amber)':'var(--muted)'},
-    {l:'Est. Tax Liability', v:fmtL(totalEstTax), c:totalEstTax>0?'var(--red)':'var(--green)'},
-    {l:'Harvest Saving', v:harvestSaving>0?'up to '+fmtL(harvestSaving):'—', c:'var(--blue)'},
-  ].map(x=>`<div class="tax-kpi"><div class="tax-kpi-label">${x.l}</div><div class="tax-kpi-val" style="color:${x.c}">${x.v}</div></div>`).join('');
+  taxKpisEl.innerHTML = [
+    {
+      l: "LTCG Gains",
+      v: fmtL(totalLTCGGain),
+      c: totalLTCGGain > 0 ? "var(--green)" : "var(--muted)",
+    },
+    {
+      l: "STCG Gains",
+      v: fmtL(totalSTCGGain),
+      c: totalSTCGGain > 0 ? "var(--amber)" : "var(--muted)",
+    },
+    {
+      l: "Est. Tax Liability",
+      v: fmtL(totalEstTax),
+      c: totalEstTax > 0 ? "var(--red)" : "var(--green)",
+    },
+    {
+      l: "Harvest Saving",
+      v: harvestSaving > 0 ? "up to " + fmtL(harvestSaving) : "—",
+      c: "var(--blue)",
+    },
+  ]
+    .map(
+      (x) =>
+        `<div class="tax-kpi"><div class="tax-kpi-label">${x.l}</div><div class="tax-kpi-val" style="color:${x.c}">${x.v}</div></div>`,
+    )
+    .join("");
 
-  if(!harvestCandidates.length){
-    taxTableEl.innerHTML='<div style="color:var(--green);font-size:11px;padding:8px">✓ No loss-making lots to harvest right now</div>';
+  if (!harvestCandidates.length) {
+    taxTableEl.innerHTML =
+      '<div style="color:var(--green);font-size:11px;padding:8px">✓ No loss-making lots to harvest right now</div>';
     return;
   }
 
-  harvestCandidates.sort((a,b)=>a.gain-b.gain);
-  taxTableEl.innerHTML=`
+  harvestCandidates.sort((a, b) => a.gain - b.gain);
+  taxTableEl.innerHTML = `
     <div style="font-size:10px;color:var(--muted);margin-bottom:8px">Loss-making lots you can sell to offset gains and reduce tax liability:</div>
     <div style="overflow-x:auto">
     <table class="drill-table" style="min-width:620px">
@@ -166,17 +339,21 @@ function renderTaxHarvesting(){
         <th>Unrealised Loss</th><th>Holding</th><th>Tax Type</th><th>Action</th>
       </tr></thead>
       <tbody>
-      ${harvestCandidates.map(c=>`<tr>
+      ${harvestCandidates
+        .map(
+          (c) => `<tr>
         <td style="font-weight:500">${esc(c.name)}</td>
         <td>${fmtDate(c.date)}</td>
-        <td>${c.qty>0?fmtN(c.qty):'—'}</td>
-        <td>${c.invPrice>0?'₹'+c.invPrice.toFixed(2):'—'}</td>
-        <td>${c.cmp>0?'₹'+c.cmp.toFixed(2):'—'}</td>
+        <td>${c.qty > 0 ? fmtN(c.qty) : "—"}</td>
+        <td>${c.invPrice > 0 ? "₹" + c.invPrice.toFixed(2) : "—"}</td>
+        <td>${c.cmp > 0 ? "₹" + c.cmp.toFixed(2) : "—"}</td>
         <td class="td-dn">${fmtL(c.gain)}</td>
         <td>${fmtHoldPeriod(c.days)}</td>
-        <td>${c.isLTCG?'<span class="ltcg-badge">LTCG</span>':'<span class="stcg-badge">STCG</span>'}</td>
+        <td>${c.isLTCG ? '<span class="ltcg-badge">LTCG</span>' : '<span class="stcg-badge">STCG</span>'}</td>
         <td><span class="harvest-tag">HARVEST</span></td>
-      </tr>`).join('')}
+      </tr>`,
+        )
+        .join("")}
       </tbody>
     </table></div>
     <div style="font-size:10px;color:var(--muted2);margin-top:10px;line-height:1.6">

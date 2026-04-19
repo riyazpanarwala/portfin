@@ -529,6 +529,8 @@ function parseSTRows(rows, dz, statusEl, fname) {
 
 // ── Apply parsed data to DATA + refresh all ───────────────────
 function tryApplyData() {
+  DATA._cachedMonthly = null;
+  _fundAnalysisCache = null;
   const hasMF = pendingMF !== null,
     hasST = pendingST !== null;
   const msgEl = document.getElementById("apply-msg");
@@ -680,7 +682,7 @@ function tryApplyData() {
 
 // ── Rebalancing Advisor ───────────────────────────────────────
 function renderRebalance() {
-  syncRebSliders("none");
+  syncRebSliders(null);
 }
 
 function syncRebSliders(changed) {
