@@ -1,0 +1,237 @@
+/* ══════════════════════════════════════════════════════════════
+   PORTFOLIO DIFF PANEL — upload change summary
+   Add these rules to the bottom of css/style.css
+   ══════════════════════════════════════════════════════════════ */
+
+/* Outer wrapper — sits between apply-msg and the drop zones */
+#diff-panel-container {
+  margin-bottom: 16px;
+}
+
+/* Main panel card */
+.diff-panel {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  animation: diff-slide-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes diff-slide-in {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Panel header bar */
+.diff-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--bg3);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.diff-header-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.diff-header-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--text);
+  flex-shrink: 0;
+}
+
+.diff-header-badge {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 4px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.diff-badge-amber {
+  background: var(--amber-bg);
+  color: var(--amber);
+  border: 1px solid #4a3500;
+}
+
+.diff-badge-neutral {
+  background: var(--bg4);
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+
+.diff-collapse-btn {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: 10px;
+  font-family: var(--mono);
+  padding: 3px 10px;
+  cursor: pointer;
+  transition: all .15s;
+  flex-shrink: 0;
+}
+
+.diff-collapse-btn:hover {
+  color: var(--text);
+  border-color: var(--border2);
+}
+
+/* KPI delta strip */
+.diff-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 1px;
+  background: var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.diff-kpi-tile {
+  background: var(--bg2);
+  padding: 10px 14px;
+}
+
+.diff-kpi-label {
+  font-size: 9px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  margin-bottom: 4px;
+}
+
+.diff-kpi-val {
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* Change sections */
+.diff-section {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.diff-section:last-of-type {
+  border-bottom: none;
+}
+
+.diff-section-title {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.diff-section-green .diff-section-title { color: var(--green); }
+.diff-section-red   .diff-section-title { color: var(--red);   }
+.diff-section-blue  .diff-section-title { color: var(--blue);  }
+.diff-section-muted .diff-section-title { color: var(--muted); }
+
+/* Left accent stripe per section */
+.diff-section-green { border-left: 3px solid var(--green); }
+.diff-section-red   { border-left: 3px solid var(--red);   }
+.diff-section-blue  { border-left: 3px solid var(--blue);  }
+.diff-section-muted { border-left: 3px solid var(--muted2); }
+
+/* Individual diff rows */
+.diff-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+  animation: diff-row-in 0.25s ease both;
+}
+
+.diff-row:last-child {
+  border-bottom: none;
+}
+
+@keyframes diff-row-in {
+  from { opacity: 0; transform: translateX(-6px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* Stagger row animations */
+.diff-row:nth-child(1) { animation-delay: .04s; }
+.diff-row:nth-child(2) { animation-delay: .08s; }
+.diff-row:nth-child(3) { animation-delay: .12s; }
+.diff-row:nth-child(4) { animation-delay: .16s; }
+.diff-row:nth-child(5) { animation-delay: .20s; }
+.diff-row:nth-child(6) { animation-delay: .24s; }
+
+.diff-asset-pill {
+  font-size: 8px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  letter-spacing: .05em;
+}
+
+.diff-pill-mf {
+  background: rgba(88,166,255,.12);
+  color: var(--blue);
+  border: 1px solid rgba(88,166,255,.25);
+}
+
+.diff-pill-st {
+  background: rgba(163,113,247,.12);
+  color: #a371f7;
+  border: 1px solid rgba(163,113,247,.25);
+}
+
+.diff-row-name {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diff-row-meta {
+  font-size: 10px;
+  color: var(--muted);
+  flex-shrink: 0;
+  text-align: right;
+  min-width: 0;
+}
+
+@media (max-width: 600px) {
+  .diff-row { flex-wrap: wrap; }
+  .diff-row-meta { flex: 0 0 100%; text-align: left; padding-left: 44px; }
+}
+
+.diff-delta-chip {
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid;
+  background: transparent;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Light theme overrides */
+:root.light .diff-panel          { background: var(--bg2); }
+:root.light .diff-kpi-strip      { background: var(--border); }
+:root.light .diff-badge-amber    { border-color: #e8d4a0; }
+:root.light .diff-pill-mf        { border-color: rgba(9,105,218,.25); }
+:root.light .diff-pill-st        { border-color: rgba(130,80,223,.25); }
