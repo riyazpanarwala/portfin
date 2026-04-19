@@ -4,66 +4,152 @@
 // DATA — seed / fallback; fully replaced when Excel uploaded
 // ══════════════════════════════════════════════════════════════
 const DATA = {
-  kpis:{totalInvested:0,totalValue:0,totalGain:0,totalReturn:0,
-        mfInvested:0,mfValue:0,mfGain:0,mfReturn:0,mfCAGR:0,
-        stInvested:0,stValue:0,stGain:0,stReturn:0,
-        earliestMF:'', earliestST:''},
-  funds:[], mfCategories:[], stocks:[], sectors:[],
-  monthlyMF:[],
-  mfLots:[], stLots:[],
-  _cachedMonthly: null
+  kpis: {
+    totalInvested: 0,
+    totalValue: 0,
+    totalGain: 0,
+    totalReturn: 0,
+    mfInvested: 0,
+    mfValue: 0,
+    mfGain: 0,
+    mfReturn: 0,
+    mfCAGR: 0,
+    stInvested: 0,
+    stValue: 0,
+    stGain: 0,
+    stReturn: 0,
+    earliestMF: "",
+    earliestST: "",
+  },
+  funds: [],
+  mfCategories: [],
+  stocks: [],
+  sectors: [],
+  monthlyMF: [],
+  mfLots: [],
+  stLots: [],
+  _cachedMonthly: null,
 };
 
 // ── Formatters ────────────────────────────────────────────────
-const fmtL = n => {
-  if (n == null || isNaN(n)) return '—';
-  const a = Math.abs(n), s = n < 0 ? '−' : '';
-  if (a >= 1e7) return s + '₹' + (a / 1e7).toFixed(2) + ' Cr';
-  if (a >= 1e5) return s + '₹' + (a / 1e5).toFixed(2) + ' L';
-  return s + '₹' + a.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+const fmtL = (n) => {
+  if (n == null || isNaN(n)) return "—";
+  const a = Math.abs(n),
+    s = n < 0 ? "−" : "";
+  if (a >= 1e7) return s + "₹" + (a / 1e7).toFixed(2) + " Cr";
+  if (a >= 1e5) return s + "₹" + (a / 1e5).toFixed(2) + " L";
+  return (
+    s +
+    "₹" +
+    a.toLocaleString("en-IN", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
+  );
 };
 
-const fmtP = n => (n == null || isNaN(n)) ? '—' : (n >= 0 ? '+' : '') + n.toFixed(2) + '%';
-const fmtN = n => Math.round(n).toLocaleString('en-IN');
-const fmtPrice = n => (n == null || isNaN(n) || n <= 0) ? '—' : '₹' + Number(n).toFixed(2);
-const cls   = n => n >= 0 ? 'td-up' : 'td-dn';
-const pSign = n => n >= 0 ? '+' : '';
-const esc   = s => String(s == null ? '' : s)
-  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-  .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+const fmtP = (n) =>
+  n == null || isNaN(n) ? "—" : (n >= 0 ? "+" : "") + n.toFixed(2) + "%";
+const fmtN = (n) => Math.round(n).toLocaleString("en-IN");
+const fmtPrice = (n) =>
+  n == null || isNaN(n) || n <= 0 ? "—" : "₹" + Number(n).toFixed(2);
+const cls = (n) => (n >= 0 ? "td-up" : "td-dn");
+const pSign = (n) => (n >= 0 ? "+" : "");
+const esc = (s) =>
+  String(s == null ? "" : s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 
-const CAT_CLR = {Value:'#d4a843','Large Cap':'#58a6ff','Mid Cap':'#3fb950','Small Cap':'#f0883e','Flexi Cap':'#a371f7',ELSS:'#e3b341',Index:'#79c0ff',Other:'#7d8590'};
-const SEC_CLR = {Defence:'#58a6ff','Energy/PSU':'#3fb950',Speculative:'#f85149',Renewables:'#56d364','Finance/PSU':'#a371f7',FMCG:'#e3b341','Metals/Mining':'#d4a843',Banking:'#f0883e','Infra/PSU':'#79c0ff','Commodities ETF':'#7d8590','Index ETF':'#484f58',Other:'#7d8590'};
-const gc = (k,m) => m[k] || '#7d8590';
+const CAT_CLR = {
+  Value: "#d4a843",
+  "Large Cap": "#58a6ff",
+  "Mid Cap": "#3fb950",
+  "Small Cap": "#f0883e",
+  "Flexi Cap": "#a371f7",
+  ELSS: "#e3b341",
+  Index: "#79c0ff",
+  Other: "#7d8590",
+};
+const SEC_CLR = {
+  Defence: "#58a6ff",
+  "Energy/PSU": "#3fb950",
+  Speculative: "#f85149",
+  Renewables: "#56d364",
+  "Finance/PSU": "#a371f7",
+  FMCG: "#e3b341",
+  "Metals/Mining": "#d4a843",
+  Banking: "#f0883e",
+  "Infra/PSU": "#79c0ff",
+  "Commodities ETF": "#7d8590",
+  "Index ETF": "#484f58",
+  Other: "#7d8590",
+};
+const gc = (k, m) => m[k] || "#7d8590";
 
 function miniBar(pct, max) {
-  const w = Math.min(100, max > 0 ? Math.abs(pct) / max * 100 : 0), up = pct >= 0;
-  return `<div class="bar-wrap"><div class="bar-track"><div class="bar-fill ${up?'up':'dn'}" style="width:${w}%"></div></div><span class="bar-pct ${up?'up':'dn'}">${fmtP(pct)}</span></div>`;
+  const w = Math.min(100, max > 0 ? (Math.abs(pct) / max) * 100 : 0),
+    up = pct >= 0;
+  return `<div class="bar-wrap"><div class="bar-track"><div class="bar-fill ${up ? "up" : "dn"}" style="width:${w}%"></div></div><span class="bar-pct ${up ? "up" : "dn"}">${fmtP(pct)}</span></div>`;
 }
 function riskBadge(s) {
-  if (s.Sector === 'Speculative' || s.RetPct < -30) return '<span class="pill pill-h">HIGH RISK</span>';
+  if (s.Sector === "Speculative" || s.RetPct < -30)
+    return '<span class="pill pill-h">HIGH RISK</span>';
   if (s.RetPct < -10) return '<span class="pill pill-m">WATCH</span>';
   return '<span class="pill pill-l">SAFE</span>';
 }
 function donut(svgId, legId, data, colorMap) {
-  const svg = document.getElementById(svgId), leg = document.getElementById(legId);
+  const svg = document.getElementById(svgId),
+    leg = document.getElementById(legId);
   if (!svg || !leg) return;
-  const total = data.reduce((s,d) => s + d.v, 0); if (!total) return;
-  let angle = -90; const cx = 55, cy = 55, r = 42; let paths = '';
-  data.forEach(d => {
-    const pct = d.v/total, a1 = angle, a2 = angle + pct*360; angle = a2;
-    const tr = deg => deg * Math.PI / 180;
-    const x1 = cx+r*Math.cos(tr(a1)), y1 = cy+r*Math.sin(tr(a1));
-    const x2 = cx+r*Math.cos(tr(a2)), y2 = cy+r*Math.sin(tr(a2));
-    const lg = a2-a1 > 180 ? 1 : 0;
-    paths += `<path d="M${cx} ${cy} L${x1.toFixed(1)} ${y1.toFixed(1)} A${r} ${r} 0 ${lg} 1 ${x2.toFixed(1)} ${y2.toFixed(1)}Z" fill="${gc(d.k,colorMap)}" opacity=".9"/>`;
+  const total = data.reduce((s, d) => s + d.v, 0);
+  if (!total) return;
+  let angle = -90;
+  const cx = 55,
+    cy = 55,
+    r = 42;
+  let paths = "";
+  data.forEach((d) => {
+    const pct = d.v / total,
+      a1 = angle,
+      a2 = angle + pct * 360;
+    angle = a2;
+    const tr = (deg) => (deg * Math.PI) / 180;
+    const x1 = cx + r * Math.cos(tr(a1)),
+      y1 = cy + r * Math.sin(tr(a1));
+    const x2 = cx + r * Math.cos(tr(a2)),
+      y2 = cy + r * Math.sin(tr(a2));
+    const lg = a2 - a1 > 180 ? 1 : 0;
+    paths += `<path d="M${cx} ${cy} L${x1.toFixed(1)} ${y1.toFixed(1)} A${r} ${r} 0 ${lg} 1 ${x2.toFixed(1)} ${y2.toFixed(1)}Z" fill="${gc(d.k, colorMap)}" opacity=".9"/>`;
   });
   paths += `<circle cx="${cx}" cy="${cy}" r="26" fill="var(--bg2)"/>`;
   svg.innerHTML = paths;
-  leg.innerHTML = data.map(d => `<div class="legend-row"><div class="legend-dot" style="background:${gc(d.k,colorMap)}"></div><span class="legend-name">${d.k}</span><span class="legend-pct">${Math.round(d.v/total*100)}%</span></div>`).join('');
+  leg.innerHTML = data
+    .map(
+      (d) =>
+        `<div class="legend-row"><div class="legend-dot" style="background:${gc(d.k, colorMap)}"></div><span class="legend-name">${d.k}</span><span class="legend-pct">${Math.round((d.v / total) * 100)}%</span></div>`,
+    )
+    .join("");
 }
-function fmtDate(d){ return d ? new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—'; }
-function fmtMonthYear(d){ return d ? new Date(d).toLocaleDateString('en-IN',{month:'short',year:'numeric'}) : '—'; }
+function fmtDate(d) {
+  return d
+    ? new Date(d).toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
+    : "—";
+}
+function fmtMonthYear(d) {
+  return d
+    ? new Date(d).toLocaleDateString("en-IN", {
+        month: "short",
+        year: "numeric",
+      })
+    : "—";
+}
 
 // ── XIRR via Newton-Raphson ───────────────────────────────────
 function calcXIRR(cashflows, dates) {
@@ -71,33 +157,48 @@ function calcXIRR(cashflows, dates) {
   const netFlow = cashflows.reduce((a, v) => a + v, 0);
   if (Math.abs(netFlow) < 1) return 0;
   const base = dates[0];
-  const t = dates.map(d => (d - base) / (365.25*24*3600*1000));
+  const t = dates.map((d) => (d - base) / (365.25 * 24 * 3600 * 1000));
   let r = 0.1;
   for (let iter = 0; iter < 100; iter++) {
-    let f = 0, df = 0;
+    let f = 0,
+      df = 0;
     for (let i = 0; i < cashflows.length; i++) {
-      const v = cashflows[i] * Math.pow(1+r, -t[i]);
-      f += v; df += (-t[i]) * cashflows[i] * Math.pow(1+r, -t[i]-1);
+      const v = cashflows[i] * Math.pow(1 + r, -t[i]);
+      f += v;
+      df += -t[i] * cashflows[i] * Math.pow(1 + r, -t[i] - 1);
     }
     if (Math.abs(df) < 1e-12) break;
-    const rn = r - f/df;
-    if (Math.abs(rn-r) < 1e-8) { r = rn; break; }
+    const rn = r - f / df;
+    if (Math.abs(rn - r) < 1e-8) {
+      r = rn;
+      break;
+    }
     r = rn;
     if (r < -0.9) r = -0.5;
   }
-  return isFinite(r) ? parseFloat((r*100).toFixed(2)) : null;
+  return isFinite(r) ? parseFloat((r * 100).toFixed(2)) : null;
 }
 
 // ── State ─────────────────────────────────────────────────────
-let mfSort='RetPct', mfAsc=false, mfFil='All';
-let stSort='RetPct', stAsc=false, stFil='All';
+let mfSort = "RetPct",
+  mfAsc = false,
+  mfFil = "All";
+let stSort = "RetPct",
+  stAsc = false,
+  stFil = "All";
 
 const _chartTimers = {};
 function destroyChart(canvasId) {
   const el = document.getElementById(canvasId);
   if (!el) return;
-  if (el._chartInst) { el._chartInst.destroy(); el._chartInst = null; }
-  if (_chartTimers[canvasId]) { clearTimeout(_chartTimers[canvasId]); delete _chartTimers[canvasId]; }
+  if (el._chartInst) {
+    el._chartInst.destroy();
+    el._chartInst = null;
+  }
+  if (_chartTimers[canvasId]) {
+    clearTimeout(_chartTimers[canvasId]);
+    delete _chartTimers[canvasId];
+  }
 }
 function scheduleChart(canvasId, delay, buildFn) {
   if (_chartTimers[canvasId]) clearTimeout(_chartTimers[canvasId]);
@@ -105,7 +206,10 @@ function scheduleChart(canvasId, delay, buildFn) {
     delete _chartTimers[canvasId];
     const el = document.getElementById(canvasId);
     if (!el || !window.Chart) return;
-    if (el._chartInst) { el._chartInst.destroy(); el._chartInst = null; }
+    if (el._chartInst) {
+      el._chartInst.destroy();
+      el._chartInst = null;
+    }
     el._chartInst = buildFn(el);
   }, delay);
 }
@@ -116,111 +220,184 @@ let _fundAnalysisCache = null;
 function buildCombinedMonthly() {
   if (DATA._cachedMonthly) return DATA._cachedMonthly;
   const map = {};
-  DATA.monthlyMF.forEach(({m,v}) => { map[m] = (map[m]||0) + v; });
-  DATA.stLots.forEach(l => {
+  DATA.monthlyMF.forEach(({ m, v }) => {
+    map[m] = (map[m] || 0) + v;
+  });
+  DATA.stLots.forEach((l) => {
     if (!l.date || !l.amt) return;
-    const d = new Date(l.date); if (isNaN(d)) return;
-    const mk = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
-    map[mk] = (map[mk]||0) + l.amt;
+    const d = new Date(l.date);
+    if (isNaN(d)) return;
+    const mk =
+      d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+    map[mk] = (map[mk] || 0) + l.amt;
   });
   DATA._cachedMonthly = Object.entries(map)
-    .sort((a,b) => a[0].localeCompare(b[0]))
-    .map(([m,v]) => ({m, v: Math.round(v)}));
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([m, v]) => ({ m, v: Math.round(v) }));
   return DATA._cachedMonthly;
 }
 
 // ── Ticker ────────────────────────────────────────────────────
 function buildTicker() {
   if (!DATA.stocks.length && !DATA.funds.length) {
-    document.getElementById('ticker-inner').innerHTML =
-      '<span class="tick-item"><span class="tick-name">Upload your Excel files</span><span class="tick-price" style="color:var(--gold)">→ Import Excel tab</span></span>'.repeat(6);
+    document.getElementById("ticker-inner").innerHTML =
+      '<span class="tick-item"><span class="tick-name">Upload your Excel files</span><span class="tick-price" style="color:var(--gold)">→ Import Excel tab</span></span>'.repeat(
+        6,
+      );
     return;
   }
-  const stItems = DATA.stocks.filter(s => s.Latest_Price > 0).map(s =>
-    `<span class="tick-item"><span class="tick-name">${esc(s.name)}</span><span class="tick-price">₹${s.Latest_Price.toFixed(2)}</span><span class="tick-chg ${s.Gain>=0?'up':'dn'}">${fmtP(s.RetPct)}</span></span>`);
-  const mfItems = DATA.funds.slice(0,6).map(f =>
-    `<span class="tick-item"><span class="tick-name">${esc(f.name).split(' ').slice(0,2).join(' ')}</span><span class="tick-price">${fmtL(f.Current)}</span><span class="tick-chg ${f.Gain>=0?'up':'dn'}">${fmtP(f.RetPct)}</span></span>`);
-  const all = [...stItems, ...mfItems].join('');
-  document.getElementById('ticker-inner').innerHTML = all + all;
+  const stItems = DATA.stocks
+    .filter((s) => s.Latest_Price > 0)
+    .map(
+      (s) =>
+        `<span class="tick-item"><span class="tick-name">${esc(s.name)}</span><span class="tick-price">₹${s.Latest_Price.toFixed(2)}</span><span class="tick-chg ${s.Gain >= 0 ? "up" : "dn"}">${fmtP(s.RetPct)}</span></span>`,
+    );
+  const mfItems = DATA.funds
+    .slice(0, 6)
+    .map(
+      (f) =>
+        `<span class="tick-item"><span class="tick-name">${esc(f.name).split(" ").slice(0, 2).join(" ")}</span><span class="tick-price">${fmtL(f.Current)}</span><span class="tick-chg ${f.Gain >= 0 ? "up" : "dn"}">${fmtP(f.RetPct)}</span></span>`,
+    );
+  const all = [...stItems, ...mfItems].join("");
+  document.getElementById("ticker-inner").innerHTML = all + all;
 }
-document.addEventListener('visibilitychange', () => {
-  const el = document.getElementById('ticker-inner');
+document.addEventListener("visibilitychange", () => {
+  const el = document.getElementById("ticker-inner");
   if (!el) return;
-  el.style.animation = 'none'; el.offsetHeight; el.style.animation = '';
+  el.style.animation = "none";
+  el.offsetHeight;
+  el.style.animation = "";
 });
 
 function buildStrip() {
-  const tot = DATA.mfCategories.reduce((s,c) => s + c.Invested, 0);
-  if (!tot) { document.getElementById('cat-strip').innerHTML = ''; return; }
-  document.getElementById('cat-strip').innerHTML = DATA.mfCategories.map(c =>
-    `<div style="background:${CAT_CLR[c.Category]||'#444'};flex:${c.Invested/tot*100}"></div>`).join('');
+  const tot = DATA.mfCategories.reduce((s, c) => s + c.Invested, 0);
+  if (!tot) {
+    document.getElementById("cat-strip").innerHTML = "";
+    return;
+  }
+  document.getElementById("cat-strip").innerHTML = DATA.mfCategories
+    .map(
+      (c) =>
+        `<div style="background:${CAT_CLR[c.Category] || "#444"};flex:${(c.Invested / tot) * 100}"></div>`,
+    )
+    .join("");
 }
 
 // ── Topbar + sidebar ──────────────────────────────────────────
 function updateChrome() {
   const k = DATA.kpis;
-  document.getElementById('sb-total-val').textContent = k.totalValue ? fmtL(k.totalValue) : '—';
-  const pnlEl = document.getElementById('sb-pnl');
-  pnlEl.textContent = k.totalReturn ? (pSign(k.totalReturn) + k.totalReturn.toFixed(2) + '%') : '—';
-  pnlEl.style.color = k.totalGain >= 0 ? 'var(--green)' : 'var(--red)';
-  document.getElementById('sb-cagr').textContent = k.mfCAGR ? (k.mfCAGR.toFixed(2) + '% p.a.') : '—';
-  const dateStr = k.latestDate ? fmtDate(k.latestDate) : (k.totalValue ? fmtDate(new Date()) : '—');
-  document.getElementById('sb-date').textContent = dateStr;
+  document.getElementById("sb-total-val").textContent = k.totalValue
+    ? fmtL(k.totalValue)
+    : "—";
+  const pnlEl = document.getElementById("sb-pnl");
+  pnlEl.textContent = k.totalReturn
+    ? pSign(k.totalReturn) + k.totalReturn.toFixed(2) + "%"
+    : "—";
+  pnlEl.style.color = k.totalGain >= 0 ? "var(--green)" : "var(--red)";
+  document.getElementById("sb-cagr").textContent = k.mfCAGR
+    ? k.mfCAGR.toFixed(2) + "% p.a."
+    : "—";
+  const dateStr = k.latestDate
+    ? fmtDate(k.latestDate)
+    : k.totalValue
+      ? fmtDate(new Date())
+      : "—";
+  document.getElementById("sb-date").textContent = dateStr;
 
-  const mfCount = DATA.funds.length, stCount = DATA.stocks.length;
+  const mfCount = DATA.funds.length,
+    stCount = DATA.stocks.length;
   if (mfCount || stCount) {
-    const since = k.earliestMF ? (' · Since ' + fmtMonthYear(k.earliestMF)) : '';
-    document.getElementById('topbar-meta').textContent = `${mfCount} mutual funds · ${stCount} equity stocks${since}`;
+    const since = k.earliestMF ? " · Since " + fmtMonthYear(k.earliestMF) : "";
+    document.getElementById("topbar-meta").textContent =
+      `${mfCount} mutual funds · ${stCount} equity stocks${since}`;
   }
 
   const badges = [];
   if (k.mfReturn !== undefined && mfCount) {
-    badges.push(`<span class="badge ${k.mfReturn>=0?'badge-g':'badge-r'}">MF ${pSign(k.mfReturn)}${k.mfReturn.toFixed(2)}%</span>`);
+    badges.push(
+      `<span class="badge ${k.mfReturn >= 0 ? "badge-g" : "badge-r"}">MF ${pSign(k.mfReturn)}${k.mfReturn.toFixed(2)}%</span>`,
+    );
   }
   if (k.stReturn !== undefined && stCount) {
-    badges.push(`<span class="badge ${k.stReturn>=0?'badge-g':'badge-r'}">Stocks ${pSign(k.stReturn)}${k.stReturn.toFixed(2)}%</span>`);
+    badges.push(
+      `<span class="badge ${k.stReturn >= 0 ? "badge-g" : "badge-r"}">Stocks ${pSign(k.stReturn)}${k.stReturn.toFixed(2)}%</span>`,
+    );
   }
   if (k.totalReturn !== undefined && (mfCount || stCount)) {
-    badges.push(`<span class="badge badge-a">Combined ${pSign(k.totalReturn)}${k.totalReturn.toFixed(2)}%</span>`);
+    badges.push(
+      `<span class="badge badge-a">Combined ${pSign(k.totalReturn)}${k.totalReturn.toFixed(2)}%</span>`,
+    );
   }
-  document.getElementById('topbar-badges').innerHTML = badges.join('');
+  document.getElementById("topbar-badges").innerHTML = badges.join("");
 }
 
 // ═══════════════════════════════════════════════════════════════
 // LOCALSTORAGE PERSISTENCE
 // ═══════════════════════════════════════════════════════════════
-const LS_KEY = 'portfin-data-v1';
-const LS_SNAPSHOTS_KEY = 'portfin-snapshots-v1';
-const MAX_SNAPSHOTS = 24;
+const LS_KEY = "portfin-data-v1";
+const LS_SNAPSHOTS_KEY = "portfin-snapshots-v1";
+const MAX_SNAPSHOTS = 104; // ~2 years of weekly snapshots
 
 function saveDataToStorage() {
   try {
     const payload = {
-      kpis: { ...DATA.kpis,
-        earliestMF: DATA.kpis.earliestMF ? new Date(DATA.kpis.earliestMF).toISOString() : null,
-        earliestST: DATA.kpis.earliestST ? new Date(DATA.kpis.earliestST).toISOString() : null,
-        latestDate: DATA.kpis.latestDate  ? new Date(DATA.kpis.latestDate).toISOString()  : null },
-      funds:        DATA.funds.map(f  => ({...f, dates:f.dates.map(d=>new Date(d).toISOString()), rawLots:f.rawLots.map(l=>({...l,date:new Date(l.date).toISOString()}))})),
+      kpis: {
+        ...DATA.kpis,
+        earliestMF: DATA.kpis.earliestMF
+          ? new Date(DATA.kpis.earliestMF).toISOString()
+          : null,
+        earliestST: DATA.kpis.earliestST
+          ? new Date(DATA.kpis.earliestST).toISOString()
+          : null,
+        latestDate: DATA.kpis.latestDate
+          ? new Date(DATA.kpis.latestDate).toISOString()
+          : null,
+      },
+      funds: DATA.funds.map((f) => ({
+        ...f,
+        dates: f.dates.map((d) => new Date(d).toISOString()),
+        rawLots: f.rawLots.map((l) => ({
+          ...l,
+          date: new Date(l.date).toISOString(),
+        })),
+      })),
       mfCategories: DATA.mfCategories,
-      stocks:       DATA.stocks.map(s => ({...s, dates:s.dates.map(d=>new Date(d).toISOString()), rawLots:s.rawLots.map(l=>({...l,date:new Date(l.date).toISOString()}))})),
-      sectors:      DATA.sectors,
-      monthlyMF:    DATA.monthlyMF,
-      mfLots:       DATA.mfLots.map(l => ({...l, date:new Date(l.date).toISOString()})),
-      stLots:       DATA.stLots.map(l => ({...l, date:new Date(l.date).toISOString()})),
-      savedAt:      new Date().toISOString()
+      stocks: DATA.stocks.map((s) => ({
+        ...s,
+        dates: s.dates.map((d) => new Date(d).toISOString()),
+        rawLots: s.rawLots.map((l) => ({
+          ...l,
+          date: new Date(l.date).toISOString(),
+        })),
+      })),
+      sectors: DATA.sectors,
+      monthlyMF: DATA.monthlyMF,
+      mfLots: DATA.mfLots.map((l) => ({
+        ...l,
+        date: new Date(l.date).toISOString(),
+      })),
+      stLots: DATA.stLots.map((l) => ({
+        ...l,
+        date: new Date(l.date).toISOString(),
+      })),
+      savedAt: new Date().toISOString(),
     };
     localStorage.setItem(LS_KEY, JSON.stringify(payload));
     return true;
-  } catch(e) {
-    console.warn('PortFin: Could not save to localStorage', e);
-    if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
-      const msgEl = document.getElementById('apply-msg');
+  } catch (e) {
+    console.warn("PortFin: Could not save to localStorage", e);
+    if (
+      e.name === "QuotaExceededError" ||
+      e.name === "NS_ERROR_DOM_QUOTA_REACHED"
+    ) {
+      const msgEl = document.getElementById("apply-msg");
       if (msgEl) {
-        msgEl.style.background = 'var(--red-bg)';
-        msgEl.style.border = '1px solid var(--red-dim)';
-        msgEl.style.color = 'var(--red)';
-        msgEl.style.display = 'block';
-        msgEl.textContent = '⚠ Dashboard loaded but could not be saved — browser storage is full. Try clearing old data or using a different browser profile.';
+        msgEl.style.background = "var(--red-bg)";
+        msgEl.style.border = "1px solid var(--red-dim)";
+        msgEl.style.color = "var(--red)";
+        msgEl.style.display = "block";
+        msgEl.textContent =
+          "⚠ Dashboard loaded but could not be saved — browser storage is full. Try clearing old data or using a different browser profile.";
       }
     }
     return false;
@@ -233,70 +410,180 @@ function loadDataFromStorage() {
     if (!raw) return false;
     const payload = JSON.parse(raw);
     if (!payload || !payload.funds) return false;
-    const reDate = v => v ? new Date(v) : null;
-    DATA.kpis         = { ...payload.kpis, earliestMF:reDate(payload.kpis.earliestMF), earliestST:reDate(payload.kpis.earliestST), latestDate:reDate(payload.kpis.latestDate) };
-    DATA.funds         = payload.funds.map(f  => ({...f, dates:(f.dates||[]).map(d=>new Date(d)), rawLots:(f.rawLots||[]).map(l=>({...l,date:new Date(l.date)}))}));
-    DATA.mfCategories  = payload.mfCategories || [];
-    DATA.stocks        = payload.stocks.map(s => ({...s, dates:(s.dates||[]).map(d=>new Date(d)), rawLots:(s.rawLots||[]).map(l=>({...l,date:new Date(l.date)}))}));
-    DATA.sectors       = payload.sectors   || [];
-    DATA.monthlyMF     = payload.monthlyMF || [];
-    DATA.mfLots        = (payload.mfLots||[]).map(l => ({...l, date:new Date(l.date)}));
-    DATA.stLots        = (payload.stLots||[]).map(l => ({...l, date:new Date(l.date)}));
+    const reDate = (v) => (v ? new Date(v) : null);
+    DATA.kpis = {
+      ...payload.kpis,
+      earliestMF: reDate(payload.kpis.earliestMF),
+      earliestST: reDate(payload.kpis.earliestST),
+      latestDate: reDate(payload.kpis.latestDate),
+    };
+    DATA.funds = payload.funds.map((f) => ({
+      ...f,
+      dates: (f.dates || []).map((d) => new Date(d)),
+      rawLots: (f.rawLots || []).map((l) => ({ ...l, date: new Date(l.date) })),
+    }));
+    DATA.mfCategories = payload.mfCategories || [];
+    DATA.stocks = payload.stocks.map((s) => ({
+      ...s,
+      dates: (s.dates || []).map((d) => new Date(d)),
+      rawLots: (s.rawLots || []).map((l) => ({ ...l, date: new Date(l.date) })),
+    }));
+    DATA.sectors = payload.sectors || [];
+    DATA.monthlyMF = payload.monthlyMF || [];
+    DATA.mfLots = (payload.mfLots || []).map((l) => ({
+      ...l,
+      date: new Date(l.date),
+    }));
+    DATA.stLots = (payload.stLots || []).map((l) => ({
+      ...l,
+      date: new Date(l.date),
+    }));
     DATA._cachedMonthly = null;
-    _fundAnalysisCache  = null;
+    _fundAnalysisCache = null;
     return payload.savedAt || true;
-  } catch(e) { console.warn('PortFin: Could not load from localStorage', e); return false; }
+  } catch (e) {
+    console.warn("PortFin: Could not load from localStorage", e);
+    return false;
+  }
 }
-function clearStoredData() { localStorage.removeItem(LS_KEY); }
+function clearStoredData() {
+  localStorage.removeItem(LS_KEY);
+}
 
 // ── Snapshots ─────────────────────────────────────────────────
+// Returns ISO week number for a given Date
+function getISOWeekNumber(d) {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayNum = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return Math.ceil(((date - yearStart) / 86400000 + 1) / 7);
+}
+
+// Returns the Monday of the ISO week containing date d
+function getWeekStart(d) {
+  const date = new Date(d);
+  const day = date.getDay() || 7; // treat Sunday as 7
+  date.setDate(date.getDate() - (day - 1));
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+// Format: "28 Apr – 4 May 25"
+function fmtWeekRange(weekStart) {
+  const end = new Date(weekStart);
+  end.setDate(end.getDate() + 6);
+  const opts = { day: "2-digit", month: "short" };
+  const startStr = weekStart.toLocaleDateString("en-IN", opts);
+  const endStr = end.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "2-digit",
+  });
+  return startStr + " – " + endStr;
+}
+
 function saveSnapshot() {
   try {
-    const k = DATA.kpis; if (!k.totalInvested) return;
-    const snapshots = getSnapshots(), now = new Date();
-    const monthKey = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
-    const snap = { monthKey, savedAt:now.toISOString(),
-      label:now.toLocaleDateString('en-IN',{month:'short',year:'numeric'}),
-      totalInvested:k.totalInvested, totalValue:k.totalValue, totalGain:k.totalGain, totalReturn:k.totalReturn,
-      mfInvested:k.mfInvested, mfValue:k.mfValue, mfCAGR:k.mfCAGR,
-      stInvested:k.stInvested, stValue:k.stValue,
-      fundCount:DATA.funds.length, stockCount:DATA.stocks.length };
-    const idx = snapshots.findIndex(s => s.monthKey === monthKey);
-    if (idx >= 0) snapshots[idx] = snap; else snapshots.push(snap);
-    snapshots.sort((a,b) => a.monthKey.localeCompare(b.monthKey));
+    const k = DATA.kpis;
+    if (!k.totalInvested) return;
+    const snapshots = getSnapshots();
+    const now = new Date();
+
+    const weekNum = getISOWeekNumber(now);
+    const weekStart = getWeekStart(now);
+    // Key format: "2025-W18"  (ISO year of Thursday, so week 1 is always correct)
+    const isoYear = (() => {
+      const thu = new Date(weekStart);
+      thu.setDate(thu.getDate() + 3);
+      return thu.getFullYear();
+    })();
+    const weekKey = isoYear + "-W" + String(weekNum).padStart(2, "0");
+
+    const snap = {
+      weekKey,
+      savedAt: now.toISOString(),
+      label: fmtWeekRange(weekStart),
+      shortLabel:
+        "W" +
+        String(weekNum).padStart(2, "0") +
+        " '" +
+        String(isoYear).slice(-2),
+      totalInvested: k.totalInvested,
+      totalValue: k.totalValue,
+      totalGain: k.totalGain,
+      totalReturn: k.totalReturn,
+      mfInvested: k.mfInvested,
+      mfValue: k.mfValue,
+      mfCAGR: k.mfCAGR,
+      stInvested: k.stInvested,
+      stValue: k.stValue,
+      fundCount: DATA.funds.length,
+      stockCount: DATA.stocks.length,
+    };
+
+    const idx = snapshots.findIndex((s) => s.weekKey === weekKey);
+    if (idx >= 0) snapshots[idx] = snap;
+    else snapshots.push(snap);
+    snapshots.sort((a, b) => a.weekKey.localeCompare(b.weekKey));
     while (snapshots.length > MAX_SNAPSHOTS) snapshots.shift();
     localStorage.setItem(LS_SNAPSHOTS_KEY, JSON.stringify(snapshots));
-  } catch(e) { console.warn('PortFin: Could not save snapshot', e); }
+  } catch (e) {
+    console.warn("PortFin: Could not save snapshot", e);
+  }
 }
+
 function getSnapshots() {
-  try { return JSON.parse(localStorage.getItem(LS_SNAPSHOTS_KEY) || '[]'); }
-  catch(e) { return []; }
+  try {
+    return JSON.parse(localStorage.getItem(LS_SNAPSHOTS_KEY) || "[]");
+  } catch (e) {
+    return [];
+  }
 }
-function clearSnapshots() { localStorage.removeItem(LS_SNAPSHOTS_KEY); }
+
+function clearSnapshots() {
+  localStorage.removeItem(LS_SNAPSHOTS_KEY);
+}
 
 function showPersistBanner(savedAt) {
-  const existing = document.getElementById('persist-banner');
+  const existing = document.getElementById("persist-banner");
   if (existing) existing.remove();
-  const bar = document.createElement('div');
-  bar.id = 'persist-banner';
-  const dateStr = savedAt && savedAt !== true
-    ? new Date(savedAt).toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})
-    : 'previous session';
+  const bar = document.createElement("div");
+  bar.id = "persist-banner";
+  const dateStr =
+    savedAt && savedAt !== true
+      ? new Date(savedAt).toLocaleString("en-IN", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "previous session";
   bar.innerHTML = `<span style="flex:1">📂 Showing portfolio saved on <strong>${dateStr}</strong>. Upload new files to refresh.</span>
     <button onclick="clearAndReset()" style="background:transparent;border:1px solid var(--border2);border-radius:4px;color:var(--muted);padding:3px 10px;font-size:10px;cursor:pointer;flex-shrink:0">Clear data</button>`;
-  bar.style.cssText = 'display:flex;align-items:center;gap:10px;background:var(--amber-bg);border-bottom:1px solid #4a3500;color:var(--amber);font-size:11px;padding:7px 20px;font-family:var(--mono)';
-  const ticker = document.querySelector('.ticker');
+  bar.style.cssText =
+    "display:flex;align-items:center;gap:10px;background:var(--amber-bg);border-bottom:1px solid #4a3500;color:var(--amber);font-size:11px;padding:7px 20px;font-family:var(--mono)";
+  const ticker = document.querySelector(".ticker");
   if (ticker) ticker.after(bar);
 }
 function clearAndReset() {
-  if (!confirm('Clear all saved portfolio data and snapshots? This cannot be undone.')) return;
-  clearStoredData(); clearSnapshots(); location.reload();
+  if (
+    !confirm(
+      "Clear all saved portfolio data and snapshots? This cannot be undone.",
+    )
+  )
+    return;
+  clearStoredData();
+  clearSnapshots();
+  location.reload();
 }
 
 // ── Shared helpers ────────────────────────────────────────────
 function fmtHoldPeriod(days) {
-  if (!days || days <= 0) return '—';
-  const y = Math.floor(days/365), m = Math.floor((days%365)/30);
+  if (!days || days <= 0) return "—";
+  const y = Math.floor(days / 365),
+    m = Math.floor((days % 365) / 30);
   if (y > 0 && m > 0) return `${y}y ${m}m`;
   if (y > 0) return `${y}y`;
   if (m > 0) return `${m}m`;
@@ -312,71 +599,95 @@ function buildMonthlyBreakupHTML(lots, type) {
   // lots for ST: [{date, inv, qty, invPrice, gain, cur}, ...]
 
   const monthMap = {};
-  lots.forEach(l => {
+  lots.forEach((l) => {
     if (!l.date) return;
     const d = new Date(l.date);
     if (isNaN(d)) return;
-    const mk = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    const mk =
+      d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
     if (!monthMap[mk]) {
       monthMap[mk] = { invested: 0, gain: 0, lots: 0, units: 0 };
     }
-    const invested = type === 'mf' ? (l.amt || 0) : (l.inv || 0);
-    const gain     = l.gain || 0;
-    const units    = l.qty  || 0;
+    const invested = type === "mf" ? l.amt || 0 : l.inv || 0;
+    const gain = l.gain || 0;
+    const units = l.qty || 0;
     monthMap[mk].invested += invested;
-    monthMap[mk].gain     += gain;
-    monthMap[mk].lots     += 1;
-    monthMap[mk].units    += units;
+    monthMap[mk].gain += gain;
+    monthMap[mk].lots += 1;
+    monthMap[mk].units += units;
   });
 
   const months = Object.entries(monthMap)
     .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([mk, v]) => ({ mk, ...v, retPct: v.invested > 0 ? (v.gain / v.invested) * 100 : 0 }));
+    .map(([mk, v]) => ({
+      mk,
+      ...v,
+      retPct: v.invested > 0 ? (v.gain / v.invested) * 100 : 0,
+    }));
 
   if (!months.length) {
     return '<div style="color:var(--muted);font-size:11px;padding:10px">No monthly data available</div>';
   }
 
   const totalInvested = months.reduce((a, m) => a + m.invested, 0);
-  const totalGain     = months.reduce((a, m) => a + m.gain, 0);
-  const maxInvested   = Math.max(...months.map(m => m.invested), 1);
+  const totalGain = months.reduce((a, m) => a + m.gain, 0);
+  const maxInvested = Math.max(...months.map((m) => m.invested), 1);
 
   // Group by year for summary
   const yearMap = {};
-  months.forEach(m => {
+  months.forEach((m) => {
     const y = m.mk.slice(0, 4);
     if (!yearMap[y]) yearMap[y] = { invested: 0, gain: 0, lots: 0 };
     yearMap[y].invested += m.invested;
-    yearMap[y].gain     += m.gain;
-    yearMap[y].lots     += m.lots;
+    yearMap[y].gain += m.gain;
+    yearMap[y].lots += m.lots;
   });
 
-  const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const MONTH_NAMES = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
 
   // Build year summary KPIs
-  const yearEntries = Object.entries(yearMap).sort((a, b) => a[0].localeCompare(b[0]));
-  const yearKpis = yearEntries.map(([y, yv]) => {
-    const retPct = yv.invested > 0 ? (yv.gain / yv.invested * 100) : 0;
-    const retColor = retPct >= 0 ? 'var(--green)' : 'var(--red)';
-    return `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 12px;min-width:100px;flex-shrink:0">
+  const yearEntries = Object.entries(yearMap).sort((a, b) =>
+    a[0].localeCompare(b[0]),
+  );
+  const yearKpis = yearEntries
+    .map(([y, yv]) => {
+      const retPct = yv.invested > 0 ? (yv.gain / yv.invested) * 100 : 0;
+      const retColor = retPct >= 0 ? "var(--green)" : "var(--red)";
+      return `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 12px;min-width:100px;flex-shrink:0">
       <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">${y}</div>
       <div style="font-family:var(--sans);font-size:15px;font-weight:700;color:var(--gold)">${fmtL(yv.invested)}</div>
-      <div style="font-size:10px;color:${retColor};margin-top:2px">${retPct >= 0 ? '+' : ''}${retPct.toFixed(1)}% · ${yv.lots} lot${yv.lots !== 1 ? 's' : ''}</div>
+      <div style="font-size:10px;color:${retColor};margin-top:2px">${retPct >= 0 ? "+" : ""}${retPct.toFixed(1)}% · ${yv.lots} lot${yv.lots !== 1 ? "s" : ""}</div>
     </div>`;
-  }).join('');
+    })
+    .join("");
 
   // Build monthly rows
-  const monthRows = months.map(m => {
-    const [y, mo] = m.mk.split('-');
-    const monthName = MONTH_NAMES[parseInt(mo) - 1] + ' ' + y;
-    const barWidth  = Math.round(m.invested / maxInvested * 100);
-    const retColor  = m.retPct >= 0 ? 'var(--green)' : 'var(--red)';
-    const gainCls   = m.gain >= 0 ? 'td-up' : 'td-dn';
-    const unitsCol  = type === 'mf'
-      ? `<td style="font-size:11px;color:var(--muted);text-align:right">${m.units > 0 ? m.units.toFixed(3) : '—'}</td>`
-      : `<td style="font-size:11px;color:var(--muted);text-align:right">${m.units > 0 ? fmtN(m.units) : '—'}</td>`;
+  const monthRows = months
+    .map((m) => {
+      const [y, mo] = m.mk.split("-");
+      const monthName = MONTH_NAMES[parseInt(mo) - 1] + " " + y;
+      const barWidth = Math.round((m.invested / maxInvested) * 100);
+      const retColor = m.retPct >= 0 ? "var(--green)" : "var(--red)";
+      const gainCls = m.gain >= 0 ? "td-up" : "td-dn";
+      const unitsCol =
+        type === "mf"
+          ? `<td style="font-size:11px;color:var(--muted);text-align:right">${m.units > 0 ? m.units.toFixed(3) : "—"}</td>`
+          : `<td style="font-size:11px;color:var(--muted);text-align:right">${m.units > 0 ? fmtN(m.units) : "—"}</td>`;
 
-    return `<tr>
+      return `<tr>
       <td style="font-size:11px;font-weight:500;white-space:nowrap">${monthName}</td>
       <td style="min-width:120px">
         <div style="display:flex;align-items:center;gap:6px">
@@ -388,15 +699,19 @@ function buildMonthlyBreakupHTML(lots, type) {
       </td>
       ${unitsCol}
       <td class="${gainCls}" style="font-size:11px;text-align:right">${fmtL(m.gain)}</td>
-      <td style="font-size:11px;text-align:right;color:${retColor};font-weight:500">${m.retPct >= 0 ? '+' : ''}${m.retPct.toFixed(2)}%</td>
+      <td style="font-size:11px;text-align:right;color:${retColor};font-weight:500">${m.retPct >= 0 ? "+" : ""}${m.retPct.toFixed(2)}%</td>
       <td style="font-size:10px;color:var(--muted);text-align:right">${m.lots}</td>
     </tr>`;
-  }).join('');
+    })
+    .join("");
 
-  const unitsHeader = type === 'mf' ? '<th style="text-align:right">Units</th>' : '<th style="text-align:right">Qty</th>';
-  const totalRetPct  = totalInvested > 0 ? (totalGain / totalInvested * 100) : 0;
-  const totGainCls   = totalGain >= 0 ? 'td-up' : 'td-dn';
-  const totalRetColor = totalRetPct >= 0 ? 'var(--green)' : 'var(--red)';
+  const unitsHeader =
+    type === "mf"
+      ? '<th style="text-align:right">Units</th>'
+      : '<th style="text-align:right">Qty</th>';
+  const totalRetPct = totalInvested > 0 ? (totalGain / totalInvested) * 100 : 0;
+  const totGainCls = totalGain >= 0 ? "td-up" : "td-dn";
+  const totalRetColor = totalRetPct >= 0 ? "var(--green)" : "var(--red)";
 
   return `
     <div style="margin-bottom:12px">
@@ -425,7 +740,7 @@ function buildMonthlyBreakupHTML(lots, type) {
             <td style="font-size:11px;font-weight:700;color:var(--gold);padding-left:8px">${fmtL(totalInvested)}</td>
             <td></td>
             <td class="${totGainCls}" style="font-size:11px;font-weight:700;text-align:right">${fmtL(totalGain)}</td>
-            <td style="font-size:11px;font-weight:700;text-align:right;color:${totalRetColor}">${totalRetPct >= 0 ? '+' : ''}${totalRetPct.toFixed(2)}%</td>
+            <td style="font-size:11px;font-weight:700;text-align:right;color:${totalRetColor}">${totalRetPct >= 0 ? "+" : ""}${totalRetPct.toFixed(2)}%</td>
             <td style="font-size:10px;color:var(--muted);text-align:right">${lots.length}</td>
           </tr>
         </tfoot>
@@ -444,22 +759,24 @@ function switchDrillTab(tabGroupId, tabId) {
   const group = document.getElementById(tabGroupId);
   if (!group) return;
   // Hide all panels in group
-  group.querySelectorAll('.drill-tab-panel').forEach(p => p.style.display = 'none');
+  group
+    .querySelectorAll(".drill-tab-panel")
+    .forEach((p) => (p.style.display = "none"));
   // Deactivate all tab buttons
-  group.querySelectorAll('.drill-tab-btn').forEach(b => {
-    b.style.background = 'transparent';
-    b.style.color = 'var(--muted)';
-    b.style.borderBottomColor = 'transparent';
+  group.querySelectorAll(".drill-tab-btn").forEach((b) => {
+    b.style.background = "transparent";
+    b.style.color = "var(--muted)";
+    b.style.borderBottomColor = "transparent";
   });
   // Show selected panel
   const panel = document.getElementById(tabId);
-  if (panel) panel.style.display = 'block';
+  if (panel) panel.style.display = "block";
   // Activate selected button
   const btn = group.querySelector(`[data-tab="${tabId}"]`);
   if (btn) {
-    btn.style.background = 'var(--bg4)';
-    btn.style.color = 'var(--gold)';
-    btn.style.borderBottomColor = 'var(--gold)';
+    btn.style.background = "var(--bg4)";
+    btn.style.color = "var(--gold)";
+    btn.style.borderBottomColor = "var(--gold)";
   }
 }
 
@@ -470,101 +787,139 @@ function buildMFDrillHTML(f) {
   if (!f.rawLots || !f.rawLots.length)
     return '<div style="color:var(--muted);font-size:11px;padding:6px">No lot-level data available</div>';
 
-  const lots = [...f.rawLots].sort((a,b) => a.date - b.date);
-  const drillId = 'mf-drill-' + Math.random().toString(36).slice(2, 8);
+  const lots = [...f.rawLots].sort((a, b) => a.date - b.date);
+  const drillId = "mf-drill-" + Math.random().toString(36).slice(2, 8);
 
   let fundXirr = null;
   try {
-    const cfAmounts = [], cfDates = [];
-    lots.forEach(l => {
-      if (l.date && l.amt > 0) { cfAmounts.push(-l.amt); cfDates.push(new Date(l.date)); }
+    const cfAmounts = [],
+      cfDates = [];
+    lots.forEach((l) => {
+      if (l.date && l.amt > 0) {
+        cfAmounts.push(-l.amt);
+        cfDates.push(new Date(l.date));
+      }
     });
-    const currentValue = f.Current || (f.Invested + (f.Gain || 0));
+    const currentValue = f.Current || f.Invested + (f.Gain || 0);
     if (currentValue > 0 && cfAmounts.length) {
-      cfAmounts.push(currentValue); cfDates.push(new Date());
+      cfAmounts.push(currentValue);
+      cfDates.push(new Date());
       fundXirr = calcXIRR(cfAmounts, cfDates);
     }
-  } catch(e) { fundXirr = null; }
+  } catch (e) {
+    fundXirr = null;
+  }
 
-  const xirrColor = fundXirr === null ? 'var(--muted)'
-    : fundXirr >= 15 ? 'var(--green)'
-    : fundXirr >=  8 ? 'var(--gold)'
-    : 'var(--red)';
-  const xirrDisplay = fundXirr !== null
-    ? `<span style="color:${xirrColor};font-weight:600">${fundXirr >= 0 ? '+' : ''}${fundXirr.toFixed(2)}%</span>`
-    : '<span style="color:var(--muted)">—</span>';
+  const xirrColor =
+    fundXirr === null
+      ? "var(--muted)"
+      : fundXirr >= 15
+        ? "var(--green)"
+        : fundXirr >= 8
+          ? "var(--gold)"
+          : "var(--red)";
+  const xirrDisplay =
+    fundXirr !== null
+      ? `<span style="color:${xirrColor};font-weight:600">${fundXirr >= 0 ? "+" : ""}${fundXirr.toFixed(2)}%</span>`
+      : '<span style="color:var(--muted)">—</span>';
 
-  const cagrDelta = fundXirr !== null ? (fundXirr - f.CAGR) : null;
-  const deltaBadge = cagrDelta !== null && Math.abs(cagrDelta) > 1 ? `
+  const cagrDelta = fundXirr !== null ? fundXirr - f.CAGR : null;
+  const deltaBadge =
+    cagrDelta !== null && Math.abs(cagrDelta) > 1
+      ? `
     <span style="font-size:10px;color:var(--muted2);margin-left:6px">
-      vs CAGR ${f.CAGR >= 0 ? '+' : ''}${f.CAGR.toFixed(2)}%
-      <span style="color:${cagrDelta > 0 ? 'var(--green)' : 'var(--red)'}">
-        (${cagrDelta > 0 ? '+' : ''}${cagrDelta.toFixed(2)}pp)
+      vs CAGR ${f.CAGR >= 0 ? "+" : ""}${f.CAGR.toFixed(2)}%
+      <span style="color:${cagrDelta > 0 ? "var(--green)" : "var(--red)"}">
+        (${cagrDelta > 0 ? "+" : ""}${cagrDelta.toFixed(2)}pp)
       </span>
-    </span>` : '';
+    </span>`
+      : "";
 
-  const xiBadge = fundXirr !== null ? `
+  const xiBadge =
+    fundXirr !== null
+      ? `
     <div style="display:inline-flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border);
                 border-radius:5px;padding:6px 12px;margin-bottom:10px;font-size:11px">
       <span style="color:var(--muted)">Fund XIRR (money-weighted):</span>
       <span style="color:${xirrColor};font-weight:700;font-family:var(--sans);font-size:14px">
-        ${fundXirr >= 0 ? '+' : ''}${fundXirr.toFixed(2)}%
+        ${fundXirr >= 0 ? "+" : ""}${fundXirr.toFixed(2)}%
       </span>
       <span style="color:var(--muted2);font-size:10px">p.a.</span>
       ${deltaBadge}
-    </div>` : '';
+    </div>`
+      : "";
 
-  let totalAmt = 0, totalGain = 0;
+  let totalAmt = 0,
+    totalGain = 0;
 
-  const rows = lots.map(l => {
-    const days     = Math.floor((Date.now() - l.date.getTime()) / (24*3600*1000));
-    const holdStr  = fmtHoldPeriod(days);
-    const taxTag   = days >= 365 ? '<span class="ltcg-badge">LTCG</span>' : '<span class="stcg-badge">STCG</span>';
-    const lotGainPct = l.amt > 0 ? ((l.gain / l.amt) * 100).toFixed(2) : '0.00';
-    const lotCls   = l.gain >= 0 ? 'td-up' : 'td-dn';
+  const rows = lots
+    .map((l) => {
+      const days = Math.floor(
+        (Date.now() - l.date.getTime()) / (24 * 3600 * 1000),
+      );
+      const holdStr = fmtHoldPeriod(days);
+      const taxTag =
+        days >= 365
+          ? '<span class="ltcg-badge">LTCG</span>'
+          : '<span class="stcg-badge">STCG</span>';
+      const lotGainPct =
+        l.amt > 0 ? ((l.gain / l.amt) * 100).toFixed(2) : "0.00";
+      const lotCls = l.gain >= 0 ? "td-up" : "td-dn";
 
-    let lotXirr = null;
-    try {
-      if (l.date && l.amt > 0 && days > 7) {
-        const lotCurVal = l.cur || (l.amt + (l.gain || 0));
-        if (lotCurVal > 0) lotXirr = calcXIRR([-l.amt, lotCurVal], [new Date(l.date), new Date()]);
+      let lotXirr = null;
+      try {
+        if (l.date && l.amt > 0 && days > 7) {
+          const lotCurVal = l.cur || l.amt + (l.gain || 0);
+          if (lotCurVal > 0)
+            lotXirr = calcXIRR(
+              [-l.amt, lotCurVal],
+              [new Date(l.date), new Date()],
+            );
+        }
+      } catch (e) {
+        lotXirr = null;
       }
-    } catch(e) { lotXirr = null; }
 
-    const lotXirrColor = lotXirr === null ? 'var(--muted)'
-      : lotXirr >= 15 ? 'var(--green)'
-      : lotXirr >=  8 ? 'var(--gold)'
-      : 'var(--red)';
+      const lotXirrColor =
+        lotXirr === null
+          ? "var(--muted)"
+          : lotXirr >= 15
+            ? "var(--green)"
+            : lotXirr >= 8
+              ? "var(--gold)"
+              : "var(--red)";
 
-    totalAmt  += (l.amt  || 0);
-    totalGain += (l.gain || 0);
+      totalAmt += l.amt || 0;
+      totalGain += l.gain || 0;
 
-    return `<tr>
+      return `<tr>
       <td>${fmtDate(l.date)}</td>
-      <td>${l.invPrice > 0 ? '₹' + Number(l.invPrice).toFixed(2) : '—'}</td>
-      <td>${l.qty > 0 ? l.qty.toFixed(3) : '—'}</td>
+      <td>${l.invPrice > 0 ? "₹" + Number(l.invPrice).toFixed(2) : "—"}</td>
+      <td>${l.qty > 0 ? l.qty.toFixed(3) : "—"}</td>
       <td>${fmtL(l.amt)}</td>
       <td class="${lotCls}">${fmtL(l.gain)}</td>
-      <td class="${lotCls}">${l.amt > 0 ? (l.gain >= 0 ? '+' : '') + lotGainPct + '%' : '—'}</td>
-      <td style="color:${lotXirrColor};font-weight:${lotXirr !== null ? '600' : '400'}">
-        ${lotXirr !== null ? (lotXirr >= 0 ? '+' : '') + lotXirr.toFixed(2) + '%' : '—'}
+      <td class="${lotCls}">${l.amt > 0 ? (l.gain >= 0 ? "+" : "") + lotGainPct + "%" : "—"}</td>
+      <td style="color:${lotXirrColor};font-weight:${lotXirr !== null ? "600" : "400"}">
+        ${lotXirr !== null ? (lotXirr >= 0 ? "+" : "") + lotXirr.toFixed(2) + "%" : "—"}
       </td>
       <td>${holdStr}</td>
       <td>${taxTag}</td>
     </tr>`;
-  }).join('');
+    })
+    .join("");
 
-  const totalRetPct = totalAmt > 0 ? ((totalGain / totalAmt) * 100).toFixed(2) : '0.00';
-  const totCls = totalGain >= 0 ? 'td-up' : 'td-dn';
+  const totalRetPct =
+    totalAmt > 0 ? ((totalGain / totalAmt) * 100).toFixed(2) : "0.00";
+  const totCls = totalGain >= 0 ? "td-up" : "td-dn";
   const footer = `
     <tr style="background:var(--bg3)">
       <td style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.06em;font-weight:600">
-        Total · ${lots.length} lot${lots.length !== 1 ? 's' : ''}
+        Total · ${lots.length} lot${lots.length !== 1 ? "s" : ""}
       </td>
       <td></td><td></td>
       <td style="font-weight:600">${fmtL(totalAmt)}</td>
       <td class="${totCls}" style="font-weight:600">${fmtL(totalGain)}</td>
-      <td class="${totCls}" style="font-weight:600">${totalAmt > 0 ? (totalGain >= 0 ? '+' : '') + totalRetPct + '%' : '—'}</td>
+      <td class="${totCls}" style="font-weight:600">${totalAmt > 0 ? (totalGain >= 0 ? "+" : "") + totalRetPct + "%" : "—"}</td>
       <td style="color:${xirrColor};font-weight:700">${xirrDisplay}</td>
       <td colspan="2" style="color:var(--muted2);font-size:10px">← fund XIRR</td>
     </tr>`;
@@ -585,7 +940,7 @@ function buildMFDrillHTML(f) {
       Early lots invested when the fund was cheaper tend to show the highest XIRR.
     </div>`;
 
-  const monthlyHTML = buildMonthlyBreakupHTML(lots, 'mf');
+  const monthlyHTML = buildMonthlyBreakupHTML(lots, "mf");
 
   // Tab styles (inline to stay self-contained)
   const tabBarStyle = `display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:14px;`;
@@ -618,121 +973,160 @@ function buildSTDrillHTML(s) {
   if (!s.rawLots || !s.rawLots.length)
     return '<div style="color:var(--muted);font-size:11px;padding:6px">No lot-level data available</div>';
 
-  const lots = [...s.rawLots].sort((a,b) => a.date - b.date);
-  const cmp  = s.Latest_Price || 0;
-  const drillId = 'st-drill-' + Math.random().toString(36).slice(2, 8);
+  const lots = [...s.rawLots].sort((a, b) => a.date - b.date);
+  const cmp = s.Latest_Price || 0;
+  const drillId = "st-drill-" + Math.random().toString(36).slice(2, 8);
 
   let stockXirr = null;
   try {
-    const cfAmounts = [], cfDates = [];
-    lots.forEach(l => {
-      if (l.date && l.inv > 0) { cfAmounts.push(-l.inv); cfDates.push(new Date(l.date)); }
+    const cfAmounts = [],
+      cfDates = [];
+    lots.forEach((l) => {
+      if (l.date && l.inv > 0) {
+        cfAmounts.push(-l.inv);
+        cfDates.push(new Date(l.date));
+      }
     });
-    const terminalValue = cmp > 0 && s.Qty > 0
-      ? cmp * s.Qty
-      : lots.reduce((a, l) => {
-          const cv = cmp > 0 && l.qty > 0 ? cmp * l.qty : (l.cur || l.inv + (l.gain || 0));
-          return a + cv;
-        }, 0);
+    const terminalValue =
+      cmp > 0 && s.Qty > 0
+        ? cmp * s.Qty
+        : lots.reduce((a, l) => {
+            const cv =
+              cmp > 0 && l.qty > 0
+                ? cmp * l.qty
+                : l.cur || l.inv + (l.gain || 0);
+            return a + cv;
+          }, 0);
     if (terminalValue > 0 && cfAmounts.length) {
-      cfAmounts.push(terminalValue); cfDates.push(new Date());
+      cfAmounts.push(terminalValue);
+      cfDates.push(new Date());
       stockXirr = calcXIRR(cfAmounts, cfDates);
     }
-  } catch(e) { stockXirr = null; }
+  } catch (e) {
+    stockXirr = null;
+  }
 
-  const sXirrColor = stockXirr === null ? 'var(--muted)'
-    : stockXirr >= 15 ? 'var(--green)'
-    : stockXirr >=  8 ? 'var(--gold)'
-    : 'var(--red)';
+  const sXirrColor =
+    stockXirr === null
+      ? "var(--muted)"
+      : stockXirr >= 15
+        ? "var(--green)"
+        : stockXirr >= 8
+          ? "var(--gold)"
+          : "var(--red)";
 
-  const cagrDelta = stockXirr !== null ? (stockXirr - (s.CAGR || 0)) : null;
-  const deltaBadge = cagrDelta !== null && Math.abs(cagrDelta) > 1 ? `
+  const cagrDelta = stockXirr !== null ? stockXirr - (s.CAGR || 0) : null;
+  const deltaBadge =
+    cagrDelta !== null && Math.abs(cagrDelta) > 1
+      ? `
     <span style="font-size:10px;color:var(--muted2);margin-left:6px">
-      vs CAGR ${(s.CAGR||0) >= 0 ? '+' : ''}${(s.CAGR||0).toFixed(2)}%
-      <span style="color:${cagrDelta > 0 ? 'var(--green)' : 'var(--red)'}">
-        (${cagrDelta > 0 ? '+' : ''}${cagrDelta.toFixed(2)}pp)
+      vs CAGR ${(s.CAGR || 0) >= 0 ? "+" : ""}${(s.CAGR || 0).toFixed(2)}%
+      <span style="color:${cagrDelta > 0 ? "var(--green)" : "var(--red)"}">
+        (${cagrDelta > 0 ? "+" : ""}${cagrDelta.toFixed(2)}pp)
       </span>
-    </span>` : '';
+    </span>`
+      : "";
 
-  const xiBadge = stockXirr !== null ? `
+  const xiBadge =
+    stockXirr !== null
+      ? `
     <div style="display:inline-flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border);
                 border-radius:5px;padding:6px 12px;margin-bottom:10px;font-size:11px">
       <span style="color:var(--muted)">Stock XIRR (money-weighted):</span>
       <span style="color:${sXirrColor};font-weight:700;font-family:var(--sans);font-size:14px">
-        ${stockXirr >= 0 ? '+' : ''}${stockXirr.toFixed(2)}%
+        ${stockXirr >= 0 ? "+" : ""}${stockXirr.toFixed(2)}%
       </span>
       <span style="color:var(--muted2);font-size:10px">p.a.</span>
       ${deltaBadge}
-    </div>` : '';
+    </div>`
+      : "";
 
-  const rows = lots.map(l => {
-    const days    = Math.floor((Date.now() - l.date.getTime()) / (24*3600*1000));
-    const holdStr = fmtHoldPeriod(days);
-    const taxTag  = days >= 365 ? '<span class="ltcg-badge">LTCG</span>' : '<span class="stcg-badge">STCG</span>';
-    const curVal  = cmp > 0 && l.qty > 0 ? cmp * l.qty : (l.cur || l.inv + (l.gain || 0));
-    const lotGain = curVal - l.inv;
-    const lotPct  = l.inv > 0 ? ((lotGain / l.inv) * 100).toFixed(2) : '0.00';
-    const lotCls  = lotGain >= 0 ? 'td-up' : 'td-dn';
+  const rows = lots
+    .map((l) => {
+      const days = Math.floor(
+        (Date.now() - l.date.getTime()) / (24 * 3600 * 1000),
+      );
+      const holdStr = fmtHoldPeriod(days);
+      const taxTag =
+        days >= 365
+          ? '<span class="ltcg-badge">LTCG</span>'
+          : '<span class="stcg-badge">STCG</span>';
+      const curVal =
+        cmp > 0 && l.qty > 0 ? cmp * l.qty : l.cur || l.inv + (l.gain || 0);
+      const lotGain = curVal - l.inv;
+      const lotPct = l.inv > 0 ? ((lotGain / l.inv) * 100).toFixed(2) : "0.00";
+      const lotCls = lotGain >= 0 ? "td-up" : "td-dn";
 
-    let lotXirr = null;
-    try {
-      if (l.date && l.inv > 0 && days > 7 && curVal > 0) {
-        lotXirr = calcXIRR([-l.inv, curVal], [new Date(l.date), new Date()]);
+      let lotXirr = null;
+      try {
+        if (l.date && l.inv > 0 && days > 7 && curVal > 0) {
+          lotXirr = calcXIRR([-l.inv, curVal], [new Date(l.date), new Date()]);
+        }
+      } catch (e) {
+        lotXirr = null;
       }
-    } catch(e) { lotXirr = null; }
 
-    const lotXirrColor = lotXirr === null ? 'var(--muted)'
-      : lotXirr >= 15 ? 'var(--green)'
-      : lotXirr >=  8 ? 'var(--gold)'
-      : 'var(--red)';
+      const lotXirrColor =
+        lotXirr === null
+          ? "var(--muted)"
+          : lotXirr >= 15
+            ? "var(--green)"
+            : lotXirr >= 8
+              ? "var(--gold)"
+              : "var(--red)";
 
-    return `<tr>
+      return `<tr>
       <td>${fmtDate(l.date)}</td>
-      <td>${l.qty > 0 ? fmtN(l.qty) : '—'}</td>
-      <td>${l.invPrice > 0 ? '₹' + Number(l.invPrice).toFixed(2) : '—'}</td>
-      <td>${cmp > 0 ? '₹' + cmp.toFixed(2) : '—'}</td>
+      <td>${l.qty > 0 ? fmtN(l.qty) : "—"}</td>
+      <td>${l.invPrice > 0 ? "₹" + Number(l.invPrice).toFixed(2) : "—"}</td>
+      <td>${cmp > 0 ? "₹" + cmp.toFixed(2) : "—"}</td>
       <td>${fmtL(l.inv)}</td>
       <td style="font-weight:500">${fmtL(curVal)}</td>
       <td class="${lotCls}">${fmtL(lotGain)}</td>
-      <td class="${lotCls}">${l.inv > 0 ? (lotGain >= 0 ? '+' : '') + lotPct + '%' : '—'}</td>
-      <td style="color:${lotXirrColor};font-weight:${lotXirr !== null ? '600' : '400'}">
-        ${lotXirr !== null ? (lotXirr >= 0 ? '+' : '') + lotXirr.toFixed(2) + '%' : '—'}
+      <td class="${lotCls}">${l.inv > 0 ? (lotGain >= 0 ? "+" : "") + lotPct + "%" : "—"}</td>
+      <td style="color:${lotXirrColor};font-weight:${lotXirr !== null ? "600" : "400"}">
+        ${lotXirr !== null ? (lotXirr >= 0 ? "+" : "") + lotXirr.toFixed(2) + "%" : "—"}
       </td>
       <td>${holdStr}</td>
       <td>${taxTag}</td>
     </tr>`;
-  }).join('');
+    })
+    .join("");
 
-  const totalInv = lots.reduce((a,l) => a + (l.inv||0), 0);
-  const totalCurVal = lots.reduce((a,l) => {
-    const cv = cmp > 0 && l.qty > 0 ? cmp * l.qty : (l.cur || l.inv + (l.gain||0));
+  const totalInv = lots.reduce((a, l) => a + (l.inv || 0), 0);
+  const totalCurVal = lots.reduce((a, l) => {
+    const cv =
+      cmp > 0 && l.qty > 0 ? cmp * l.qty : l.cur || l.inv + (l.gain || 0);
     return a + cv;
   }, 0);
   const totalGainAmt = totalCurVal - totalInv;
-  const totalRetPct = totalInv > 0 ? ((totalGainAmt / totalInv) * 100).toFixed(2) : '0.00';
-  const totCls = totalGainAmt >= 0 ? 'td-up' : 'td-dn';
+  const totalRetPct =
+    totalInv > 0 ? ((totalGainAmt / totalInv) * 100).toFixed(2) : "0.00";
+  const totCls = totalGainAmt >= 0 ? "td-up" : "td-dn";
 
-  const xirrDisplay = stockXirr !== null
-    ? `<span style="color:${sXirrColor};font-weight:700">${stockXirr >= 0 ? '+' : ''}${stockXirr.toFixed(2)}%</span>`
-    : '<span style="color:var(--muted)">—</span>';
+  const xirrDisplay =
+    stockXirr !== null
+      ? `<span style="color:${sXirrColor};font-weight:700">${stockXirr >= 0 ? "+" : ""}${stockXirr.toFixed(2)}%</span>`
+      : '<span style="color:var(--muted)">—</span>';
 
   const footer = `
     <tr style="background:var(--bg3)">
       <td style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.06em;font-weight:600">
-        Total · ${lots.length} lot${lots.length !== 1 ? 's' : ''}
+        Total · ${lots.length} lot${lots.length !== 1 ? "s" : ""}
       </td>
       <td></td><td></td><td></td>
       <td style="font-weight:600">${fmtL(totalInv)}</td>
       <td style="font-weight:600">${fmtL(totalCurVal)}</td>
       <td class="${totCls}" style="font-weight:600">${fmtL(totalGainAmt)}</td>
-      <td class="${totCls}" style="font-weight:600">${totalInv > 0 ? (totalGainAmt >= 0 ? '+' : '') + totalRetPct + '%' : '—'}</td>
+      <td class="${totCls}" style="font-weight:600">${totalInv > 0 ? (totalGainAmt >= 0 ? "+" : "") + totalRetPct + "%" : "—"}</td>
       <td style="color:${sXirrColor};font-weight:700">${xirrDisplay}</td>
       <td colspan="2" style="color:var(--muted2);font-size:10px">← stock XIRR</td>
     </tr>`;
 
   // Build lot-level gain for monthly breakup (using current value per lot)
-  const lotsForMonthly = lots.map(l => {
-    const curVal = cmp > 0 && l.qty > 0 ? cmp * l.qty : (l.cur || l.inv + (l.gain || 0));
+  const lotsForMonthly = lots.map((l) => {
+    const curVal =
+      cmp > 0 && l.qty > 0 ? cmp * l.qty : l.cur || l.inv + (l.gain || 0);
     return { ...l, gain: curVal - l.inv };
   });
 
@@ -752,7 +1146,7 @@ function buildSTDrillHTML(s) {
       Lots bought during dips or earlier in a bull run tend to show the highest XIRR.
     </div>`;
 
-  const monthlyHTML = buildMonthlyBreakupHTML(lotsForMonthly, 'st');
+  const monthlyHTML = buildMonthlyBreakupHTML(lotsForMonthly, "st");
 
   const tabBarStyle = `display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:14px;`;
   const tabBtnStyle = `padding:7px 16px;font-size:11px;font-family:var(--mono);border:none;border-bottom:2px solid transparent;background:transparent;color:var(--muted);cursor:pointer;transition:all .15s;`;
@@ -784,64 +1178,111 @@ function toggleDrill(type, i) {
   const row = document.getElementById(rowId);
   const btn = document.getElementById(btnId);
   if (!row) return;
-  const open = row.style.display === 'none';
-  row.style.display = open ? 'table-row' : 'none';
-  if (btn) btn.textContent = open ? '▼' : '▶';
+  const open = row.style.display === "none";
+  row.style.display = open ? "table-row" : "none";
+  if (btn) btn.textContent = open ? "▼" : "▶";
 }
 
 // ── Theme ─────────────────────────────────────────────────────
 function toggleTheme() {
-  const isLight = document.documentElement.classList.toggle('light');
-  document.getElementById('theme-toggle-btn').textContent = isLight ? '🌙' : '☀️';
-  localStorage.setItem('portfin-theme', isLight ? 'light' : 'dark');
+  const isLight = document.documentElement.classList.toggle("light");
+  document.getElementById("theme-toggle-btn").textContent = isLight
+    ? "🌙"
+    : "☀️";
+  localStorage.setItem("portfin-theme", isLight ? "light" : "dark");
 }
 (function initTheme() {
-  const saved = localStorage.getItem('portfin-theme');
-  if (saved === 'light') {
-    document.documentElement.classList.add('light');
-    const b = document.getElementById('theme-toggle-btn'); if (b) b.textContent = '🌙';
+  const saved = localStorage.getItem("portfin-theme");
+  if (saved === "light") {
+    document.documentElement.classList.add("light");
+    const b = document.getElementById("theme-toggle-btn");
+    if (b) b.textContent = "🌙";
   }
 })();
 
 // ── Mobile sidebar ────────────────────────────────────────────
 function toggleSidebar() {
-  document.querySelector('.sidebar').classList.toggle('mobile-open');
-  document.getElementById('sidebar-overlay').classList.toggle('open');
+  document.querySelector(".sidebar").classList.toggle("mobile-open");
+  document.getElementById("sidebar-overlay").classList.toggle("open");
 }
 function closeSidebar() {
-  document.querySelector('.sidebar').classList.remove('mobile-open');
-  document.getElementById('sidebar-overlay').classList.remove('open');
+  document.querySelector(".sidebar").classList.remove("mobile-open");
+  document.getElementById("sidebar-overlay").classList.remove("open");
 }
-document.querySelectorAll('.nav-item').forEach(n => {
-  const orig = n.getAttribute('onclick') || '';
-  n.setAttribute('onclick', orig + ';closeSidebar()');
+document.querySelectorAll(".nav-item").forEach((n) => {
+  const orig = n.getAttribute("onclick") || "";
+  n.setAttribute("onclick", orig + ";closeSidebar()");
 });
 
 // ── Export CSV ────────────────────────────────────────────────
 function exportCSV(type) {
-  let rows = [], headers = [];
-  if (type === 'mf') {
-    if (!DATA.funds.length) { alert('No MF data to export. Upload a file first.'); return; }
-    headers = ['Fund Name','Category','Lots','Invested (₹)','Current Value (₹)','Gain/Loss (₹)','Return (%)','CAGR (%)','Holding Days'];
-    rows = DATA.funds.map(f => [
-      '"' + f.name.replace(/"/g,'""') + '"', f.Category, f.Lots,
-      f.Invested.toFixed(2), f.Current.toFixed(2), f.Gain.toFixed(2),
-      f.RetPct.toFixed(2), f.CAGR.toFixed(2), f.holdDays || 0
+  let rows = [],
+    headers = [];
+  if (type === "mf") {
+    if (!DATA.funds.length) {
+      alert("No MF data to export. Upload a file first.");
+      return;
+    }
+    headers = [
+      "Fund Name",
+      "Category",
+      "Lots",
+      "Invested (₹)",
+      "Current Value (₹)",
+      "Gain/Loss (₹)",
+      "Return (%)",
+      "CAGR (%)",
+      "Holding Days",
+    ];
+    rows = DATA.funds.map((f) => [
+      '"' + f.name.replace(/"/g, '""') + '"',
+      f.Category,
+      f.Lots,
+      f.Invested.toFixed(2),
+      f.Current.toFixed(2),
+      f.Gain.toFixed(2),
+      f.RetPct.toFixed(2),
+      f.CAGR.toFixed(2),
+      f.holdDays || 0,
     ]);
   } else {
-    if (!DATA.stocks.length) { alert('No stocks data to export. Upload a file first.'); return; }
-    headers = ['Stock','Sector','Quantity','CMP (₹)','Invested (₹)','Market Value (₹)','P&L (₹)','Return (%)','CAGR (%)','Holding Days'];
-    rows = DATA.stocks.map(s => [
-      '"' + s.name.replace(/"/g,'""') + '"', s.Sector, s.Qty,
-      s.Latest_Price.toFixed(2), s.Invested.toFixed(2), s.Current.toFixed(2),
-      s.Gain.toFixed(2), s.RetPct.toFixed(2), s.CAGR.toFixed(2), s.holdDays || 0
+    if (!DATA.stocks.length) {
+      alert("No stocks data to export. Upload a file first.");
+      return;
+    }
+    headers = [
+      "Stock",
+      "Sector",
+      "Quantity",
+      "CMP (₹)",
+      "Invested (₹)",
+      "Market Value (₹)",
+      "P&L (₹)",
+      "Return (%)",
+      "CAGR (%)",
+      "Holding Days",
+    ];
+    rows = DATA.stocks.map((s) => [
+      '"' + s.name.replace(/"/g, '""') + '"',
+      s.Sector,
+      s.Qty,
+      s.Latest_Price.toFixed(2),
+      s.Invested.toFixed(2),
+      s.Current.toFixed(2),
+      s.Gain.toFixed(2),
+      s.RetPct.toFixed(2),
+      s.CAGR.toFixed(2),
+      s.holdDays || 0,
     ]);
   }
-  const csv  = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-  const blob = new Blob([csv], {type:'text/csv'});
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a'); a.href = url;
-  a.download = (type === 'mf' ? 'mutual_funds' : 'stocks') + '_portfolio.csv';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = (type === "mf" ? "mutual_funds" : "stocks") + "_portfolio.csv";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
