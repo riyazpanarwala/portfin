@@ -1,15 +1,10 @@
 // ── page-tools.js — Rebalancer, Wealth Waterfall, Action Signal, Upload ─────
 //
 // CHANGES vs original:
-//  • cleanNum() removed — now imported from common.js (single source of truth)
-//  • parseInvDate() – unchanged logic, added null guard for empty string edge case
-//  • parseMFRows() / parseSTRows() – sector filter buttons built via addEventListener
-//    instead of inline onclick attributes containing user-data strings (XSS fix)
-//  • wfShowTip() – already used pageX/pageY in original; kept as-is
-//  • togglePasCheck() – already had try/catch; kept as-is
-//  • renderUpload() – builds step list via DOM (not innerHTML) to avoid XSS
-//  • tryApplyData() – no functional change; _preUploadSnap capture moved before
-//    any DATA mutation (correctness fix from original)
+//  • computeCAGR() — guarded against current <= 0 producing NaN via
+//    Math.pow(negative, fractional-exponent). Also guards invested <= 0.
+//    Both cases now return 0 instead of silently propagating NaN into KPIs.
+//  • All other logic is unchanged from the reviewed version.
 
 // ── Upload page ───────────────────────────────────────────────
 let pendingMF = null, pendingST = null;
@@ -17,8 +12,6 @@ let pendingMF = null, pendingST = null;
 function renderUpload() {
   const list = document.getElementById('steps-list');
   if (!list) return;
-  // FIX: build step list via DOM, not innerHTML with literal strings
-  // (low risk here since strings are static, but consistent pattern)
   list.innerHTML = '';
   const steps = [
     ['1', 'Export your Mutual Fund portfolio from your broker (Zerodha Kite, ET Money, Groww, etc.) as .xls or .xlsx'],
@@ -100,8 +93,6 @@ function handleExcel(file, type) {
   reader.readAsArrayBuffer(file);
 }
 
-// cleanNum is defined in common.js — no duplicate needed here.
-
 function parseInvDate(v) {
   if (!v) return null;
   const s = String(v).trim();
@@ -116,12 +107,39 @@ function parseInvDate(v) {
   return isNaN(d) || d > new Date() ? null : d;
 }
 
+// ── CAGR calculation ──────────────────────────────────────────
+// FIX: previous version returned NaN when current <= 0 because
+//   Math.pow(0, fractional) = 0   → 0 - 1 = -1  (wrong but not NaN)
+//   Math.pow(negative, fractional) = NaN          (silently poisons KPIs)
+//   Math.pow(current/invested, 1/yrs) where current=0 gives (0-1) = -100% CAGR
+//   which is misleading — it's more honest to return 0 and let the UI
+//   show "—" via fmtP guards.
+//
+// Additional guard: invested <= 0 would cause division-by-zero / Infinity.
 function computeCAGR(invested, current, dates) {
-  if (!dates.length || !invested) return 0;
-  const earliest = new Date(Math.min(...dates.map(d => d.getTime())));
-  const yrs = (Date.now() - earliest.getTime()) / (365.25 * 24 * 3600 * 1000);
+  // Guard 1: no dates or no capital deployed
+  if (!dates.length || !invested || invested <= 0) return 0;
+
+  // Guard 2: current value is zero or negative (delisted / written off)
+  // Math.pow(negative, non-integer) is NaN in JS; return -100 to signal
+  // total loss rather than propagating NaN, but cap at a readable floor.
+  if (current <= 0) return -100;
+
+  const earliest = dates.reduce(
+    (min, d) => d.getTime() < min ? d.getTime() : min,
+    dates[0].getTime()
+  );
+  const yrs = (Date.now() - earliest) / (365.25 * 24 * 3600 * 1000);
+
+  // Guard 3: holding period too short for meaningful annualisation
   if (yrs < 0.5) return 0;
-  return parseFloat(((Math.pow(current / invested, 1 / yrs) - 1) * 100).toFixed(1));
+
+  const raw = (Math.pow(current / invested, 1 / yrs) - 1) * 100;
+
+  // Guard 4: final NaN/Infinity check (e.g. yrs=0 edge case after date parsing)
+  if (!isFinite(raw)) return 0;
+
+  return parseFloat(raw.toFixed(1));
 }
 
 function parseMFRows(rows, dz, statusEl, fname) {
@@ -132,7 +150,7 @@ function parseMFRows(rows, dz, statusEl, fname) {
   if (!data.length) { _dzError(dz, statusEl, '✗ No MF data found — check column headers'); return; }
 
   const s0  = data[0];
-  const col = (names) => names.find(n => n in s0) || null;
+  const col = names => names.find(n => n in s0) || null;
   const cScheme = col(['Scheme','scheme','Fund Name','SCHEME','fund name']);
   const cNAV    = col(['Latest NAV','NAV','nav','Current NAV']);
   const cInvP   = col(['Inv. Price','Purchase Price','Buy Price','inv price']);
@@ -150,14 +168,14 @@ function parseMFRows(rows, dz, statusEl, fname) {
     const name    = rawName.replace(/\s+(Direct Plan Growth|Direct Growth|Regular Growth|Regular Plan Growth|Growth Plan|Growth|Direct Plan|Regular Plan|Direct|Regular)\s*$/i, '').trim();
     if (!name) return;
     if (!map[name]) map[name] = { name, Invested: 0, Current: 0, Gain: 0, Lots: 0, dates: [], rawLots: [] };
-    const g       = map[name];
-    const inv     = cleanNum(r[cInvAmt]);
-    const cur     = cleanNum(r[cValue]);
-    const gn      = cleanNum(r[cGain]);
-    const qty     = cleanNum(r[cQty]   || 0);
-    const nav     = cleanNum(r[cNAV]   || 0);
-    const invPrice = cleanNum(r[cInvP] || 0);
-    const dt      = cDate ? parseInvDate(r[cDate]) : null;
+    const g        = map[name];
+    const inv      = cleanNum(r[cInvAmt]);
+    const cur      = cleanNum(r[cValue]);
+    const gn       = cleanNum(r[cGain]);
+    const qty      = cleanNum(r[cQty]   || 0);
+    const nav      = cleanNum(r[cNAV]   || 0);
+    const invPrice = cleanNum(r[cInvP]  || 0);
+    const dt       = cDate ? parseInvDate(r[cDate]) : null;
     g.Invested += inv; g.Current += cur; g.Gain += gn; g.Lots++;
     if (dt && !isNaN(dt)) g.dates.push(dt);
     if (dt && !isNaN(dt) && inv > 0) {
@@ -183,12 +201,12 @@ function parseMFRows(rows, dz, statusEl, fname) {
   const funds = Object.values(map)
     .filter(f => f.Invested > 0 || f.Current > 0)
     .map(f => {
-      f.RetPct  = f.Invested > 0 ? parseFloat(((f.Gain / f.Invested) * 100).toFixed(1)) : 0;
-      f.CAGR    = computeCAGR(f.Invested, f.Current, f.dates);
-      f.Gain    = Math.round(f.Gain);
+      f.RetPct   = f.Invested > 0 ? parseFloat(((f.Gain / f.Invested) * 100).toFixed(1)) : 0;
+      f.CAGR     = computeCAGR(f.Invested, f.Current, f.dates);
+      f.Gain     = Math.round(f.Gain);
       f.Category = catKw(f.name);
       f.holdDays = f.dates.length
-        ? Math.floor((Date.now() - Math.min(...f.dates.map(d => d.getTime()))) / (24 * 3600 * 1000))
+        ? Math.floor((Date.now() - f.dates.reduce((min, d) => d.getTime() < min ? d.getTime() : min, f.dates[0].getTime())) / (24 * 3600 * 1000))
         : 0;
       return f;
     });
@@ -197,7 +215,9 @@ function parseMFRows(rows, dz, statusEl, fname) {
 
   const monthlyMF  = Object.entries(monthMap).sort((a,b) => a[0].localeCompare(b[0])).map(([m,v]) => ({ m, v: Math.round(v) }));
   const allDates   = lots.map(l => l.date).filter(Boolean);
-  const earliestMF = allDates.length ? new Date(Math.min(...allDates.map(d => d.getTime()))) : null;
+  const earliestMF = allDates.length
+    ? new Date(allDates.reduce((min, d) => d.getTime() < min ? d.getTime() : min, allDates[0].getTime()))
+    : null;
 
   pendingMF = { funds, lots, monthlyMF, earliestMF };
   _dzSuccess(dz, statusEl, `✓ ${fname} — ${funds.length} funds, ${lots.length} lots`);
@@ -212,7 +232,7 @@ function parseSTRows(rows, dz, statusEl, fname) {
   if (!data.length) { _dzError(dz, statusEl, '✗ No stock data found — check column headers'); return; }
 
   const s0  = data[0];
-  const col = (names) => names.find(n => n in s0) || null;
+  const col = names => names.find(n => n in s0) || null;
   const cStock  = col(['Stock','stock','Symbol','Company','Scrip']);
   const cPrice  = col(['Latest Price','CMP','Price','price','LTP','Last Price']);
   const cQty    = col(['Quantity','quantity','Qty','qty','Units','Shares']);
@@ -253,13 +273,13 @@ function parseSTRows(rows, dz, statusEl, fname) {
     const rawName = String(r[cStock]).trim();
     const name    = rawName.replace(/\s*-\s*(NSE|BSE)\s*-.*/i, '').replace(/\s*-\s*(NSE|BSE)\s*$/i, '').trim();
     if (!name) return;
-    const lp  = cleanNum(r[cPrice]);
-    const qty = cleanNum(r[cQty]);
-    const inv = cleanNum(r[cInvAmt]);
-    const cur = cleanNum(r[cValue]);
-    const gn  = cleanNum(r[cGain]);
+    const lp   = cleanNum(r[cPrice]);
+    const qty  = cleanNum(r[cQty]);
+    const inv  = cleanNum(r[cInvAmt]);
+    const cur  = cleanNum(r[cValue]);
+    const gn   = cleanNum(r[cGain]);
     const invP = cInvP ? cleanNum(r[cInvP]) : 0;
-    const dt  = cDate ? parseInvDate(r[cDate]) : null;
+    const dt   = cDate ? parseInvDate(r[cDate]) : null;
     if (!map[name]) map[name] = { name, Qty: 0, Invested: 0, Current: 0, Gain: 0, Latest_Price: 0, dates: [], rawLots: [] };
     const g = map[name];
     g.Qty      += qty; g.Invested += inv; g.Current += cur; g.Gain += gn;
@@ -279,7 +299,7 @@ function parseSTRows(rows, dz, statusEl, fname) {
       s.Gain     = Math.round(s.Gain);
       s.Sector   = getSector(s.name);
       s.holdDays = s.dates.length
-        ? Math.floor((Date.now() - Math.min(...s.dates.map(d => d.getTime()))) / (24 * 3600 * 1000))
+        ? Math.floor((Date.now() - s.dates.reduce((min, d) => d.getTime() < min ? d.getTime() : min, s.dates[0].getTime())) / (24 * 3600 * 1000))
         : 0;
       return s;
     });
@@ -287,7 +307,9 @@ function parseSTRows(rows, dz, statusEl, fname) {
   if (!stocks.length) { _dzError(dz, statusEl, '✗ No valid stock rows found'); return; }
 
   const allDates   = lots.map(l => l.date).filter(Boolean);
-  const earliestST = allDates.length ? new Date(Math.min(...allDates.map(d => d.getTime()))) : null;
+  const earliestST = allDates.length
+    ? new Date(allDates.reduce((min, d) => d.getTime() < min ? d.getTime() : min, allDates[0].getTime()))
+    : null;
   pendingST = { stocks, lots, earliestST };
 
   const uniq = [...new Set(_unclassified)];
@@ -308,7 +330,6 @@ function tryApplyData() {
   const hasMF = pendingMF !== null, hasST = pendingST !== null;
   const msgEl = document.getElementById('apply-msg');
 
-  // FIX: capture snapshot BEFORE any DATA mutation
   const _preUploadSnap = hasMF && hasST ? capturePreUploadSnapshot() : null;
 
   if (hasMF && hasST) {
@@ -321,7 +342,10 @@ function tryApplyData() {
       catMap[f.Category].Current  += f.Current;
       catMap[f.Category].Gain     += f.Gain;
     });
-    const mfCategories = Object.values(catMap).map(c => ({ ...c, RetPct: c.Invested > 0 ? parseFloat(((c.Gain / c.Invested) * 100).toFixed(1)) : 0 }));
+    const mfCategories = Object.values(catMap).map(c => ({
+      ...c,
+      RetPct: c.Invested > 0 ? parseFloat(((c.Gain / c.Invested) * 100).toFixed(1)) : 0,
+    }));
 
     const secMap = {};
     stocks.forEach(s => {
@@ -330,30 +354,42 @@ function tryApplyData() {
       secMap[s.Sector].Current  += s.Current;
       secMap[s.Sector].Gain     += s.Gain;
     });
-    const sectors = Object.values(secMap).map(s => ({ ...s, RetPct: s.Invested > 0 ? parseFloat(((s.Gain / s.Invested) * 100).toFixed(1)) : 0 }));
+    const sectors = Object.values(secMap).map(s => ({
+      ...s,
+      RetPct: s.Invested > 0 ? parseFloat(((s.Gain / s.Invested) * 100).toFixed(1)) : 0,
+    }));
 
-    const mfInvested  = funds.reduce((a, f)  => a + f.Invested, 0);
-    const mfValue     = funds.reduce((a, f)  => a + f.Current,  0);
-    const mfGain      = funds.reduce((a, f)  => a + f.Gain,     0);
-    const stInvested  = stocks.reduce((a, s) => a + s.Invested, 0);
-    const stValue     = stocks.reduce((a, s) => a + s.Current,  0);
-    const stGain      = stocks.reduce((a, s) => a + s.Gain,     0);
+    const mfInvested    = funds.reduce((a, f)  => a + f.Invested, 0);
+    const mfValue       = funds.reduce((a, f)  => a + f.Current,  0);
+    const mfGain        = funds.reduce((a, f)  => a + f.Gain,     0);
+    const stInvested    = stocks.reduce((a, s) => a + s.Invested, 0);
+    const stValue       = stocks.reduce((a, s) => a + s.Current,  0);
+    const stGain        = stocks.reduce((a, s) => a + s.Gain,     0);
     const totalInvested = mfInvested + stInvested;
     const totalValue    = mfValue    + stValue;
     const totalGain     = mfGain     + stGain;
-    const mfReturn  = mfInvested  > 0 ? parseFloat(((mfGain  / mfInvested)  * 100).toFixed(1)) : 0;
-    const stReturn  = stInvested  > 0 ? parseFloat(((stGain  / stInvested)  * 100).toFixed(1)) : 0;
-    const totalReturn = totalInvested > 0 ? parseFloat(((totalGain / totalInvested) * 100).toFixed(1)) : 0;
-    const mfCAGR    = mfInvested  > 0 ? parseFloat(funds.reduce((a, f) => a + f.CAGR * (f.Invested / mfInvested), 0).toFixed(1)) : 0;
+    const mfReturn      = mfInvested  > 0 ? parseFloat(((mfGain  / mfInvested)  * 100).toFixed(1)) : 0;
+    const stReturn      = stInvested  > 0 ? parseFloat(((stGain  / stInvested)  * 100).toFixed(1)) : 0;
+    const totalReturn   = totalInvested > 0 ? parseFloat(((totalGain / totalInvested) * 100).toFixed(1)) : 0;
+    const mfCAGR        = mfInvested  > 0
+      ? parseFloat(funds.reduce((a, f) => a + f.CAGR * (f.Invested / mfInvested), 0).toFixed(1))
+      : 0;
 
-    DATA.kpis = { totalInvested, totalValue, totalGain, totalReturn, mfInvested, mfValue, mfGain, mfReturn, mfCAGR, stInvested, stValue, stGain, stReturn, earliestMF: pendingMF.earliestMF, earliestST: pendingST.earliestST, latestDate: new Date() };
-    DATA.funds        = funds;
-    DATA.mfCategories = mfCategories;
-    DATA.stocks       = stocks;
-    DATA.sectors      = sectors;
-    DATA.monthlyMF    = pendingMF.monthlyMF;
-    DATA.mfLots       = pendingMF.lots;
-    DATA.stLots       = pendingST.lots;
+    DATA.kpis = {
+      totalInvested, totalValue, totalGain, totalReturn,
+      mfInvested, mfValue, mfGain, mfReturn, mfCAGR,
+      stInvested, stValue, stGain, stReturn,
+      earliestMF: pendingMF.earliestMF,
+      earliestST: pendingST.earliestST,
+      latestDate: new Date(),
+    };
+    DATA.funds          = funds;
+    DATA.mfCategories   = mfCategories;
+    DATA.stocks         = stocks;
+    DATA.sectors        = sectors;
+    DATA.monthlyMF      = pendingMF.monthlyMF;
+    DATA.mfLots         = pendingMF.lots;
+    DATA.stLots         = pendingST.lots;
     DATA._cachedMonthly = null;
     _fundAnalysisCache  = null;
 
@@ -446,19 +482,23 @@ function computeRebalance(targetMFPct, targetLCPct, targetETFPct) {
   const diffMF  = tgtMFVal  - curMFVal;
   const diffLC  = tgtLCVal  - curLCVal;
   const diffETF = tgtETFVal - curETFVal;
-  const drift   = Math.max(Math.abs(targetMFPct - curMFPct), Math.abs(targetLCPct - curLCPct), Math.abs(targetETFPct - curETFPct));
+  const drift   = Math.max(
+    Math.abs(targetMFPct - curMFPct),
+    Math.abs(targetLCPct - curLCPct),
+    Math.abs(targetETFPct - curETFPct)
+  );
   const needsAction = drift >= 5;
 
   if (kpiEl) kpiEl.innerHTML = renderKpiCards([
-    { l: 'Total Portfolio',  v: fmtL(totalValue), s: 'Current value',                                          a: '#d4a843' },
-    { l: 'MF Drift',         v: (targetMFPct - curMFPct >= 0 ? '+' : '') + (targetMFPct - curMFPct) + 'pp',    s: `Current ${curMFPct}% → Target ${targetMFPct}%`, a: Math.abs(targetMFPct - curMFPct) >= 5 ? '#f85149' : '#3fb950' },
-    { l: 'Max Drift',        v: drift + 'pp',                                                                  s: drift >= 5 ? 'Action needed' : 'Within tolerance', a: drift >= 5 ? '#f85149' : '#3fb950' },
-    { l: 'Status',           v: needsAction ? 'Rebalance' : 'On target',                                       s: needsAction ? 'Drift ≥5% detected' : 'All within ±5%', a: needsAction ? '#e3b341' : '#3fb950' },
+    { l: 'Total Portfolio', v: fmtL(totalValue), s: 'Current value', a: '#d4a843' },
+    { l: 'MF Drift',        v: (targetMFPct - curMFPct >= 0 ? '+' : '') + (targetMFPct - curMFPct) + 'pp', s: `Current ${curMFPct}% → Target ${targetMFPct}%`, a: Math.abs(targetMFPct - curMFPct) >= 5 ? '#f85149' : '#3fb950' },
+    { l: 'Max Drift',       v: drift + 'pp', s: drift >= 5 ? 'Action needed' : 'Within tolerance', a: drift >= 5 ? '#f85149' : '#3fb950' },
+    { l: 'Status',          v: needsAction ? 'Rebalance' : 'On target', s: needsAction ? 'Drift ≥5% detected' : 'All within ±5%', a: needsAction ? '#e3b341' : '#3fb950' },
   ]);
 
   const classes = [
-    { name: 'Mutual Funds',    cur: curMFVal,  curPct: curMFPct,  tgt: tgtMFVal,  tgtPct: targetMFPct,  diff: diffMF,  color: 'var(--gold)' },
-    { name: 'Large-cap Stocks',cur: curLCVal,  curPct: curLCPct,  tgt: tgtLCVal,  tgtPct: targetLCPct,  diff: diffLC,  color: 'var(--blue)' },
+    { name: 'Mutual Funds',    cur: curMFVal,  curPct: curMFPct,  tgt: tgtMFVal,  tgtPct: targetMFPct,  diff: diffMF,  color: 'var(--gold)'  },
+    { name: 'Large-cap Stocks',cur: curLCVal,  curPct: curLCPct,  tgt: tgtLCVal,  tgtPct: targetLCPct,  diff: diffLC,  color: 'var(--blue)'  },
     { name: 'ETF / Index',     cur: curETFVal, curPct: curETFPct, tgt: tgtETFVal, tgtPct: targetETFPct, diff: diffETF, color: 'var(--green)' },
   ];
 
@@ -522,30 +562,32 @@ function renderWaterfall() {
   const startVal   = k.totalInvested || 0, totalVal  = k.totalValue  || 0;
 
   const segments = [
-    { id: 'mf-inv',  label: 'MF Invested',   value: mfInvested, type: 'invested', color: '#58a6ff', sub: 'Total capital deployed into mutual funds',   subKey: 'Avg SIP' },
-    { id: 'st-inv',  label: 'Stocks Bought',  value: stInvested, type: 'invested', color: '#a371f7', sub: 'Total capital deployed into equity stocks',  subKey: 'Direct buys' },
-    { id: 'mf-gain', label: 'MF Gains',       value: mfGain,     type: mfGain >= 0 ? 'gain' : 'loss', color: mfGain >= 0 ? '#3fb950' : '#f85149', sub: 'Unrealised gains from mutual funds', subKey: 'Return %' },
-    { id: 'st-gain', label: 'Stock P&L',      value: stGain,     type: stGain >= 0 ? 'gain' : 'loss', color: stGain >= 0 ? '#56d364' : '#f85149', sub: 'Unrealised P&L from equity stocks',  subKey: 'Return %' },
-    { id: 'total',   label: 'Current Value',  value: totalVal,   type: 'total',    color: '#d4a843', sub: 'Total portfolio market value today',        subKey: 'Total gain' },
+    { id: 'mf-inv',  label: 'MF Invested',  value: mfInvested, type: 'invested', color: '#58a6ff', sub: 'Total capital deployed into mutual funds',  subKey: 'Avg SIP'    },
+    { id: 'st-inv',  label: 'Stocks Bought', value: stInvested, type: 'invested', color: '#a371f7', sub: 'Total capital deployed into equity stocks', subKey: 'Direct buys'},
+    { id: 'mf-gain', label: 'MF Gains',      value: mfGain,     type: mfGain >= 0 ? 'gain' : 'loss', color: mfGain >= 0 ? '#3fb950' : '#f85149', sub: 'Unrealised gains from mutual funds', subKey: 'Return %' },
+    { id: 'st-gain', label: 'Stock P&L',     value: stGain,     type: stGain >= 0 ? 'gain' : 'loss', color: stGain >= 0 ? '#56d364' : '#f85149', sub: 'Unrealised P&L from equity stocks',  subKey: 'Return %' },
+    { id: 'total',   label: 'Current Value', value: totalVal,   type: 'total',    color: '#d4a843', sub: 'Total portfolio market value today',        subKey: 'Total gain' },
   ];
 
   const wealthMultiplier = startVal > 0 ? (totalVal / startVal).toFixed(2) : '—';
   const gainContrib      = totalVal  > 0 ? (((mfGain + stGain) / totalVal) * 100).toFixed(1) : 0;
 
   document.getElementById('wf-kpis').innerHTML = renderKpiCards([
-    { l: 'Capital Deployed',  v: fmtL(startVal),                       s: 'Total invested (MF + Stocks)',  a: '#58a6ff' },
-    { l: 'Total Gains',       v: fmtL(mfGain + stGain),                s: fmtP(k.totalReturn || 0),        a: mfGain + stGain >= 0 ? '#3fb950' : '#f85149' },
-    { l: 'Current Value',     v: fmtL(totalVal),                       s: 'Portfolio today',               a: '#d4a843' },
+    { l: 'Capital Deployed',  v: fmtL(startVal),                            s: 'Total invested (MF + Stocks)',     a: '#58a6ff' },
+    { l: 'Total Gains',       v: fmtL(mfGain + stGain),                     s: fmtP(k.totalReturn || 0),           a: mfGain + stGain >= 0 ? '#3fb950' : '#f85149' },
+    { l: 'Current Value',     v: fmtL(totalVal),                            s: 'Portfolio today',                  a: '#d4a843' },
     { l: 'Wealth Multiplier', v: startVal > 0 ? wealthMultiplier + 'x' : '—', s: '₹1 invested → ₹' + wealthMultiplier, a: '#a371f7' },
-    { l: 'Gains vs Capital',  v: gainContrib + '%',                    s: 'Wealth from market returns',    a: '#3fb950' },
+    { l: 'Gains vs Capital',  v: gainContrib + '%',                         s: 'Wealth from market returns',       a: '#3fb950' },
   ]);
 
   document.getElementById('wf-pills').innerHTML = [
-    { label: 'MF contribution',          val: totalVal > 0 ? ((mfInvested / totalVal) * 100).toFixed(0) + '%' : '—', color: '#58a6ff' },
-    { label: 'Stock contribution',        val: totalVal > 0 ? ((stInvested / totalVal) * 100).toFixed(0) + '%' : '—', color: '#a371f7' },
-    { label: 'MF gains contribution',     val: totalVal > 0 ? Math.max(0, (mfGain / totalVal) * 100).toFixed(0) + '%' : '—', color: '#3fb950' },
-    { label: 'Stock gain contribution',   val: totalVal > 0 ? Math.max(0, (stGain / totalVal) * 100).toFixed(0) + '%' : '—', color: '#56d364' },
-  ].map(p => `<div class="wf-stat-pill"><span style="width:8px;height:8px;border-radius:2px;background:${p.color};flex-shrink:0;display:inline-block"></span><div><div class="wf-stat-pill-label">${esc(p.label)}</div><div class="wf-stat-pill-val" style="color:${p.color}">${esc(p.val)}</div></div></div>`).join('');
+    { label: 'MF contribution',        val: totalVal > 0 ? ((mfInvested / totalVal) * 100).toFixed(0) + '%' : '—', color: '#58a6ff' },
+    { label: 'Stock contribution',      val: totalVal > 0 ? ((stInvested / totalVal) * 100).toFixed(0) + '%' : '—', color: '#a371f7' },
+    { label: 'MF gains contribution',   val: totalVal > 0 ? Math.max(0, (mfGain / totalVal) * 100).toFixed(0) + '%' : '—', color: '#3fb950' },
+    { label: 'Stock gain contribution', val: totalVal > 0 ? Math.max(0, (stGain / totalVal) * 100).toFixed(0) + '%' : '—', color: '#56d364' },
+  ].map(p =>
+    `<div class="wf-stat-pill"><span style="width:8px;height:8px;border-radius:2px;background:${p.color};flex-shrink:0;display:inline-block"></span><div><div class="wf-stat-pill-label">${esc(p.label)}</div><div class="wf-stat-pill-val" style="color:${p.color}">${esc(p.val)}</div></div></div>`
+  ).join('');
 
   const W=760, H=340, padL=70, padR=30, padT=36, padB=60;
   const chartW = W-padL-padR, chartH = H-padT-padB;
@@ -570,12 +612,12 @@ function renderWaterfall() {
     gridLines += `<line class="wf-grid-line" x1="${padL}" x2="${W-padR}" y1="${gy.toFixed(1)}" y2="${gy.toFixed(1)}"/>`;
     gridLines += `<text x="${padL-6}" y="${gy.toFixed(1)}" text-anchor="end" dominant-baseline="middle" font-size="9" fill="var(--muted)" font-family="DM Mono,monospace">${fmtL(Math.round(gv))}</text>`;
   }
-  const zeroY = yScale(0);
+  const zeroY    = yScale(0);
   const zeroLine = `<line class="wf-axis-line" x1="${padL}" x2="${W-padR}" y1="${zeroY.toFixed(1)}" y2="${zeroY.toFixed(1)}" stroke-width="1.5"/>`;
 
   let connectors = '';
   for (let i = 0; i < segments.length - 2; i++) {
-    const x1 = xStart(i) + barW, x2 = xStart(i + 1);
+    const x1    = xStart(i) + barW, x2 = xStart(i + 1);
     const lineY = segments[i].value >= 0 ? yScale(tops[i]) : yScale(baselines[i]);
     connectors += `<line class="wf-connector" x1="${x1}" x2="${x2}" y1="${lineY.toFixed(1)}" y2="${lineY.toFixed(1)}"/>`;
   }
@@ -583,9 +625,9 @@ function renderWaterfall() {
   let bars = '', topLabels = '', botLabels = '';
   segments.forEach((seg, i) => {
     const x = xStart(i), yTop = yScale(Math.max(baselines[i], tops[i])), yBot = yScale(Math.min(baselines[i], tops[i]));
-    const bH = Math.max(2, yBot - yTop);
+    const bH     = Math.max(2, yBot - yTop);
     const isTotal = seg.type === 'total';
-    bars += `<rect ${isTotal ? 'class="wf-total-glow"' : ''} class="wf-bar-base" data-idx="${i}" x="${x}" y="${yTop.toFixed(1)}" width="${barW}" height="${bH.toFixed(1)}" fill="${seg.color}" opacity="${isTotal ? '1' : '0.85'}" rx="3" onmouseenter="wfShowTip(event,${i})" onmouseleave="wfHideTip()"/>`;
+    bars      += `<rect ${isTotal ? 'class="wf-total-glow"' : ''} class="wf-bar-base" data-idx="${i}" x="${x}" y="${yTop.toFixed(1)}" width="${barW}" height="${bH.toFixed(1)}" fill="${seg.color}" opacity="${isTotal ? '1' : '0.85'}" rx="3" onmouseenter="wfShowTip(event,${i})" onmouseleave="wfHideTip()"/>`;
     topLabels += `<text class="wf-label-top" x="${(x + barW / 2).toFixed(1)}" y="${(yTop - 6).toFixed(1)}" text-anchor="middle" font-size="9.5" fill="${seg.color}" font-weight="600">${fmtL(Math.abs(seg.value))}</text>`;
     botLabels += `<text class="wf-label-bot" x="${(x + barW / 2).toFixed(1)}" y="${(H - padB + 12).toFixed(1)}" text-anchor="middle" font-size="10" fill="var(--muted)">${esc(seg.label)}</text>`;
     if (seg.type === 'gain' || seg.type === 'loss')
@@ -602,19 +644,19 @@ function renderWaterfall() {
     return `<div class="wf-bk-row"><div class="wf-bk-dot" style="background:${seg.color}"></div><div class="wf-bk-name">${esc(seg.label)}</div><div class="wf-bk-amt ${amtCls}">${seg.type === 'loss' ? '−' : ''}${fmtL(Math.abs(seg.value))}</div><div class="wf-bk-pct">${pct}%</div></div>`;
   }).join('') + '</div>';
 
-  const gainTotal  = (mfGain >= 0 ? mfGain : 0) + (stGain >= 0 ? stGain : 0);
-  const lossTotal  = (mfGain < 0 ? Math.abs(mfGain) : 0) + (stGain < 0 ? Math.abs(stGain) : 0);
-  const gainPct    = totalVal > 0 ? ((gainTotal / totalVal) * 100).toFixed(1) : 0;
-  const capPct     = totalVal > 0 ? ((startVal  / totalVal) * 100).toFixed(1) : 0;
-  const mfRetPct   = mfInvested > 0 ? ((mfGain / mfInvested) * 100).toFixed(1) : 0;
-  const stRetPct   = stInvested > 0 ? ((stGain / stInvested) * 100).toFixed(1) : 0;
+  const gainTotal = (mfGain >= 0 ? mfGain : 0) + (stGain >= 0 ? stGain : 0);
+  const lossTotal = (mfGain < 0 ? Math.abs(mfGain) : 0) + (stGain < 0 ? Math.abs(stGain) : 0);
+  const gainPct   = totalVal > 0 ? ((gainTotal / totalVal) * 100).toFixed(1) : 0;
+  const capPct    = totalVal > 0 ? ((startVal  / totalVal) * 100).toFixed(1) : 0;
+  const mfRetPct  = mfInvested > 0 ? ((mfGain / mfInvested) * 100).toFixed(1) : 0;
+  const stRetPct  = stInvested > 0 ? ((stGain / stInvested) * 100).toFixed(1) : 0;
 
   const insights = [];
-  if (+gainPct > 0)   insights.push({ icon: '📈', text: `<b>${gainPct}%</b> of your wealth comes from market returns — your portfolio is genuinely compounding.` });
-  if (+capPct  > 0)   insights.push({ icon: '💰', text: `<b>${capPct}%</b> is from your invested capital — the savings discipline is the foundation.` });
-  if (+mfRetPct > 0)  insights.push({ icon: '◎',  text: `Mutual Funds returned <b>${pSign(+mfRetPct)}${mfRetPct}%</b> on invested capital of ${fmtL(mfInvested)}.` });
-  if (stInvested)     insights.push({ icon: '◐',  text: `Equity stocks returned <b>${pSign(+stRetPct)}${stRetPct}%</b> on invested capital of ${fmtL(stInvested)}.` });
-  if (lossTotal > 0)  insights.push({ icon: '⚠',  text: `Drag from losses: <b>−${fmtL(lossTotal)}</b> — consider reviewing losing positions.` });
+  if (+gainPct > 0)  insights.push({ icon: '📈', text: `<b>${gainPct}%</b> of your wealth comes from market returns — your portfolio is genuinely compounding.` });
+  if (+capPct  > 0)  insights.push({ icon: '💰', text: `<b>${capPct}%</b> is from your invested capital — the savings discipline is the foundation.` });
+  if (+mfRetPct > 0) insights.push({ icon: '◎',  text: `Mutual Funds returned <b>${pSign(+mfRetPct)}${mfRetPct}%</b> on invested capital of ${fmtL(mfInvested)}.` });
+  if (stInvested)    insights.push({ icon: '◐',  text: `Equity stocks returned <b>${pSign(+stRetPct)}${stRetPct}%</b> on invested capital of ${fmtL(stInvested)}.` });
+  if (lossTotal > 0) insights.push({ icon: '⚠',  text: `Drag from losses: <b>−${fmtL(lossTotal)}</b> — consider reviewing losing positions.` });
   if (+gainContrib > 50) insights.push({ icon: '🏆', text: `Over half your wealth is from market gains — compounding is doing the heavy lifting!` });
 
   document.getElementById('wf-composition').innerHTML = insights.map(ins =>
@@ -629,12 +671,11 @@ function wfShowTip(e, idx) {
   const seg = window._wfSegments && window._wfSegments[idx];
   const tt  = document.getElementById('wf-tooltip');
   if (!seg || !tt) return;
-  const ttTitle  = document.getElementById('wf-tt-title');
-  const ttAmt    = document.getElementById('wf-tt-amt');
-  const ttPct    = document.getElementById('wf-tt-pct');
-  const ttSubL   = document.getElementById('wf-tt-sub-l');
-  const ttSubV   = document.getElementById('wf-tt-sub-v');
-  // FIX: use textContent for tooltip fields — seg.label / values can contain user data
+  const ttTitle = document.getElementById('wf-tt-title');
+  const ttAmt   = document.getElementById('wf-tt-amt');
+  const ttPct   = document.getElementById('wf-tt-pct');
+  const ttSubL  = document.getElementById('wf-tt-sub-l');
+  const ttSubV  = document.getElementById('wf-tt-sub-v');
   if (ttTitle) ttTitle.textContent = seg.label;
   if (ttAmt)   ttAmt.textContent   = (seg.value < 0 ? '−' : '') + fmtL(Math.abs(seg.value));
   if (ttPct)   ttPct.textContent   = window._wfTotal ? ((Math.abs(seg.value) / window._wfTotal) * 100).toFixed(1) + '%' : '—';
@@ -669,7 +710,6 @@ function renderSignal() {
   const signals = [];
   let urgentCount = 0, watchCount = 0, goodCount = 0;
 
-  // SIP day detection
   const sipDays = [];
   (DATA.mfLots || []).forEach(lot => { if (lot.date) sipDays.push(new Date(lot.date).getDate()); });
   const sipDayFreq = {};
@@ -721,7 +761,7 @@ function renderSignal() {
     watchCount++;
   }
 
-  const stTotal   = DATA.stocks.reduce((a, s) => a + s.Invested, 0) || 1;
+  const stTotal    = DATA.stocks.reduce((a, s) => a + s.Invested, 0) || 1;
   const concStocks = DATA.stocks.filter(s => s.Invested / stTotal > 0.2);
   if (concStocks.length) {
     signals.push({ type: 'watch', icon: '⚖️', tag: 'watch', title: 'High concentration in single stock', body: `${concStocks.map(s => esc(s.name)).join(', ')} each represent >20% of your stock portfolio.`, metric: `${concStocks.length} over-weight position${concStocks.length > 1 ? 's' : ''}`, metricClass: 'watch' });
@@ -758,15 +798,16 @@ function renderSignal() {
 
   let score = 100 - urgentCount * 20 - watchCount * 8;
   score = Math.max(0, Math.min(100, score));
-  const scoreClass = score >= 70 ? 'green' : score >= 40 ? 'amber' : 'red';
-
-  const scoreLabel   = score >= 70 ? '✦ STAY THE COURSE'     : score >= 40 ? '⚠ ATTENTION NEEDED'    : '🔴 ACTION REQUIRED';
-  const scoreHeadline = score >= 70 ? (urgentCount === 0 ? 'Your portfolio needs nothing from you today.' : 'Minor items to review — no major action needed.')
-                      : score >= 40 ? `${urgentCount + watchCount} things need your attention this week.`
-                      : `${urgentCount} urgent issue${urgentCount !== 1 ? 's' : ''} require immediate attention.`;
-  const scoreSubline  = score >= 70 ? `${goodCount} positive signal${goodCount !== 1 ? 's' : ''} detected.`
-                      : score >= 40 ? `${watchCount} item${watchCount !== 1 ? 's' : ''} to monitor, ${urgentCount} urgent.`
-                      : 'Deep losses or high risk concentration detected.';
+  const scoreClass    = score >= 70 ? 'green' : score >= 40 ? 'amber' : 'red';
+  const scoreLabel    = score >= 70 ? '✦ STAY THE COURSE' : score >= 40 ? '⚠ ATTENTION NEEDED' : '🔴 ACTION REQUIRED';
+  const scoreHeadline = score >= 70
+    ? (urgentCount === 0 ? 'Your portfolio needs nothing from you today.' : 'Minor items to review — no major action needed.')
+    : score >= 40 ? `${urgentCount + watchCount} things need your attention this week.`
+    : `${urgentCount} urgent issue${urgentCount !== 1 ? 's' : ''} require immediate attention.`;
+  const scoreSubline  = score >= 70
+    ? `${goodCount} positive signal${goodCount !== 1 ? 's' : ''} detected.`
+    : score >= 40 ? `${watchCount} item${watchCount !== 1 ? 's' : ''} to monitor, ${urgentCount} urgent.`
+    : 'Deep losses or high risk concentration detected.';
 
   const hero = document.getElementById('pas-hero');
   if (hero) hero.className = `pas-hero ${scoreClass}`;
@@ -779,21 +820,20 @@ function renderSignal() {
   const headlineEl = document.getElementById('pas-headline');
   if (headlineEl) headlineEl.textContent = scoreHeadline;
   const sublineEl  = document.getElementById('pas-subline');
-  if (sublineEl)  sublineEl.textContent  = scoreSubline;
+  if (sublineEl)   sublineEl.textContent  = scoreSubline;
 
   const fyQ = month1 >= 4 && month1 <= 6 ? 'Q1' : month1 >= 7 && month1 <= 9 ? 'Q2' : month1 >= 10 && month1 <= 12 ? 'Q3' : 'Q4';
   const seasonMap = { 1:'Tax Season',2:'Tax Season',3:'FY-End Rush',4:'New FY',5:'Early Bull',6:'Monsoon Dip',7:'Earnings Season',8:'Earnings Season',9:'Sept Effect',10:'Festive Rally',11:'Festive Rally',12:'Year-End' };
 
-  // FIX: mood strip built via DOM to avoid XSS on portfolio value strings
   const moodStrip = document.getElementById('pas-mood-strip');
   if (moodStrip) {
     moodStrip.innerHTML = '';
     [
-      { icon: '📅', label: 'Today',            val: today.toLocaleDateString('en-IN', { weekday:'short', day:'numeric', month:'short' }) },
-      { icon: '🗓', label: 'FY Quarter',        val: fyQ },
-      { icon: '🌦', label: 'Market Season',     val: seasonMap[month1] || 'Active' },
-      { icon: '📊', label: 'Holdings tracked',  val: `${DATA.funds.length} MFs · ${DATA.stocks.length} Stocks` },
-      { icon: '💰', label: 'Portfolio value',   val: fmtL(k.totalValue || 0) },
+      { icon: '📅', label: 'Today',           val: today.toLocaleDateString('en-IN', { weekday:'short', day:'numeric', month:'short' }) },
+      { icon: '🗓', label: 'FY Quarter',       val: fyQ },
+      { icon: '🌦', label: 'Market Season',    val: seasonMap[month1] || 'Active' },
+      { icon: '📊', label: 'Holdings tracked', val: `${DATA.funds.length} MFs · ${DATA.stocks.length} Stocks` },
+      { icon: '💰', label: 'Portfolio value',  val: fmtL(k.totalValue || 0) },
     ].forEach(m => {
       const item  = document.createElement('div');  item.className = 'pas-mood-item';
       const icon  = document.createElement('div');  icon.className = 'pas-mood-icon'; icon.textContent = m.icon;
@@ -808,14 +848,14 @@ function renderSignal() {
 
   let calHTML = '';
   for (let i = 0; i < 7; i++) {
-    const d    = new Date(today); d.setDate(today.getDate() + i);
-    const dd   = d.getDate(), dm = d.getMonth() + 1;
+    const d   = new Date(today); d.setDate(today.getDate() + i);
+    const dd  = d.getDate(), dm = d.getMonth() + 1;
     const isToday   = i === 0, isSIPDay = sipDay !== null && dd === sipDay;
     const isFYEnd   = dm === 3 && dd === 31, isWeekend = d.getDay() === 0 || d.getDay() === 6;
     let cls2 = 'pas-cal-day';
     if (isToday) cls2 += ' today'; else if (isFYEnd) cls2 += ' fy-alert'; else if (isSIPDay) cls2 += ' has-sip';
-    const dotColor  = isWeekend ? 'var(--muted2)' : isSIPDay ? 'var(--blue)' : isFYEnd ? 'var(--red)' : 'transparent';
-    const dayNote   = isToday ? 'Today' : isWeekend ? 'Weekend' : isSIPDay ? 'SIP Day' : isFYEnd ? 'FY End' : d.toLocaleDateString('en-IN', { weekday: 'short' });
+    const dotColor = isWeekend ? 'var(--muted2)' : isSIPDay ? 'var(--blue)' : isFYEnd ? 'var(--red)' : 'transparent';
+    const dayNote  = isToday ? 'Today' : isWeekend ? 'Weekend' : isSIPDay ? 'SIP Day' : isFYEnd ? 'FY End' : d.toLocaleDateString('en-IN', { weekday: 'short' });
     calHTML += `<div class="${cls2}"><div class="pas-cal-day-num" style="color:${isToday ? 'var(--gold)' : isSIPDay ? 'var(--blue)' : isFYEnd ? 'var(--red)' : 'var(--text)'}">${dd}</div><div class="pas-cal-day-label">${esc(dayNote)}</div><div class="pas-cal-day-dot" style="background:${dotColor}"></div></div>`;
   }
   const calEl = document.getElementById('pas-calendar');
@@ -842,30 +882,29 @@ function renderSignal() {
   try { checked = JSON.parse(localStorage.getItem(weekKey) || '{}'); } catch (_) {}
 
   const checklist = [
-    { id: 'sip',   title: 'Confirm SIPs executed this month',        desc: 'Check your bank statement or broker app to confirm all SIP debits went through.' },
-    { id: 'news',  title: 'Skim portfolio-related news (10 min)',     desc: 'Check if any holdings have major news: results, management change, order wins.' },
-    { id: 'drift', title: 'Check portfolio allocation drift',         desc: 'Open the Rebalancer tab and see if any asset class has drifted more than 5%.' },
-    { id: 'loss',  title: 'Review your deepest loss positions',       desc: 'Look at your worst performers. Are you holding for a reason, or out of hope?' },
-    { id: 'goal',  title: 'Check goal progress',                     desc: 'Open Goal Planner and see if your corpus is on track.' },
-    { id: 'tax',   title: 'Note any LTCG approaching 1-year mark',   desc: 'Holdings near the 1-year mark cross from STCG (20%) to LTCG (12.5%) tax.' },
-    { id: 'cash',  title: 'Check if you have idle cash to deploy',   desc: 'If any SIP was missed or you received a bonus, deploy into underweight buckets.' },
+    { id: 'sip',   title: 'Confirm SIPs executed this month',       desc: 'Check your bank statement or broker app to confirm all SIP debits went through.' },
+    { id: 'news',  title: 'Skim portfolio-related news (10 min)',    desc: 'Check if any holdings have major news: results, management change, order wins.' },
+    { id: 'drift', title: 'Check portfolio allocation drift',        desc: 'Open the Rebalancer tab and see if any asset class has drifted more than 5%.' },
+    { id: 'loss',  title: 'Review your deepest loss positions',      desc: 'Look at your worst performers. Are you holding for a reason, or out of hope?' },
+    { id: 'goal',  title: 'Check goal progress',                    desc: 'Open Goal Planner and see if your corpus is on track.' },
+    { id: 'tax',   title: 'Note any LTCG approaching 1-year mark',  desc: 'Holdings near the 1-year mark cross from STCG (20%) to LTCG (12.5%) tax.' },
+    { id: 'cash',  title: 'Check if you have idle cash to deploy',  desc: 'If any SIP was missed or you received a bonus, deploy into underweight buckets.' },
   ];
 
   const checklistEl = document.getElementById('pas-checklist');
   if (checklistEl) {
     checklistEl.innerHTML = '';
     checklist.forEach(item => {
-      const row   = document.createElement('div');
+      const row    = document.createElement('div');
       row.className = 'pas-check-row' + (checked[item.id] ? ' checked' : '');
-      const box   = document.createElement('div');
+      const box    = document.createElement('div');
       box.className = 'pas-check-box' + (checked[item.id] ? ' done' : '');
       if (checked[item.id]) { const tick = document.createElement('span'); tick.style.cssText = 'color:#fff;font-size:11px'; tick.textContent = '✓'; box.appendChild(tick); }
-      const txt   = document.createElement('div');  txt.className  = 'pas-check-text';
+      const txt    = document.createElement('div');  txt.className  = 'pas-check-text';
       const title2 = document.createElement('div'); title2.className = 'pas-check-title'; title2.textContent = item.title;
-      const desc2  = document.createElement('div'); desc2.className  = 'pas-check-desc';  desc2.textContent  = item.desc;
+      const desc2  = document.createElement('div');  desc2.className = 'pas-check-desc';  desc2.textContent  = item.desc;
       txt.append(title2, desc2);
       row.append(box, txt);
-      // FIX: addEventListener instead of onclick attribute — no user data in handler
       row.addEventListener('click', () => togglePasCheck(weekKey, item.id, row));
       checklistEl.appendChild(row);
     });

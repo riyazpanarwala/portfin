@@ -1,13 +1,37 @@
 // ── page-goals.js — Goal Planner with Monte Carlo SIP Simulator ───────────
-// FIXES applied vs original:
-//   1. renderGoalChart: replaced raw setTimeout + chartGoalInst global
-//      with scheduleChart() so charts are safely destroyed on page switch.
-//   2. renderMonteCarloChart: replaced chartMCInst global with scheduleChart().
-//   3. Removed chartGoalInst and chartMCInst globals entirely.
+// FIXES applied:
+//   1. updateGoal() debounced — sliders no longer fire Monte Carlo on every px
+//   2. renderMonteCarloChart() runs simulation in async RAF chunks (50 sims/frame)
+//      so the main thread is never blocked for more than ~2ms per chunk
+//   3. renderGoalChart() and renderMonteCarloChart() both use scheduleChart()
+//   4. Removed chartGoalInst and chartMCInst globals entirely
+//   5. In-flight async simulation is cancelled when sliders change mid-run
+
+// ── Debounce timer for slider input ──────────────────────────
+let _goalDebounceTimer = null;
+// Token used to cancel an in-flight async MC run when params change
+let _mcRunToken = null;
 
 function renderGoalPlanner() {
+  _initGoalSliders();
   updateGoal();
   renderStepUpPlanner();
+}
+
+// Wire sliders once; debounce the heavy work
+let _goalSlidersWired = false;
+function _initGoalSliders() {
+  if (_goalSlidersWired) return;
+  ['goal-corpus', 'goal-year', 'goal-rate'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', _debouncedUpdateGoal);
+  });
+  _goalSlidersWired = true;
+}
+
+function _debouncedUpdateGoal() {
+  clearTimeout(_goalDebounceTimer);
+  _goalDebounceTimer = setTimeout(updateGoal, 180);
 }
 
 function updateGoal() {
@@ -36,12 +60,11 @@ function updateGoal() {
       : 0;
 
   const allMonths = buildCombinedMonthly();
-  const avgMonthly = allMonths.length
-    ? Math.round(
-        allMonths.reduce((a, x) => a + x.v, 0) /
-          allMonths.filter((x) => x.v > 0).length,
-      )
+  const activeMonths = allMonths.filter(x => x.v > 0);
+  const avgMonthly = activeMonths.length
+    ? Math.round(activeMonths.reduce((a, x) => a + x.v, 0) / activeMonths.length)
     : 0;
+
   const fvWithSip =
     currentVal * Math.pow(1 + r, yrsLeft) +
     (avgMonthly > 0
@@ -71,7 +94,6 @@ function updateGoal() {
 
   renderGoalChart(corpus, year, rate, currentVal, avgMonthly, sipNeeded);
 
-  // FIX: use renderKpiCards helper (from common.js) instead of copy-pasted template
   document.getElementById("goal-summary-kpis").innerHTML = renderKpiCards([
     { l: "Goal Corpus",      v: fmtL(corpus),                                          s: "Target by " + year,        a: "#d4a843" },
     { l: "Current Portfolio",v: fmtL(currentVal),                                      s: "As of today",              a: "#58a6ff" },
@@ -83,7 +105,7 @@ function updateGoal() {
 
   const rates = [8, 10, 12, 15, 18];
   const maxSip = Math.max(
-    ...rates.map((rt) => {
+    ...rates.map(rt => {
       const rv = rt / 100, rMv = rv / 12;
       const fvC = currentVal * Math.pow(1 + rv, yrsLeft);
       const rem = Math.max(0, corpus - fvC);
@@ -94,7 +116,7 @@ function updateGoal() {
     1,
   );
   document.getElementById("goal-scenarios").innerHTML = rates
-    .map((rt) => {
+    .map(rt => {
       const rv = rt / 100, rMv = rv / 12;
       const fvC = currentVal * Math.pow(1 + rv, yrsLeft);
       const rem = Math.max(0, corpus - fvC);
@@ -113,7 +135,7 @@ function updateGoal() {
 
   const milestones = [0.25, 0.5, 0.75, 1.0];
   document.getElementById("goal-milestones").innerHTML = milestones
-    .map((pct) => {
+    .map(pct => {
       const target = corpus * pct;
       const reached = currentVal >= target;
       let reachYear = null;
@@ -134,15 +156,13 @@ function updateGoal() {
     })
     .join("");
 
+  // FIX: cancel any in-flight async MC run, then kick off a fresh one
   renderMonteCarloChart(corpus, year, rate, currentVal, avgMonthly, sipNeeded);
 }
 
 // ── Deterministic projection chart ───────────────────────────
-// FIX: use scheduleChart() instead of raw setTimeout + chartGoalInst global.
-// This ensures the chart is safely destroyed if the user navigates away
-// before the delay fires, preventing orphaned Chart.js instances.
 function renderGoalChart(corpus, year, rate, currentVal, avgMonthly, sipNeeded) {
-  scheduleChart("chart-goal", 60, (el) => {
+  scheduleChart("chart-goal", 60, el => {
     const r = rate / 100, rM = r / 12;
     const nowYear = new Date().getFullYear();
     const labels = [], actualTraj = [], sipTraj = [], goalLine = [];
@@ -217,7 +237,7 @@ function renderGoalChart(corpus, year, rate, currentVal, avgMonthly, sipNeeded) 
             labels: { color: "#7d8590", font: { size: 10 }, boxWidth: 12, padding: 10 },
           },
           tooltip: {
-            callbacks: { label: (ctx) => ctx.dataset.label + ": " + fmtL(ctx.raw) },
+            callbacks: { label: ctx => ctx.dataset.label + ": " + fmtL(ctx.raw) },
             backgroundColor: "#1c2330",
             titleColor: "#e6edf3",
             bodyColor: "#7d8590",
@@ -231,7 +251,7 @@ function renderGoalChart(corpus, year, rate, currentVal, avgMonthly, sipNeeded) 
             grid: { color: "#21262d" },
           },
           y: {
-            ticks: { font: { size: 9 }, color: "#7d8590", callback: (v) => fmtL(v) },
+            ticks: { font: { size: 9 }, color: "#7d8590", callback: v => fmtL(v) },
             grid: { color: "#21262d" },
           },
         },
@@ -242,9 +262,16 @@ function renderGoalChart(corpus, year, rate, currentVal, avgMonthly, sipNeeded) 
 
 // ══════════════════════════════════════════════════════════════
 // MONTE CARLO SIP SIMULATOR
-// FIX: replaced chartMCInst global + manual destroy with scheduleChart().
+//
+// FIX: simulation now runs in async RAF chunks of MC_CHUNK sims per frame.
+//   • Each chunk takes ~1-2ms — well under the 16ms frame budget.
+//   • A cancellation token (_mcRunToken) lets a new invocation abort
+//     a still-running one immediately, so rapid slider changes never
+//     queue up multiple expensive computations.
+//   • The chart is only built once all paths are complete.
 // ══════════════════════════════════════════════════════════════
-const MC_SIMS = 500;
+const MC_SIMS  = 500;
+const MC_CHUNK = 50;   // sims per RAF frame — tune if needed
 const MC_SIGMA = 0.18;
 
 function _mcPRNG(seed) {
@@ -264,6 +291,11 @@ function _randn(rand) {
 }
 
 function renderMonteCarloChart(corpus, year, rate, currentVal, avgMonthly, sipNeeded) {
+  // Cancel any in-flight run immediately
+  if (_mcRunToken) { _mcRunToken.cancelled = true; }
+  const token = { cancelled: false };
+  _mcRunToken = token;
+
   const nowYear = new Date().getFullYear();
   const yrsLeft = Math.max(1, year - nowYear);
   const months = Math.round(yrsLeft * 12);
@@ -275,34 +307,76 @@ function renderMonteCarloChart(corpus, year, rate, currentVal, avgMonthly, sipNe
   const rand = _mcPRNG(42 + Math.round(rate * 100) + Math.round(yrsLeft));
   const allPaths = [];
 
-  for (let sim = 0; sim < MC_SIMS; sim++) {
-    let pv = currentVal;
-    const path = [pv];
-    for (let m = 0; m < months; m++) {
-      pv += monthlyInv;
-      const gbm = monthlyDrift + monthlySigma * _randn(rand);
-      pv *= 1 + gbm;
-      if (pv < 0) pv = 0;
-      path.push(Math.round(pv));
-    }
-    allPaths.push(path);
+  // Show a loading indicator while chunks run
+  const probEl = document.getElementById("mc-prob-display");
+  if (probEl) {
+    probEl.innerHTML = `<div style="color:var(--muted);font-size:11px">
+      ⏳ Running ${MC_SIMS} simulations…
+    </div>`;
   }
+
+  function runChunk(startSim) {
+    // If sliders changed, a new token was issued — abandon this run
+    if (token.cancelled) return;
+
+    const end = Math.min(startSim + MC_CHUNK, MC_SIMS);
+    for (let sim = startSim; sim < end; sim++) {
+      let pv = currentVal;
+      const path = [pv];
+      for (let m = 0; m < months; m++) {
+        pv += monthlyInv;
+        const gbm = monthlyDrift + monthlySigma * _randn(rand);
+        pv *= 1 + gbm;
+        if (pv < 0) pv = 0;
+        path.push(Math.round(pv));
+      }
+      allPaths.push(path);
+    }
+
+    if (end < MC_SIMS) {
+      // Yield back to browser, continue next frame
+      requestAnimationFrame(() => runChunk(end));
+    } else {
+      // All done — build stats and render
+      if (!token.cancelled) {
+        _finaliseMonteCarlo(
+          token, allPaths, corpus, year, rate, currentVal,
+          avgMonthly, sipNeeded, months, yrsLeft
+        );
+      }
+    }
+  }
+
+  // Kick off first chunk after a short delay so the loading indicator paints
+  requestAnimationFrame(() => runChunk(0));
+}
+
+function _finaliseMonteCarlo(
+  token, allPaths, corpus, year, rate, currentVal,
+  avgMonthly, sipNeeded, months, yrsLeft
+) {
+  if (token.cancelled) return;
+
+  const nowYear = new Date().getFullYear();
+  const r = rate / 100;
+  const rM = r / 12;
+  const monthlyInv = avgMonthly > 0 ? avgMonthly : 0;
 
   const labels = [], p10Series = [], p25Series = [], p50Series = [];
   const p75Series = [], p90Series = [], goalSeries = [], detSeries = [];
-  const rM = r / 12;
   const totalSteps = months + 1;
   const stepInterval = Math.max(1, Math.round(months / yrsLeft));
 
   for (let step = 0; step < totalSteps; step += stepInterval) {
+    if (token.cancelled) return;
     const yr = nowYear + step / 12;
     const yrsElapsed = step / 12;
     labels.push(Math.round(yr));
 
     const vals = allPaths
-      .map((p) => p[Math.min(step, p.length - 1)])
+      .map(p => p[Math.min(step, p.length - 1)])
       .sort((a, b) => a - b);
-    const pct = (q) => vals[Math.max(0, Math.floor((q * vals.length) / 100))];
+    const pct = q => vals[Math.max(0, Math.floor((q * vals.length) / 100))];
 
     p10Series.push(pct(10));
     p25Series.push(pct(25));
@@ -321,8 +395,8 @@ function renderMonteCarloChart(corpus, year, rate, currentVal, avgMonthly, sipNe
   }
 
   if (labels[labels.length - 1] !== year) {
-    const finalVals = allPaths.map((p) => p[p.length - 1]).sort((a, b) => a - b);
-    const fpct = (q) => finalVals[Math.max(0, Math.floor((q * finalVals.length) / 100))];
+    const finalVals = allPaths.map(p => p[p.length - 1]).sort((a, b) => a - b);
+    const fpct = q => finalVals[Math.max(0, Math.floor((q * finalVals.length) / 100))];
     labels.push(year);
     p10Series.push(fpct(10));
     p25Series.push(fpct(25));
@@ -341,9 +415,11 @@ function renderMonteCarloChart(corpus, year, rate, currentVal, avgMonthly, sipNe
     );
   }
 
-  const finalVals = allPaths.map((p) => p[p.length - 1]);
+  if (token.cancelled) return;
+
+  const finalVals = allPaths.map(p => p[p.length - 1]);
   const probSuccess = Math.round(
-    (finalVals.filter((v) => v >= corpus).length / MC_SIMS) * 100,
+    (finalVals.filter(v => v >= corpus).length / MC_SIMS) * 100,
   );
   const medianFinal = [...finalVals].sort((a, b) => a - b)[Math.floor(MC_SIMS / 2)];
 
@@ -376,8 +452,10 @@ function renderMonteCarloChart(corpus, year, rate, currentVal, avgMonthly, sipNe
       </div>`;
   }
 
-  // FIX: scheduleChart() instead of manual chartMCInst destroy
-  scheduleChart("chart-monte-carlo", 60, (el) => {
+  if (token.cancelled) return;
+
+  scheduleChart("chart-monte-carlo", 60, el => {
+    if (token.cancelled) return null;
     return new Chart(el, {
       type: "line",
       data: {
@@ -405,11 +483,11 @@ function renderMonteCarloChart(corpus, year, rate, currentVal, avgMonthly, sipNe
               font: { size: 9 },
               boxWidth: 12,
               padding: 8,
-              filter: (item) => !["P75", "P25"].includes(item.text),
+              filter: item => !["P75", "P25"].includes(item.text),
             },
           },
           tooltip: {
-            callbacks: { label: (ctx) => ctx.dataset.label + ": " + fmtL(ctx.raw) },
+            callbacks: { label: ctx => ctx.dataset.label + ": " + fmtL(ctx.raw) },
             backgroundColor: "#1c2330",
             titleColor: "#e6edf3",
             bodyColor: "#7d8590",
@@ -419,7 +497,7 @@ function renderMonteCarloChart(corpus, year, rate, currentVal, avgMonthly, sipNe
         },
         scales: {
           x: { ticks: { font: { size: 9 }, color: "#7d8590" }, grid: { color: "#21262d" } },
-          y: { ticks: { font: { size: 9 }, color: "#7d8590", callback: (v) => fmtL(v) }, grid: { color: "#21262d" } },
+          y: { ticks: { font: { size: 9 }, color: "#7d8590", callback: v => fmtL(v) }, grid: { color: "#21262d" } },
         },
       },
     });

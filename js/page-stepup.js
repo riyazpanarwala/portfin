@@ -1,34 +1,34 @@
 // ── page-stepup.js — SIP Step-Up Planner ────────────────────────────────────
-// FIX applied vs original:
-//   _initStepUpSliders used el._suWired to prevent double-adding listeners,
-//   but the flag is set on DOM elements which are NOT recreated between page
-//   switches (they live in the static HTML). However, the function is called
-//   from renderGoalPlanner() on EVERY page render. The real issue is that
-//   input event listeners are additive — calling addEventListener twice on
-//   the same element fires the handler twice.
-//
-//   Fix: Use a module-level boolean flag instead of a per-element property.
-//   This correctly prevents double-wiring across repeated renderGoalPlanner calls.
+// FIXES applied:
+//   1. Slider input events debounced (150ms) — previously fired 3 expensive
+//      Chart.js destroy/create cycles on every single pixel of slider movement.
+//   2. _renderStepUpGrowthChart and _renderStepUpComparisonChart now use
+//      scheduleChart() to be consistent with the rest of the codebase and to
+//      get the timer-cancellation safety that scheduleChart() provides.
+//   3. Removed chartStepUpInst / chartStepCompInst module-level globals.
+//   4. Module-level _stepUpSlidersWired flag unchanged (already correct).
 
 let _stepUpSlidersWired = false;
-
-let chartStepUpInst   = null;
-let chartStepCompInst = null;
+let _stepUpDebounceTimer = null;
 
 function renderStepUpPlanner() {
   _initStepUpSliders();
   updateStepUp();
 }
 
-// FIX: module-level flag prevents accumulating duplicate event listeners
-// across repeated calls to renderGoalPlanner() / renderStepUpPlanner().
 function _initStepUpSliders() {
   if (_stepUpSlidersWired) return;
   ['su-sip', 'su-steprate', 'su-rate', 'su-year'].forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.addEventListener('input', updateStepUp);
+    if (el) el.addEventListener('input', _debouncedUpdateStepUp);
   });
   _stepUpSlidersWired = true;
+}
+
+// FIX: debounce prevents 3 Chart.js instantiations per px of slider movement
+function _debouncedUpdateStepUp() {
+  clearTimeout(_stepUpDebounceTimer);
+  _stepUpDebounceTimer = setTimeout(updateStepUp, 150);
 }
 
 function updateStepUp() {
@@ -45,8 +45,8 @@ function updateStepUp() {
   const r  = annReturn / 100;
   const rM = r / 12;
 
-  const flatCorpus = _flatSIPCorpus(baseSIP, rM, years * 12);
-  const flatInvested = baseSIP * years * 12;
+  const flatCorpus    = _flatSIPCorpus(baseSIP, rM, years * 12);
+  const flatInvested  = baseSIP * years * 12;
 
   const { corpus: stepCorpus, invested: stepInvested, finalSIP } =
     _stepUpCorpus(baseSIP, stepRate / 100, rM, years);
@@ -55,11 +55,10 @@ function updateStepUp() {
   const currentFV  = currentVal * Math.pow(1 + r, years);
 
   const totalWithPortfolio = stepCorpus + currentFV;
-  const extraWealth    = stepCorpus - flatCorpus;
-  const extraInvested  = stepInvested - flatInvested;
-  const extraGrowth    = extraWealth - extraInvested;
+  const extraWealth        = stepCorpus - flatCorpus;
+  const extraInvested      = stepInvested - flatInvested;
+  const extraGrowth        = extraWealth - extraInvested;
 
-  // FIX: use renderKpiCards helper (from common.js)
   document.getElementById('su-kpis').innerHTML = renderKpiCards([
     { l: 'Flat SIP corpus',    v: fmtL(Math.round(flatCorpus)),           s: fmtL(flatInvested) + ' invested',              a: '#58a6ff' },
     { l: 'Step-up corpus',     v: fmtL(Math.round(stepCorpus)),           s: fmtL(Math.round(stepInvested)) + ' invested',  a: '#d4a843' },
@@ -137,77 +136,158 @@ function _buildYearSeries(baseSIP, stepRate, rM, r, years, currentVal) {
   return { flat, stepped, withPort, sipAmounts };
 }
 
+// FIX: use scheduleChart() instead of direct el._chartInst pattern.
+// scheduleChart() cancels any pending timer for the same canvas ID,
+// so rapid slider changes (even after debounce) can't stack up renders.
 function _renderStepUpGrowthChart(baseSIP, stepRate, rM, r, years, currentVal) {
   const labels = Array.from({ length: years }, (_, i) => 'Yr ' + (i + 1));
   const { flat, stepped, withPort } = _buildYearSeries(baseSIP, stepRate, rM, r, years, currentVal);
-  const el = document.getElementById('chart-stepup-growth');
-  if (!el) return;
-  if (el._chartInst) { el._chartInst.destroy(); el._chartInst = null; }
 
-  const datasets = [
-    { label: 'Step-up SIP corpus', data: stepped, borderColor: '#d4a843', backgroundColor: 'rgba(212,168,67,.10)', borderWidth: 2.5, pointRadius: 0, pointHoverRadius: 5, fill: true, tension: 0.35 },
-    { label: 'Flat SIP corpus',    data: flat,    borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,.06)',  borderWidth: 2,   pointRadius: 0, pointHoverRadius: 4, fill: true, tension: 0.35, borderDash: [5, 4] },
-  ];
-  if (currentVal > 0) {
-    datasets.push({ label: 'Step-up + current portfolio', data: withPort, borderColor: '#3fb950', backgroundColor: 'transparent', borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, fill: false, tension: 0.35, borderDash: [3, 2] });
-  }
+  scheduleChart('chart-stepup-growth', 60, el => {
+    const datasets = [
+      {
+        label: 'Step-up SIP corpus',
+        data: stepped,
+        borderColor: '#d4a843',
+        backgroundColor: 'rgba(212,168,67,.10)',
+        borderWidth: 2.5,
+        pointRadius: 0,
+        pointHoverRadius: 5,
+        fill: true,
+        tension: 0.35,
+      },
+      {
+        label: 'Flat SIP corpus',
+        data: flat,
+        borderColor: '#58a6ff',
+        backgroundColor: 'rgba(88,166,255,.06)',
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        fill: true,
+        tension: 0.35,
+        borderDash: [5, 4],
+      },
+    ];
+    if (currentVal > 0) {
+      datasets.push({
+        label: 'Step-up + current portfolio',
+        data: withPort,
+        borderColor: '#3fb950',
+        backgroundColor: 'transparent',
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        fill: false,
+        tension: 0.35,
+        borderDash: [3, 2],
+      });
+    }
 
-  el._chartInst = new Chart(el, {
-    type: 'line',
-    data: { labels, datasets },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      interaction: { mode: 'index', intersect: false },
-      plugins: {
-        legend: { display: true, position: 'top', labels: { color: '#7d8590', font: { size: 10 }, boxWidth: 12, padding: 10 } },
-        tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + fmtL(ctx.raw) }, backgroundColor: '#1c2330', titleColor: '#e6edf3', bodyColor: '#7d8590', borderColor: '#30363d', borderWidth: 1 },
+    return new Chart(el, {
+      type: 'line',
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: {
+            display: true,
+            position: 'top',
+            labels: { color: '#7d8590', font: { size: 10 }, boxWidth: 12, padding: 10 },
+          },
+          tooltip: {
+            callbacks: { label: ctx => ctx.dataset.label + ': ' + fmtL(ctx.raw) },
+            backgroundColor: '#1c2330',
+            titleColor: '#e6edf3',
+            bodyColor: '#7d8590',
+            borderColor: '#30363d',
+            borderWidth: 1,
+          },
+        },
+        scales: {
+          x: { ticks: { font: { size: 9 }, color: '#7d8590' }, grid: { color: '#21262d' } },
+          y: { ticks: { font: { size: 9 }, color: '#7d8590', callback: v => fmtL(v) }, grid: { color: '#21262d' } },
+        },
       },
-      scales: {
-        x: { ticks: { font: { size: 9 }, color: '#7d8590' }, grid: { color: '#21262d' } },
-        y: { ticks: { font: { size: 9 }, color: '#7d8590', callback: v => fmtL(v) }, grid: { color: '#21262d' } },
-      },
-    },
+    });
   });
 }
 
+// FIX: scheduleChart() replaces direct el._chartInst pattern
 function _renderStepUpComparisonChart(baseSIP, stepRate, rM, years) {
-  const el = document.getElementById('chart-stepup-compare');
-  if (!el) return;
-  if (el._chartInst) { el._chartInst.destroy(); el._chartInst = null; }
-
-  const labels = Array.from({ length: years }, (_, i) => 'Yr ' + (i + 1));
-  const annualSIPs = Array.from({ length: years }, (_, i) =>
+  const labels      = Array.from({ length: years }, (_, i) => 'Yr ' + (i + 1));
+  const annualSIPs  = Array.from({ length: years }, (_, i) =>
     Math.round(baseSIP * Math.pow(1 + stepRate, i))
   );
-  const annualFlatSIPs = Array.from({ length: years }, () => baseSIP);
+  const annualFlat  = Array.from({ length: years }, () => baseSIP);
 
-  el._chartInst = new Chart(el, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [
-        { label: 'Monthly SIP (step-up)', data: annualSIPs, backgroundColor: annualSIPs.map((v, i) => `rgba(212,168,67,${(0.4 + (i / years) * 0.5).toFixed(2)})`), borderColor: '#d4a843', borderWidth: 1, borderRadius: 3, borderSkipped: false },
-        { label: 'Monthly SIP (flat)',    data: annualFlatSIPs, backgroundColor: 'rgba(88,166,255,.25)', borderColor: '#58a6ff', borderWidth: 1, borderRadius: 3, borderSkipped: false },
-      ],
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      interaction: { mode: 'index', intersect: false },
-      plugins: {
-        legend: { display: true, position: 'top', labels: { color: '#7d8590', font: { size: 10 }, boxWidth: 12, padding: 10 } },
-        tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + fmtL(ctx.raw) + '/mo' }, backgroundColor: '#1c2330', titleColor: '#e6edf3', bodyColor: '#7d8590', borderColor: '#30363d', borderWidth: 1 },
+  scheduleChart('chart-stepup-compare', 60, el => {
+    return new Chart(el, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Monthly SIP (step-up)',
+            data: annualSIPs,
+            backgroundColor: annualSIPs.map(
+              (_, i) => `rgba(212,168,67,${(0.4 + (i / years) * 0.5).toFixed(2)})`
+            ),
+            borderColor: '#d4a843',
+            borderWidth: 1,
+            borderRadius: 3,
+            borderSkipped: false,
+          },
+          {
+            label: 'Monthly SIP (flat)',
+            data: annualFlat,
+            backgroundColor: 'rgba(88,166,255,.25)',
+            borderColor: '#58a6ff',
+            borderWidth: 1,
+            borderRadius: 3,
+            borderSkipped: false,
+          },
+        ],
       },
-      scales: {
-        x: { ticks: { font: { size: 9 }, color: '#7d8590', maxRotation: 45 }, grid: { color: '#21262d' } },
-        y: { ticks: { font: { size: 9 }, color: '#7d8590', callback: v => fmtL(v) }, grid: { color: '#21262d' } },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: {
+            display: true,
+            position: 'top',
+            labels: { color: '#7d8590', font: { size: 10 }, boxWidth: 12, padding: 10 },
+          },
+          tooltip: {
+            callbacks: { label: ctx => ctx.dataset.label + ': ' + fmtL(ctx.raw) + '/mo' },
+            backgroundColor: '#1c2330',
+            titleColor: '#e6edf3',
+            bodyColor: '#7d8590',
+            borderColor: '#30363d',
+            borderWidth: 1,
+          },
+        },
+        scales: {
+          x: {
+            ticks: { font: { size: 9 }, color: '#7d8590', maxRotation: 45 },
+            grid: { color: '#21262d' },
+          },
+          y: {
+            ticks: { font: { size: 9 }, color: '#7d8590', callback: v => fmtL(v) },
+            grid: { color: '#21262d' },
+          },
+        },
       },
-    },
+    });
   });
 }
 
 function _renderStepRateScenarios(baseSIP, rM, r, years, currentVal, flatCorpus) {
   const stepRates = [0, 5, 10, 15, 20, 25];
-  const corpora = stepRates.map(sr => _stepUpCorpus(baseSIP, sr / 100, rM, years).corpus);
+  const corpora   = stepRates.map(sr => _stepUpCorpus(baseSIP, sr / 100, rM, years).corpus);
   const maxCorpus = Math.max(...corpora, 1);
 
   document.getElementById('su-scenarios').innerHTML = stepRates.map((sr, i) => {
