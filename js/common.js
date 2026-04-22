@@ -1,10 +1,8 @@
 // ── common.js — shared data, formatters, helpers ─────────────────────────────
 //
-// CHANGES vs reviewed version:
-//  • DATA now includes _cachedDrawdown: null  (Issue #3 — avoids re-running GBM
-//    on every Overview tab visit; invalidated in tryApplyData() in page-tools.js)
-//  • buildCombinedMonthly() / DATA._cachedMonthly unchanged
-//  • All other logic identical to the previously-reviewed common.js
+// FIXES applied in this revision:
+//  • Issue #11 — MONTH_NAMES defined once here as a shared constant
+//  • Issue #13 — _wfSegments / _wfTotal moved from window.* to module-level vars
 
 // ══════════════════════════════════════════════════════════════
 // DATA — seed / fallback; fully replaced when Excel is uploaded
@@ -19,9 +17,15 @@ const DATA = {
   funds: [], mfCategories: [], stocks: [], sectors: [],
   monthlyMF: [], mfLots: [], stLots: [],
   _cachedMonthly: null,
-  // FIX #3: cache for the drawdown GBM series; cleared on every upload
-  _cachedDrawdown: null,
+  // FIX Issue #3: cache drawdown series so GBM doesn't re-run on every render
+  _cachedDrawdownSeries: null,
 };
+
+// ══════════════════════════════════════════════════════════════
+// SHARED CONSTANTS
+// ══════════════════════════════════════════════════════════════
+// FIX Issue #11: single canonical MONTH_NAMES — previously redefined in 3 files
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 // ══════════════════════════════════════════════════════════════
 // FORMATTERS
@@ -33,20 +37,20 @@ const fmtL = (n) => {
   if (a >= 1e5) return s + '₹' + (a / 1e5).toFixed(2) + ' L';
   return s + '₹' + a.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
-const fmtP = (n) => (n == null || isNaN(n)) ? '—' : (n >= 0 ? '+' : '') + n.toFixed(2) + '%';
-const fmtN = (n) => Math.round(n).toLocaleString('en-IN');
+const fmtP   = (n) => (n == null || isNaN(n)) ? '—' : (n >= 0 ? '+' : '') + n.toFixed(2) + '%';
+const fmtN   = (n) => Math.round(n).toLocaleString('en-IN');
 const fmtPrice = (n) => (n == null || isNaN(n) || n <= 0) ? '—' : '₹' + Number(n).toFixed(2);
-const cls = (n) => n >= 0 ? 'td-up' : 'td-dn';
-const pSign = (n) => n >= 0 ? '+' : '';
+const cls    = (n) => n >= 0 ? 'td-up' : 'td-dn';
+const pSign  = (n) => n >= 0 ? '+' : '';
 
 const esc = (s) =>
   String(s == null ? '' : s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-    .replace(/`/g, '&#96;');
+    .replace(/&/g,  '&amp;')
+    .replace(/</g,  '&lt;')
+    .replace(/>/g,  '&gt;')
+    .replace(/"/g,  '&quot;')
+    .replace(/'/g,  '&#39;')
+    .replace(/`/g,  '&#96;');
 
 const cleanNum = (v) => {
   if (v === '' || v === null || v === undefined) return 0;
@@ -62,15 +66,15 @@ const cleanNum = (v) => {
 // COLOUR MAPS
 // ══════════════════════════════════════════════════════════════
 const CAT_CLR = {
-  Value: '#d4a843', 'Large Cap': '#58a6ff', 'Mid Cap': '#3fb950',
-  'Small Cap': '#f0883e', 'Flexi Cap': '#a371f7', ELSS: '#e3b341',
-  Index: '#79c0ff', Other: '#7d8590',
+  Value:       '#d4a843', 'Large Cap': '#58a6ff', 'Mid Cap':   '#3fb950',
+  'Small Cap': '#f0883e', 'Flexi Cap': '#a371f7', ELSS:        '#e3b341',
+  Index:       '#79c0ff', Other:       '#7d8590',
 };
 const SEC_CLR = {
-  Defence: '#58a6ff', 'Energy/PSU': '#3fb950', Speculative: '#f85149',
-  Renewables: '#56d364', 'Finance/PSU': '#a371f7', FMCG: '#e3b341',
-  'Metals/Mining': '#d4a843', Banking: '#f0883e', 'Infra/PSU': '#79c0ff',
-  'Commodities ETF': '#7d8590', 'Index ETF': '#484f58', Other: '#7d8590',
+  Defence:          '#58a6ff', 'Energy/PSU':    '#3fb950', Speculative:    '#f85149',
+  Renewables:       '#56d364', 'Finance/PSU':   '#a371f7', FMCG:           '#e3b341',
+  'Metals/Mining':  '#d4a843', Banking:         '#f0883e', 'Infra/PSU':    '#79c0ff',
+  'Commodities ETF':'#7d8590', 'Index ETF':     '#484f58', Other:          '#7d8590',
 };
 const gc = (k, m) => m[k] || '#7d8590';
 
@@ -111,7 +115,7 @@ function donut(svgId, legId, data, colorMap) {
   data.forEach(d => {
     const row = document.createElement('div');
     row.className = 'legend-row';
-    const dot = document.createElement('div');
+    const dot  = document.createElement('div');
     dot.className = 'legend-dot';
     dot.style.background = gc(d.k, colorMap);
     const name = document.createElement('span');
@@ -125,8 +129,14 @@ function donut(svgId, legId, data, colorMap) {
   });
 }
 
-function fmtDate(d) { return d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'; }
-function fmtMonthYear(d) { return d ? new Date(d).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }) : '—'; }
+function fmtDate(d)       { return d ? new Date(d).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' }) : '—'; }
+function fmtMonthYear(d)  { return d ? new Date(d).toLocaleDateString('en-IN', { month:'short', year:'numeric' }) : '—'; }
+
+// FIX Issue #10: unified fmtMonthLabel — replaces the duplicate in page-timeline.js
+function fmtMonthLabel(mk) {
+  const [y, m] = mk.split('-');
+  return MONTH_NAMES[parseInt(m) - 1] + ' ' + y;
+}
 
 // ══════════════════════════════════════════════════════════════
 // XIRR via Newton-Raphson
@@ -142,7 +152,7 @@ function calcXIRR(cashflows, dates) {
     let f = 0, df = 0;
     for (let i = 0; i < cashflows.length; i++) {
       const v = cashflows[i] * Math.pow(1 + r, -t[i]);
-      f += v;
+      f  += v;
       df += -t[i] * cashflows[i] * Math.pow(1 + r, -t[i] - 1);
     }
     if (Math.abs(df) < 1e-12) break;
@@ -160,6 +170,10 @@ function calcXIRR(cashflows, dates) {
 // ══════════════════════════════════════════════════════════════
 let mfSort = 'RetPct', mfAsc = false, mfFil = 'All';
 let stSort = 'RetPct', stAsc = false, stFil = 'All';
+
+// FIX Issue #13: module-level waterfall state — removed window._wfSegments / window._wfTotal
+let _wfSegments = null;
+let _wfTotal    = 0;
 
 // ══════════════════════════════════════════════════════════════
 // CHART LIFECYCLE — safe schedule + destroy
@@ -256,17 +270,16 @@ function buildStrip() {
 // ══════════════════════════════════════════════════════════════
 function updateChrome() {
   const k = DATA.kpis;
-  const sbVal = document.getElementById('sb-total-val');
-  const sbPnl = document.getElementById('sb-pnl');
+  const sbVal  = document.getElementById('sb-total-val');
+  const sbPnl  = document.getElementById('sb-pnl');
   const sbCagr = document.getElementById('sb-cagr');
   const sbDate = document.getElementById('sb-date');
-  if (sbVal) sbVal.textContent = k.totalValue ? fmtL(k.totalValue) : '—';
+  if (sbVal)  sbVal.textContent  = k.totalValue  ? fmtL(k.totalValue)  : '—';
   if (sbPnl) {
     sbPnl.textContent = k.totalReturn ? pSign(k.totalReturn) + k.totalReturn.toFixed(2) + '%' : '—';
     sbPnl.style.color = k.totalGain >= 0 ? 'var(--green)' : 'var(--red)';
   }
   if (sbCagr) sbCagr.textContent = k.mfCAGR ? k.mfCAGR.toFixed(2) + '% p.a.' : '—';
-  // FIX #9: latestDate is now the actual latest lot date set in tryApplyData()
   const dateStr = k.latestDate ? fmtDate(k.latestDate) : k.totalValue ? fmtDate(new Date()) : '—';
   if (sbDate) sbDate.textContent = dateStr;
 
@@ -291,9 +304,9 @@ function updateChrome() {
 // ══════════════════════════════════════════════════════════════
 // LOCALSTORAGE PERSISTENCE
 // ══════════════════════════════════════════════════════════════
-const LS_KEY = 'portfin-data-v1';
+const LS_KEY           = 'portfin-data-v1';
 const LS_SNAPSHOTS_KEY = 'portfin-snapshots-v1';
-const MAX_SNAPSHOTS = 104;
+const MAX_SNAPSHOTS    = 104;
 
 function _safeISO(v) {
   if (!v) return null;
@@ -312,16 +325,16 @@ function saveDataToStorage() {
       },
       funds: DATA.funds.map(f => ({
         ...f,
-        dates: (f.dates || []).map(d => _safeISO(d)).filter(Boolean),
+        dates:   (f.dates   || []).map(d => _safeISO(d)).filter(Boolean),
         rawLots: (f.rawLots || []).filter(l => l.date && !isNaN(new Date(l.date))).map(l => ({ ...l, date: _safeISO(l.date) })),
       })),
       mfCategories: DATA.mfCategories,
       stocks: DATA.stocks.map(s => ({
         ...s,
-        dates: (s.dates || []).map(d => _safeISO(d)).filter(Boolean),
+        dates:   (s.dates   || []).map(d => _safeISO(d)).filter(Boolean),
         rawLots: (s.rawLots || []).filter(l => l.date && !isNaN(new Date(l.date))).map(l => ({ ...l, date: _safeISO(l.date) })),
       })),
-      sectors: DATA.sectors,
+      sectors:   DATA.sectors,
       monthlyMF: DATA.monthlyMF,
       mfLots: DATA.mfLots.map(l => ({ ...l, date: _safeISO(l.date) })),
       stLots: DATA.stLots.map(l => ({ ...l, date: _safeISO(l.date) })),
@@ -355,16 +368,16 @@ function loadDataFromStorage() {
       earliestST: reDate(payload.kpis.earliestST),
       latestDate: reDate(payload.kpis.latestDate),
     };
-    DATA.funds = payload.funds.map(f => ({ ...f, dates: (f.dates || []).map(d => new Date(d)), rawLots: (f.rawLots || []).map(l => ({ ...l, date: new Date(l.date) })) }));
-    DATA.mfCategories = payload.mfCategories || [];
-    DATA.stocks = payload.stocks.map(s => ({ ...s, dates: (s.dates || []).map(d => new Date(d)), rawLots: (s.rawLots || []).map(l => ({ ...l, date: new Date(l.date) })) }));
-    DATA.sectors = payload.sectors || [];
-    DATA.monthlyMF = payload.monthlyMF || [];
-    DATA.mfLots = (payload.mfLots || []).map(l => ({ ...l, date: new Date(l.date) }));
-    DATA.stLots = (payload.stLots || []).map(l => ({ ...l, date: new Date(l.date) }));
-    DATA._cachedMonthly = null;
-    DATA._cachedDrawdown = null; // FIX #3: invalidate drawdown cache on load
-    _fundAnalysisCache = null;
+    DATA.funds         = payload.funds.map(f => ({ ...f, dates: (f.dates || []).map(d => new Date(d)), rawLots: (f.rawLots || []).map(l => ({ ...l, date: new Date(l.date) })) }));
+    DATA.mfCategories  = payload.mfCategories || [];
+    DATA.stocks        = payload.stocks.map(s => ({ ...s, dates: (s.dates || []).map(d => new Date(d)), rawLots: (s.rawLots || []).map(l => ({ ...l, date: new Date(l.date) })) }));
+    DATA.sectors       = payload.sectors   || [];
+    DATA.monthlyMF     = payload.monthlyMF || [];
+    DATA.mfLots        = (payload.mfLots || []).map(l => ({ ...l, date: new Date(l.date) }));
+    DATA.stLots        = (payload.stLots || []).map(l => ({ ...l, date: new Date(l.date) }));
+    DATA._cachedMonthly      = null;
+    DATA._cachedDrawdownSeries = null; // FIX Issue #3: clear drawdown cache on load
+    _fundAnalysisCache  = null;
     return payload.savedAt || true;
   } catch (e) {
     console.warn('PortFin: Could not load from localStorage', e);
@@ -386,7 +399,7 @@ function getISOWeekNumber(d) {
 }
 function getWeekStart(d) {
   const date = new Date(d);
-  const day = date.getDay() || 7;
+  const day  = date.getDay() || 7;
   date.setDate(date.getDate() - (day - 1));
   date.setHours(0, 0, 0, 0);
   return date;
@@ -395,7 +408,7 @@ function fmtWeekRange(weekStart) {
   const end = new Date(weekStart); end.setDate(end.getDate() + 6);
   const opts = { day: '2-digit', month: 'short' };
   return weekStart.toLocaleDateString('en-IN', opts) + ' – ' +
-    end.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' });
+         end.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' });
 }
 
 function saveSnapshot() {
@@ -404,7 +417,7 @@ function saveSnapshot() {
     if (!k.totalInvested) return;
     const snapshots = getSnapshots();
     const now = new Date();
-    const weekNum = getISOWeekNumber(now);
+    const weekNum  = getISOWeekNumber(now);
     const weekStart = getWeekStart(now);
     const thu = new Date(weekStart); thu.setDate(thu.getDate() + 3);
     const isoYear = thu.getFullYear();
@@ -412,8 +425,8 @@ function saveSnapshot() {
 
     const snap = {
       weekKey,
-      savedAt: now.toISOString(),
-      label: fmtWeekRange(weekStart),
+      savedAt:    now.toISOString(),
+      label:      fmtWeekRange(weekStart),
       shortLabel: 'W' + String(weekNum).padStart(2, '0') + " '" + String(isoYear).slice(-2),
       totalInvested: k.totalInvested, totalValue: k.totalValue,
       totalGain: k.totalGain, totalReturn: k.totalReturn,
@@ -456,7 +469,7 @@ function showPersistBanner(savedAt) {
   const bar = document.createElement('div');
   bar.id = 'persist-banner';
   const dateStr = savedAt && savedAt !== true
-    ? new Date(savedAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    ? new Date(savedAt).toLocaleString('en-IN', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })
     : 'previous session';
   const msg = document.createElement('span');
   msg.style.flex = '1';
@@ -490,6 +503,7 @@ function fmtHoldPeriod(days) {
   return `${days}d`;
 }
 
+// ── Monthly breakup (shared MF / Stocks drill-down) ───────────
 function buildMonthlyBreakupHTML(lots, type) {
   const monthMap = {};
   lots.forEach(l => {
@@ -500,9 +514,9 @@ function buildMonthlyBreakupHTML(lots, type) {
     if (!monthMap[mk]) monthMap[mk] = { invested: 0, gain: 0, lots: 0, units: 0 };
     const invested = type === 'mf' ? l.amt || 0 : l.inv || 0;
     monthMap[mk].invested += invested;
-    monthMap[mk].gain += l.gain || 0;
-    monthMap[mk].lots += 1;
-    monthMap[mk].units += l.qty || 0;
+    monthMap[mk].gain     += l.gain || 0;
+    monthMap[mk].lots     += 1;
+    monthMap[mk].units    += l.qty  || 0;
   });
   const months = Object.entries(monthMap)
     .sort((a, b) => a[0].localeCompare(b[0]))
@@ -511,19 +525,19 @@ function buildMonthlyBreakupHTML(lots, type) {
   if (!months.length) return '<div style="color:var(--muted);font-size:11px;padding:10px">No monthly data available</div>';
 
   const totalInvested = months.reduce((a, m) => a + m.invested, 0);
-  const totalGain = months.reduce((a, m) => a + m.gain, 0);
-  const maxInvested = Math.max(...months.map(m => m.invested), 1);
+  const totalGain     = months.reduce((a, m) => a + m.gain,     0);
+  const maxInvested   = Math.max(...months.map(m => m.invested), 1);
 
   const yearMap = {};
   months.forEach(m => {
     const y = m.mk.slice(0, 4);
     if (!yearMap[y]) yearMap[y] = { invested: 0, gain: 0, lots: 0 };
     yearMap[y].invested += m.invested;
-    yearMap[y].gain += m.gain;
-    yearMap[y].lots += m.lots;
+    yearMap[y].gain     += m.gain;
+    yearMap[y].lots     += m.lots;
   });
 
-  const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  // FIX Issue #11: use shared MONTH_NAMES constant
   const yearKpis = Object.entries(yearMap)
     .sort((a, b) => a[0].localeCompare(b[0]))
     .map(([y, yv]) => {
@@ -538,11 +552,11 @@ function buildMonthlyBreakupHTML(lots, type) {
 
   const monthRows = months.map(m => {
     const [y, mo] = m.mk.split('-');
-    const monthName = MONTH_NAMES[parseInt(mo) - 1] + ' ' + y;
-    const barWidth = Math.round((m.invested / maxInvested) * 100);
-    const retColor = m.retPct >= 0 ? 'var(--green)' : 'var(--red)';
-    const gainCls = m.gain >= 0 ? 'td-up' : 'td-dn';
-    const unitsCol = type === 'mf'
+    const monthName   = MONTH_NAMES[parseInt(mo) - 1] + ' ' + y;
+    const barWidth    = Math.round((m.invested / maxInvested) * 100);
+    const retColor    = m.retPct >= 0 ? 'var(--green)' : 'var(--red)';
+    const gainCls     = m.gain >= 0 ? 'td-up' : 'td-dn';
+    const unitsCol    = type === 'mf'
       ? `<td style="font-size:11px;color:var(--muted);text-align:right">${m.units > 0 ? m.units.toFixed(3) : '—'}</td>`
       : `<td style="font-size:11px;color:var(--muted);text-align:right">${m.units > 0 ? fmtN(m.units) : '—'}</td>`;
     return `<tr>
@@ -562,9 +576,9 @@ function buildMonthlyBreakupHTML(lots, type) {
     </tr>`;
   }).join('');
 
-  const unitsHeader = type === 'mf' ? '<th style="text-align:right">Units</th>' : '<th style="text-align:right">Qty</th>';
-  const totalRetPct = totalInvested > 0 ? (totalGain / totalInvested) * 100 : 0;
-  const totGainCls = totalGain >= 0 ? 'td-up' : 'td-dn';
+  const unitsHeader  = type === 'mf' ? '<th style="text-align:right">Units</th>' : '<th style="text-align:right">Qty</th>';
+  const totalRetPct  = totalInvested > 0 ? (totalGain / totalInvested) * 100 : 0;
+  const totGainCls   = totalGain >= 0 ? 'td-up' : 'td-dn';
   const totalRetColor = totalRetPct >= 0 ? 'var(--green)' : 'var(--red)';
 
   return `
@@ -599,6 +613,7 @@ function buildMonthlyBreakupHTML(lots, type) {
     </div>`;
 }
 
+// ── Drill-down tab switcher ────────────────────────────────────
 function switchDrillTab(tabGroupId, tabId) {
   const group = document.getElementById(tabGroupId);
   if (!group) return;
@@ -614,11 +629,12 @@ function switchDrillTab(tabGroupId, tabId) {
   if (btn) { btn.style.background = 'var(--bg4)'; btn.style.color = 'var(--gold)'; btn.style.borderBottomColor = 'var(--gold)'; }
 }
 
+// ── XIRR badge helper ─────────────────────────────────────────
 function buildXirrBadge(xirr, cagr, label) {
   if (xirr === null) return '';
-  const xirrColor = xirr >= 15 ? 'var(--green)' : xirr >= 8 ? 'var(--gold)' : 'var(--red)';
-  const cagrDelta = xirr - (cagr || 0);
-  const deltaBadge = Math.abs(cagrDelta) > 1
+  const xirrColor   = xirr >= 15 ? 'var(--green)' : xirr >= 8 ? 'var(--gold)' : 'var(--red)';
+  const cagrDelta   = xirr - (cagr || 0);
+  const deltaBadge  = Math.abs(cagrDelta) > 1
     ? `<span style="font-size:10px;color:var(--muted2);margin-left:6px">vs CAGR ${(cagr || 0) >= 0 ? '+' : ''}${(cagr || 0).toFixed(2)}%<span style="color:${cagrDelta > 0 ? 'var(--green)' : 'var(--red)'}">(${cagrDelta > 0 ? '+' : ''}${cagrDelta.toFixed(2)}pp)</span></span>`
     : '';
   return `<div style="display:inline-flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:6px 12px;margin-bottom:10px;font-size:11px">
@@ -628,6 +644,7 @@ function buildXirrBadge(xirr, cagr, label) {
   </div>`;
 }
 
+// ── Drill tab bar builder ─────────────────────────────────────
 function buildDrillTabBar(drillId, tabs) {
   const base = 'padding:7px 16px;font-size:11px;font-family:var(--mono);border:none;border-bottom:2px solid transparent;background:transparent;color:var(--muted);cursor:pointer;transition:all .15s;';
   return `<div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:14px;">` +
@@ -637,6 +654,7 @@ function buildDrillTabBar(drillId, tabs) {
     }).join('') + '</div>';
 }
 
+// ── MF drill HTML ─────────────────────────────────────────────
 function buildMFDrillHTML(f) {
   if (!f.rawLots || !f.rawLots.length)
     return '<div style="color:var(--muted);font-size:11px;padding:6px">No lot-level data available</div>';
@@ -650,33 +668,27 @@ function buildMFDrillHTML(f) {
     lots.forEach(l => { if (l.date && l.amt > 0) { cfAmounts.push(-l.amt); cfDates.push(new Date(l.date)); } });
     const currentValue = f.Current || f.Invested + (f.Gain || 0);
     if (currentValue > 0 && cfAmounts.length) { cfAmounts.push(currentValue); cfDates.push(new Date()); fundXirr = calcXIRR(cfAmounts, cfDates); }
-  } catch (_) { }
+  } catch (_) {}
 
   const xirrColor = fundXirr === null ? 'var(--muted)' : fundXirr >= 15 ? 'var(--green)' : fundXirr >= 8 ? 'var(--gold)' : 'var(--red)';
   const xirrDisplay = fundXirr !== null ? `<span style="color:${xirrColor};font-weight:600">${fundXirr >= 0 ? '+' : ''}${fundXirr.toFixed(2)}%</span>` : '<span style="color:var(--muted)">—</span>';
 
-  // FIX #5: show "<1yr" note for short-hold funds where CAGR shows 0
-  const shortHold = f.holdDays > 0 && f.holdDays < 183;
-  const cagrDisplay = shortHold
-    ? `${fmtP(f.CAGR)} <span style="font-size:9px;color:var(--amber)">(< 6mo)</span>`
-    : fmtP(f.CAGR);
-
   let totalAmt = 0, totalGain = 0;
   const rows = lots.map(l => {
-    const days = Math.floor((Date.now() - l.date.getTime()) / (24 * 3600 * 1000));
+    const days    = Math.floor((Date.now() - l.date.getTime()) / (24 * 3600 * 1000));
     const holdStr = fmtHoldPeriod(days);
-    const taxTag = days >= 365 ? '<span class="ltcg-badge">LTCG</span>' : '<span class="stcg-badge">STCG</span>';
+    const taxTag  = days >= 365 ? '<span class="ltcg-badge">LTCG</span>' : '<span class="stcg-badge">STCG</span>';
     const lotGainPct = l.amt > 0 ? ((l.gain / l.amt) * 100).toFixed(2) : '0.00';
-    const lotCls = l.gain >= 0 ? 'td-up' : 'td-dn';
+    const lotCls  = l.gain >= 0 ? 'td-up' : 'td-dn';
     let lotXirr = null;
     try {
       if (l.date && l.amt > 0 && days > 7) {
         const lotCurVal = l.cur || l.amt + (l.gain || 0);
         if (lotCurVal > 0) lotXirr = calcXIRR([-l.amt, lotCurVal], [new Date(l.date), new Date()]);
       }
-    } catch (_) { }
+    } catch (_) {}
     const lotXirrColor = lotXirr === null ? 'var(--muted)' : lotXirr >= 15 ? 'var(--green)' : lotXirr >= 8 ? 'var(--gold)' : 'var(--red)';
-    totalAmt += l.amt || 0;
+    totalAmt  += l.amt  || 0;
     totalGain += l.gain || 0;
     return `<tr>
       <td>${fmtDate(l.date)}</td>
@@ -717,12 +729,13 @@ function buildMFDrillHTML(f) {
     </div>`;
 }
 
+// ── Stock drill HTML ──────────────────────────────────────────
 function buildSTDrillHTML(s) {
   if (!s.rawLots || !s.rawLots.length)
     return '<div style="color:var(--muted);font-size:11px;padding:6px">No lot-level data available</div>';
 
   const lots = [...s.rawLots].filter(l => l.date && !isNaN(new Date(l.date))).sort((a, b) => a.date - b.date);
-  const cmp = s.Latest_Price || 0;
+  const cmp  = s.Latest_Price || 0;
   const drillId = 'st-drill-' + Math.random().toString(36).slice(2, 8);
 
   let stockXirr = null;
@@ -732,21 +745,21 @@ function buildSTDrillHTML(s) {
     const terminalValue = cmp > 0 && s.Qty > 0 ? cmp * s.Qty
       : lots.reduce((a, l) => { const cv = cmp > 0 && l.qty > 0 ? cmp * l.qty : l.cur || l.inv + (l.gain || 0); return a + cv; }, 0);
     if (terminalValue > 0 && cfAmounts.length) { cfAmounts.push(terminalValue); cfDates.push(new Date()); stockXirr = calcXIRR(cfAmounts, cfDates); }
-  } catch (_) { }
+  } catch (_) {}
 
-  const sXirrColor = stockXirr === null ? 'var(--muted)' : stockXirr >= 15 ? 'var(--green)' : stockXirr >= 8 ? 'var(--gold)' : 'var(--red)';
+  const sXirrColor  = stockXirr === null ? 'var(--muted)' : stockXirr >= 15 ? 'var(--green)' : stockXirr >= 8 ? 'var(--gold)' : 'var(--red)';
   const xirrDisplay = stockXirr !== null ? `<span style="color:${sXirrColor};font-weight:700">${stockXirr >= 0 ? '+' : ''}${stockXirr.toFixed(2)}%</span>` : '<span style="color:var(--muted)">—</span>';
 
   const rows = lots.map(l => {
-    const days = Math.floor((Date.now() - l.date.getTime()) / (24 * 3600 * 1000));
+    const days    = Math.floor((Date.now() - l.date.getTime()) / (24 * 3600 * 1000));
     const holdStr = fmtHoldPeriod(days);
-    const taxTag = days >= 365 ? '<span class="ltcg-badge">LTCG</span>' : '<span class="stcg-badge">STCG</span>';
-    const curVal = cmp > 0 && l.qty > 0 ? cmp * l.qty : l.cur || l.inv + (l.gain || 0);
+    const taxTag  = days >= 365 ? '<span class="ltcg-badge">LTCG</span>' : '<span class="stcg-badge">STCG</span>';
+    const curVal  = cmp > 0 && l.qty > 0 ? cmp * l.qty : l.cur || l.inv + (l.gain || 0);
     const lotGain = curVal - l.inv;
-    const lotPct = l.inv > 0 ? ((lotGain / l.inv) * 100).toFixed(2) : '0.00';
-    const lotCls = lotGain >= 0 ? 'td-up' : 'td-dn';
+    const lotPct  = l.inv > 0 ? ((lotGain / l.inv) * 100).toFixed(2) : '0.00';
+    const lotCls  = lotGain >= 0 ? 'td-up' : 'td-dn';
     let lotXirr = null;
-    try { if (l.date && l.inv > 0 && days > 7 && curVal > 0) lotXirr = calcXIRR([-l.inv, curVal], [new Date(l.date), new Date()]); } catch (_) { }
+    try { if (l.date && l.inv > 0 && days > 7 && curVal > 0) lotXirr = calcXIRR([-l.inv, curVal], [new Date(l.date), new Date()]); } catch (_) {}
     const lotXirrColor = lotXirr === null ? 'var(--muted)' : lotXirr >= 15 ? 'var(--green)' : lotXirr >= 8 ? 'var(--gold)' : 'var(--red)';
     return `<tr>
       <td>${fmtDate(l.date)}</td><td>${l.qty > 0 ? fmtN(l.qty) : '—'}</td>
@@ -760,11 +773,11 @@ function buildSTDrillHTML(s) {
     </tr>`;
   }).join('');
 
-  const totalInv = lots.reduce((a, l) => a + (l.inv || 0), 0);
+  const totalInv    = lots.reduce((a, l) => a + (l.inv || 0), 0);
   const totalCurVal = lots.reduce((a, l) => { const cv = cmp > 0 && l.qty > 0 ? cmp * l.qty : l.cur || l.inv + (l.gain || 0); return a + cv; }, 0);
   const totalGainAmt = totalCurVal - totalInv;
-  const totalRetPct = totalInv > 0 ? ((totalGainAmt / totalInv) * 100).toFixed(2) : '0.00';
-  const totCls = totalGainAmt >= 0 ? 'td-up' : 'td-dn';
+  const totalRetPct  = totalInv > 0 ? ((totalGainAmt / totalInv) * 100).toFixed(2) : '0.00';
+  const totCls       = totalGainAmt >= 0 ? 'td-up' : 'td-dn';
 
   const footer = `<tr style="background:var(--bg3)">
     <td style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.06em;font-weight:600">Total · ${lots.length} lot${lots.length !== 1 ? 's' : ''}</td>
@@ -797,6 +810,7 @@ function buildSTDrillHTML(s) {
     </div>`;
 }
 
+// ── Drill toggle ──────────────────────────────────────────────
 function toggleDrill(type, i) {
   const row = document.getElementById(`drill-${type}-${i}`);
   const btn = document.getElementById(`drill-btn-${type}-${i}`);
@@ -845,11 +859,11 @@ function exportCSV(type) {
   let rows = [], headers = [];
   if (type === 'mf') {
     if (!DATA.funds.length) { alert('No MF data to export. Upload a file first.'); return; }
-    headers = ['Fund Name', 'Category', 'Lots', 'Invested (₹)', 'Current Value (₹)', 'Gain/Loss (₹)', 'Return (%)', 'CAGR (%)', 'Holding Days'];
+    headers = ['Fund Name','Category','Lots','Invested (₹)','Current Value (₹)','Gain/Loss (₹)','Return (%)','CAGR (%)','Holding Days'];
     rows = DATA.funds.map(f => ['"' + f.name.replace(/"/g, '""') + '"', f.Category, f.Lots, f.Invested.toFixed(2), f.Current.toFixed(2), f.Gain.toFixed(2), f.RetPct.toFixed(2), f.CAGR.toFixed(2), f.holdDays || 0]);
   } else {
     if (!DATA.stocks.length) { alert('No stocks data to export. Upload a file first.'); return; }
-    headers = ['Stock', 'Sector', 'Quantity', 'CMP (₹)', 'Invested (₹)', 'Market Value (₹)', 'P&L (₹)', 'Return (%)', 'CAGR (%)', 'Holding Days'];
+    headers = ['Stock','Sector','Quantity','CMP (₹)','Invested (₹)','Market Value (₹)','P&L (₹)','Return (%)','CAGR (%)','Holding Days'];
     rows = DATA.stocks.map(s => ['"' + s.name.replace(/"/g, '""') + '"', s.Sector, s.Qty, s.Latest_Price.toFixed(2), s.Invested.toFixed(2), s.Current.toFixed(2), s.Gain.toFixed(2), s.RetPct.toFixed(2), s.CAGR.toFixed(2), s.holdDays || 0]);
   }
   const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
