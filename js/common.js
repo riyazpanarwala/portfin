@@ -1,8 +1,13 @@
 // ── common.js — shared data, formatters, helpers ─────────────────────────────
 //
-// FIXES applied in this revision:
-//  • Issue #11 — MONTH_NAMES defined once here as a shared constant
-//  • Issue #13 — _wfSegments / _wfTotal moved from window.* to module-level vars
+// CHANGES vs previous revision:
+//  • All localStorage calls replaced with PortFinDB (IndexedDB async wrapper)
+//    defined in js/db.js, which must load before this file.
+//  • Every previously-synchronous storage function is now async.
+//  • boot.js startup sequence waits on the async loadDataFromStorage().
+//  • initTheme() is now async and awaits PortFinDB.get().
+//  • showPersistBanner / clearAndReset / saveSnapshot / getSnapshots /
+//    clearSnapshots / saveDataToStorage / loadDataFromStorage are all async.
 
 // ══════════════════════════════════════════════════════════════
 // DATA — seed / fallback; fully replaced when Excel is uploaded
@@ -17,14 +22,12 @@ const DATA = {
   funds: [], mfCategories: [], stocks: [], sectors: [],
   monthlyMF: [], mfLots: [], stLots: [],
   _cachedMonthly: null,
-  // FIX Issue #3: cache drawdown series so GBM doesn't re-run on every render
   _cachedDrawdownSeries: null,
 };
 
 // ══════════════════════════════════════════════════════════════
 // SHARED CONSTANTS
 // ══════════════════════════════════════════════════════════════
-// FIX Issue #11: single canonical MONTH_NAMES — previously redefined in 3 files
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 // ══════════════════════════════════════════════════════════════
@@ -131,8 +134,6 @@ function donut(svgId, legId, data, colorMap) {
 
 function fmtDate(d)       { return d ? new Date(d).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' }) : '—'; }
 function fmtMonthYear(d)  { return d ? new Date(d).toLocaleDateString('en-IN', { month:'short', year:'numeric' }) : '—'; }
-
-// FIX Issue #10: unified fmtMonthLabel — replaces the duplicate in page-timeline.js
 function fmtMonthLabel(mk) {
   const [y, m] = mk.split('-');
   return MONTH_NAMES[parseInt(m) - 1] + ' ' + y;
@@ -171,7 +172,6 @@ function calcXIRR(cashflows, dates) {
 let mfSort = 'RetPct', mfAsc = false, mfFil = 'All';
 let stSort = 'RetPct', stAsc = false, stFil = 'All';
 
-// FIX Issue #13: module-level waterfall state — removed window._wfSegments / window._wfTotal
 let _wfSegments = null;
 let _wfTotal    = 0;
 
@@ -302,7 +302,7 @@ function updateChrome() {
 }
 
 // ══════════════════════════════════════════════════════════════
-// LOCALSTORAGE PERSISTENCE
+// STORAGE — IndexedDB via PortFinDB (js/db.js)
 // ══════════════════════════════════════════════════════════════
 const LS_KEY           = 'portfin-data-v1';
 const LS_SNAPSHOTS_KEY = 'portfin-snapshots-v1';
@@ -314,7 +314,8 @@ function _safeISO(v) {
   return isNaN(d.getTime()) ? null : d.toISOString();
 }
 
-function saveDataToStorage() {
+// ── saveDataToStorage (async) ─────────────────────────────────
+async function saveDataToStorage() {
   try {
     const payload = {
       kpis: {
@@ -340,27 +341,32 @@ function saveDataToStorage() {
       stLots: DATA.stLots.map(l => ({ ...l, date: _safeISO(l.date) })),
       savedAt: new Date().toISOString(),
     };
-    localStorage.setItem(LS_KEY, JSON.stringify(payload));
+
+    const ok = await PortFinDB.set(LS_KEY, JSON.stringify(payload));
+    if (!ok) throw new Error('PortFinDB.set returned false');
     return true;
   } catch (e) {
-    console.warn('PortFin: Could not save to localStorage', e);
-    if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+    console.warn('PortFin: Could not save to storage', e);
+    // Storage quota or IDB failure — show a non-blocking warning
+    if (e && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED' || String(e).includes('quota'))) {
       const msgEl = document.getElementById('apply-msg');
       if (msgEl) {
         msgEl.style.cssText = 'background:var(--red-bg);border:1px solid var(--red-dim);color:var(--red);display:block';
-        msgEl.textContent = '⚠ Dashboard loaded but could not be saved — browser storage is full.';
+        msgEl.textContent = '⚠ Dashboard loaded but could not be saved — storage quota exceeded.';
       }
     }
     return false;
   }
 }
 
-function loadDataFromStorage() {
+// ── loadDataFromStorage (async) ───────────────────────────────
+async function loadDataFromStorage() {
   try {
-    const raw = localStorage.getItem(LS_KEY);
+    const raw = await PortFinDB.get(LS_KEY);
     if (!raw) return false;
     const payload = JSON.parse(raw);
     if (!payload || !payload.funds) return false;
+
     const reDate = v => v ? new Date(v) : null;
     DATA.kpis = {
       ...payload.kpis,
@@ -375,20 +381,23 @@ function loadDataFromStorage() {
     DATA.monthlyMF     = payload.monthlyMF || [];
     DATA.mfLots        = (payload.mfLots || []).map(l => ({ ...l, date: new Date(l.date) }));
     DATA.stLots        = (payload.stLots || []).map(l => ({ ...l, date: new Date(l.date) }));
-    DATA._cachedMonthly      = null;
-    DATA._cachedDrawdownSeries = null; // FIX Issue #3: clear drawdown cache on load
-    _fundAnalysisCache  = null;
+    DATA._cachedMonthly        = null;
+    DATA._cachedDrawdownSeries = null;
+    _fundAnalysisCache         = null;
     return payload.savedAt || true;
   } catch (e) {
-    console.warn('PortFin: Could not load from localStorage', e);
+    console.warn('PortFin: Could not load from storage', e);
     return false;
   }
 }
 
-function clearStoredData() { localStorage.removeItem(LS_KEY); }
+// ── clearStoredData (async) ───────────────────────────────────
+async function clearStoredData() {
+  await PortFinDB.remove(LS_KEY);
+}
 
 // ══════════════════════════════════════════════════════════════
-// SNAPSHOTS (weekly)
+// SNAPSHOTS (weekly) — all async
 // ══════════════════════════════════════════════════════════════
 function getISOWeekNumber(d) {
   const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
@@ -411,13 +420,13 @@ function fmtWeekRange(weekStart) {
          end.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' });
 }
 
-function saveSnapshot() {
+async function saveSnapshot() {
   try {
     const k = DATA.kpis;
     if (!k.totalInvested) return;
-    const snapshots = getSnapshots();
+    const snapshots = await getSnapshots();
     const now = new Date();
-    const weekNum  = getISOWeekNumber(now);
+    const weekNum   = getISOWeekNumber(now);
     const weekStart = getWeekStart(now);
     const thu = new Date(weekStart); thu.setDate(thu.getDate() + 3);
     const isoYear = thu.getFullYear();
@@ -439,30 +448,31 @@ function saveSnapshot() {
     if (idx >= 0) snapshots[idx] = snap; else snapshots.push(snap);
     snapshots.sort((a, b) => a.weekKey.localeCompare(b.weekKey));
     while (snapshots.length > MAX_SNAPSHOTS) snapshots.shift();
-    localStorage.setItem(LS_SNAPSHOTS_KEY, JSON.stringify(snapshots));
+
+    await PortFinDB.set(LS_SNAPSHOTS_KEY, JSON.stringify(snapshots));
   } catch (e) { console.warn('PortFin: Could not save snapshot', e); }
 }
-function getSnapshots() {
+
+async function getSnapshots() {
   try {
-    const data = JSON.parse(localStorage.getItem(LS_SNAPSHOTS_KEY) || '[]');
-
+    const raw = await PortFinDB.get(LS_SNAPSHOTS_KEY);
+    const data = raw ? JSON.parse(raw) : [];
     if (!Array.isArray(data)) return [];
-
-    // keep ONLY weekly snapshots
-    const cleaned = data.filter(s => typeof s?.weekKey === "string");
-
-    // optional: overwrite storage if dirty data was found
+    const cleaned = data.filter(s => typeof s?.weekKey === 'string');
     if (cleaned.length !== data.length) {
-      localStorage.setItem(LS_SNAPSHOTS_KEY, JSON.stringify(cleaned));
+      await PortFinDB.set(LS_SNAPSHOTS_KEY, JSON.stringify(cleaned));
     }
-
     return cleaned;
   } catch {
     return [];
   }
 }
-function clearSnapshots() { localStorage.removeItem(LS_SNAPSHOTS_KEY); }
 
+async function clearSnapshots() {
+  await PortFinDB.remove(LS_SNAPSHOTS_KEY);
+}
+
+// ── Persist banner (shown after async load) ───────────────────
 function showPersistBanner(savedAt) {
   const existing = document.getElementById('persist-banner');
   if (existing) existing.remove();
@@ -484,10 +494,10 @@ function showPersistBanner(savedAt) {
   if (ticker) ticker.after(bar);
 }
 
-function clearAndReset() {
+async function clearAndReset() {
   if (!confirm('Clear all saved portfolio data and snapshots? This cannot be undone.')) return;
-  clearStoredData();
-  clearSnapshots();
+  await clearStoredData();
+  await clearSnapshots();
   location.reload();
 }
 
@@ -537,7 +547,6 @@ function buildMonthlyBreakupHTML(lots, type) {
     yearMap[y].lots     += m.lots;
   });
 
-  // FIX Issue #11: use shared MONTH_NAMES constant
   const yearKpis = Object.entries(yearMap)
     .sort((a, b) => a[0].localeCompare(b[0]))
     .map(([y, yv]) => {
@@ -821,21 +830,24 @@ function toggleDrill(type, i) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// THEME
+// THEME — async read from IndexedDB
 // ══════════════════════════════════════════════════════════════
-function toggleTheme() {
-  const isLight = document.documentElement.classList.toggle('light');
-  const btn = document.getElementById('theme-toggle-btn');
-  if (btn) btn.textContent = isLight ? '🌙' : '☀️';
-  localStorage.setItem('portfin-theme', isLight ? 'light' : 'dark');
-}
-(function initTheme() {
-  if (localStorage.getItem('portfin-theme') === 'light') {
+async function initTheme() {
+  const saved = await PortFinDB.get('portfin-theme');
+  if (saved === 'light') {
     document.documentElement.classList.add('light');
     const b = document.getElementById('theme-toggle-btn');
     if (b) b.textContent = '🌙';
   }
-})();
+}
+
+function toggleTheme() {
+  const isLight = document.documentElement.classList.toggle('light');
+  const btn = document.getElementById('theme-toggle-btn');
+  if (btn) btn.textContent = isLight ? '🌙' : '☀️';
+  // fire-and-forget — no need to await
+  PortFinDB.set('portfin-theme', isLight ? 'light' : 'dark');
+}
 
 // ══════════════════════════════════════════════════════════════
 // MOBILE SIDEBAR

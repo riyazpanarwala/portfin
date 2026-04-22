@@ -2,11 +2,11 @@
 
 // FIX: chart timer managed by scheduleChart() in common.js
 
-function renderSnapshots() {
+async function renderSnapshots() {
   const el = document.getElementById("page-snapshots");
   if (!el) return;
 
-  const snapshots = getSnapshots();
+  const snapshots = await getSnapshots();
   const container = document.getElementById("snapshots-content");
   if (!container) return;
 
@@ -170,7 +170,7 @@ function renderSnapshots() {
 
     <div style="margin-top:12px;display:flex;justify-content:flex-end">
       <button class="export-btn" onclick="exportSnapshotsCSV()" style="margin-right:8px">⬇ Export CSV</button>
-      <button onclick="if(confirm('Delete all snapshot history?')){clearSnapshots();renderSnapshots();}" style="background:var(--red-bg);border:1px solid var(--red-dim);border-radius:5px;color:var(--red);font-size:11px;padding:6px 14px;cursor:pointer">🗑 Clear history</button>
+      <button onclick="(async()=>{if(confirm('Delete all snapshot history?')){await clearSnapshots();await renderSnapshots();}})()" style="background:var(--red-bg);border:1px solid var(--red-dim);border-radius:5px;color:var(--red);font-size:11px;padding:6px 14px;cursor:pointer">🗑 Clear history</button>
     </div>
   `;
 
@@ -314,8 +314,8 @@ function renderSnapshots() {
   });
 }
 
-function exportSnapshotsCSV() {
-  const snapshots = getSnapshots();
+async function exportSnapshotsCSV() {
+  const snapshots = await getSnapshots();
   if (!snapshots.length) {
     alert("No snapshots to export.");
     return;

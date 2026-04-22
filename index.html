@@ -748,6 +748,8 @@
   referrerpolicy="no-referrer">
 </script>
 
+<!-- db.js MUST be first: opens IndexedDB and migrates localStorage data -->
+<script src="js/db.js"></script>
 <!-- common.js first: DATA, formatters, helpers, state -->
 <script src="js/common.js"></script>
 <!-- page modules — order among these doesn't matter -->
