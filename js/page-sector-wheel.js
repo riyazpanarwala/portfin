@@ -1,24 +1,16 @@
 // ── page-sector-wheel.js — Sector Rotation Wheel ────────────────────────────
-// FIXES applied vs original:
-//   1. MEMORY LEAK — window._swSectorData held the full previous sector array
-//      alive across renders. Now stored as a module-level variable (_swSectorData)
-//      and explicitly nulled before each render so the previous array is eligible
-//      for GC between renders.
-//   2. MEMORY LEAK — tooltip div was recreated inside _drawSectorWheel() via
-//      innerHTML on every render, which detached the old node without removing
-//      it from the DOM when placed as a sibling. Now the tooltip is created once
-//      and re-used; _drawSectorWheel() no longer injects it via innerHTML.
-//   3. CHART LIFECYCLE — _drawSectorRadar() used el._chartInst directly;
-//      now uses scheduleChart() for consistency and timer-cancel safety.
-//   4. swHighlight / swUnhighlight now reference the module-level variable,
-//      not window._swSectorData, removing the window pollution.
+// FIXES applied:
+//   1. MEMORY LEAK — _swSectorData is module-level (not window property).
+//   2. MEMORY LEAK — tooltip div created once via _getSwTooltip(), reused.
+//   3. CHART LIFECYCLE — _drawSectorRadar() uses scheduleChart().
+//   4. XSS / inline handlers — SVG segments built with createElementNS +
+//      addEventListener instead of innerHTML with onmouseenter= strings.
+//      This eliminates the inline-event-handler XSS vector entirely.
 
 // ── Module-level tooltip node (created once, reused) ─────────
-// Avoids repeated appendChild / orphaned nodes across re-renders.
 let _swTooltipEl = null;
 function _getSwTooltip() {
   if (!_swTooltipEl || !document.body.contains(_swTooltipEl)) {
-    // Remove any stale element left from a previous session
     const stale = document.getElementById('sw-tooltip-global');
     if (stale) stale.remove();
     _swTooltipEl = document.createElement('div');
@@ -32,8 +24,6 @@ function _getSwTooltip() {
   return _swTooltipEl;
 }
 
-// FIX: module-level instead of window property — previous array becomes
-// GC-eligible as soon as renderSectorWheel() overwrites this reference.
 let _swSectorData = null;
 
 // ── Sector config ──────────────────────────────────────────────
@@ -57,7 +47,6 @@ function renderSectorWheel() {
   const container = document.getElementById("sector-wheel-wrap");
   if (!container) return;
 
-  // FIX: null out previous data immediately so it's GC-eligible during render
   _swSectorData = null;
 
   const totalMFInv = DATA.funds.reduce((a, f) => a + f.Invested, 0);
@@ -93,11 +82,9 @@ function renderSectorWheel() {
 
   const grandTotal = Object.values(combined).reduce((a, v) => a + v, 0) || 1;
 
-  // ── 2. Equal-weight benchmark ─────────────────────────────
   const activeSectors = SW_SECTORS.filter(s => combined[s.key] > 0);
   const equalWeight   = activeSectors.length > 0 ? 100 / activeSectors.length : 0;
 
-  // ── 3. Rotation signal per sector ─────────────────────────
   function getSignal(pct) {
     if (pct > equalWeight * 1.5)  return { label: "OVERWEIGHT",  color: "#f85149", arrow: "▲▲" };
     if (pct > equalWeight * 1.15) return { label: "SLIGHT OW",   color: "#e3b341", arrow: "▲" };
@@ -116,7 +103,6 @@ function renderSectorWheel() {
     .filter(s => s.val > 0)
     .sort((a, b) => b.pct - a.pct);
 
-  // FIX: assign to module-level variable, not window property
   _swSectorData = sectorData;
 
   // ── 4. Build HTML ─────────────────────────────────────────
@@ -148,7 +134,6 @@ function renderSectorWheel() {
     <div id="sw-insights" style="margin-top:4px"></div>
   `;
 
-  // ── 5. Populate KPIs ──────────────────────────────────────
   const overweight  = sectorData.filter(s => s.signal.label.includes("OW") || s.signal.label === "OVERWEIGHT");
   const underweight = sectorData.filter(s => s.signal.label.includes("UW") || s.signal.label === "UNDERWEIGHT");
   const topSec      = sectorData[0];
@@ -170,13 +155,9 @@ function renderSectorWheel() {
     )
     .join("");
 
-  // ── 6. Draw SVG donut wheel ───────────────────────────────
   _drawSectorWheel(sectorData, grandTotal);
-
-  // ── 7. Radar chart ────────────────────────────────────────
   _drawSectorRadar(sectorData, equalWeight);
 
-  // ── 8. Signal legend ──────────────────────────────────────
   document.getElementById("sw-signal-legend").innerHTML = [
     { label: "OVERWEIGHT",  color: "#f85149", desc: ">150% of EW" },
     { label: "SLIGHT OW",   color: "#e3b341", desc: "115–150%"    },
@@ -193,7 +174,6 @@ function renderSectorWheel() {
     )
     .join("");
 
-  // ── 9. Detail rows ────────────────────────────────────────
   const maxPct = sectorData[0]?.pct || 1;
   document.getElementById("sw-detail-rows").innerHTML = sectorData
     .map(s => {
@@ -238,13 +218,13 @@ function renderSectorWheel() {
     })
     .join("");
 
-  // ── 10. Insights ──────────────────────────────────────────
   _renderWheelInsights(sectorData, equalWeight, grandTotal);
 }
 
-// ── Draw SVG donut wheel ──────────────────────────────────────
-// FIX: tooltip is no longer injected via innerHTML here.
-// It is created once via _getSwTooltip() and lives on document.body.
+// ── Draw SVG donut wheel via DOM API (no innerHTML, no inline handlers) ──────
+// FIX: Uses createElementNS + setAttribute + addEventListener throughout.
+// This eliminates both the XSS risk from innerHTML-injected SVG and the
+// inline-handler fragility noted in issues #1 and #2.
 function _drawSectorWheel(sectorData, grandTotal) {
   const wrap = document.getElementById("sw-svg-wrap");
   if (!wrap) return;
@@ -253,14 +233,22 @@ function _drawSectorWheel(sectorData, grandTotal) {
   const R_OUT = 120, R_IN = 68;
   const GAP   = 1.5;
 
-  let angle = -90;
-  let paths = "", labels = "";
+  const SVG_NS = "http://www.w3.org/2000/svg";
+
+  // Create the SVG element via DOM
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("viewBox", `0 0 ${SIZE} ${SIZE}`);
+  svg.setAttribute("width", String(SIZE));
+  svg.setAttribute("height", String(SIZE));
+  svg.id = "sw-svg";
 
   const toRad = d => (d * Math.PI) / 180;
   const polar = (cx, cy, r, deg) => ({
     x: cx + r * Math.cos(toRad(deg)),
     y: cy + r * Math.sin(toRad(deg)),
   });
+
+  let angle = -90;
 
   sectorData.forEach(s => {
     const sweep = (s.pct / 100) * 360 - GAP;
@@ -280,64 +268,114 @@ function _drawSectorWheel(sectorData, grandTotal) {
     const la = sweep > 180 ? 1 : 0;
     const sigClr = s.signal.color;
 
-    paths += `
-      <path
-        d="M${p1.x.toFixed(2)},${p1.y.toFixed(2)}
-           L${p2.x.toFixed(2)},${p2.y.toFixed(2)}
-           A${R_OUT},${R_OUT} 0 ${la},1 ${p3.x.toFixed(2)},${p3.y.toFixed(2)}
-           L${p4.x.toFixed(2)},${p4.y.toFixed(2)}
-           A${R_IN},${R_IN}   0 ${la},0 ${p1.x.toFixed(2)},${p1.y.toFixed(2)}Z"
-        fill="${s.color}" opacity="0.85"
-        class="sw-segment" data-sector="${esc(s.key)}"
-        style="cursor:pointer;transition:opacity .2s"
-        onmouseenter="swHighlight(this,'${esc(s.key)}')"
-        onmouseleave="swUnhighlight()"
-      />
-      <path
-        d="M${p2s.x.toFixed(2)},${p2s.y.toFixed(2)}
-           A${R_OUT - 6},${R_OUT - 6} 0 ${la},1 ${p3s.x.toFixed(2)},${p3s.y.toFixed(2)}
-           L${p3e.x.toFixed(2)},${p3e.y.toFixed(2)}
-           A${R_OUT},${R_OUT}         0 ${la},0 ${p2e.x.toFixed(2)},${p2e.y.toFixed(2)}Z"
-        fill="${sigClr}" opacity="0.70" pointer-events="none"
-      />`;
+    // Main segment path
+    const segPath = document.createElementNS(SVG_NS, "path");
+    segPath.setAttribute("d",
+      `M${p1.x.toFixed(2)},${p1.y.toFixed(2)}` +
+      `L${p2.x.toFixed(2)},${p2.y.toFixed(2)}` +
+      `A${R_OUT},${R_OUT} 0 ${la},1 ${p3.x.toFixed(2)},${p3.y.toFixed(2)}` +
+      `L${p4.x.toFixed(2)},${p4.y.toFixed(2)}` +
+      `A${R_IN},${R_IN}   0 ${la},0 ${p1.x.toFixed(2)},${p1.y.toFixed(2)}Z`
+    );
+    segPath.setAttribute("fill", s.color);
+    segPath.setAttribute("opacity", "0.85");
+    segPath.setAttribute("class", "sw-segment");
+    segPath.dataset.sector = s.key;
+    segPath.style.cursor = "pointer";
+    segPath.style.transition = "opacity .2s";
 
+    // FIX: addEventListener replaces inline onmouseenter/onmouseleave strings
+    const sKey = s.key; // close over stable value
+    segPath.addEventListener("mouseenter", function(e) { swHighlight(this, sKey); });
+    segPath.addEventListener("mouseleave", swUnhighlight);
+
+    svg.appendChild(segPath);
+
+    // Signal colour arc (outer ring)
+    const sigPath = document.createElementNS(SVG_NS, "path");
+    sigPath.setAttribute("d",
+      `M${p2s.x.toFixed(2)},${p2s.y.toFixed(2)}` +
+      `A${R_OUT - 6},${R_OUT - 6} 0 ${la},1 ${p3s.x.toFixed(2)},${p3s.y.toFixed(2)}` +
+      `L${p3e.x.toFixed(2)},${p3e.y.toFixed(2)}` +
+      `A${R_OUT},${R_OUT}         0 ${la},0 ${p2e.x.toFixed(2)},${p2e.y.toFixed(2)}Z`
+    );
+    sigPath.setAttribute("fill", sigClr);
+    sigPath.setAttribute("opacity", "0.70");
+    sigPath.setAttribute("pointer-events", "none");
+    svg.appendChild(sigPath);
+
+    // Label text
     if (sweep > 18) {
       const midAngle = a1 + sweep / 2;
       const lp = polar(CX, CY, (R_IN + R_OUT) / 2, midAngle);
-      labels += `
-        <text
-          x="${lp.x.toFixed(2)}" y="${lp.y.toFixed(2)}"
-          text-anchor="middle" dominant-baseline="middle"
-          font-size="${sweep > 30 ? 9 : 8}"
-          fill="#fff" font-family="DM Mono,monospace"
-          font-weight="600" pointer-events="none"
-          style="text-shadow:0 1px 3px rgba(0,0,0,.6)"
-        >${s.label.slice(0, 7)}</text>`;
+      const txt = document.createElementNS(SVG_NS, "text");
+      txt.setAttribute("x", lp.x.toFixed(2));
+      txt.setAttribute("y", lp.y.toFixed(2));
+      txt.setAttribute("text-anchor", "middle");
+      txt.setAttribute("dominant-baseline", "middle");
+      txt.setAttribute("font-size", sweep > 30 ? "9" : "8");
+      txt.setAttribute("fill", "#fff");
+      txt.setAttribute("font-family", "DM Mono,monospace");
+      txt.setAttribute("font-weight", "600");
+      txt.setAttribute("pointer-events", "none");
+      txt.style.textShadow = "0 1px 3px rgba(0,0,0,.6)";
+      // Use textContent — safe, no XSS
+      txt.textContent = s.label.slice(0, 7);
+      svg.appendChild(txt);
     }
   });
 
+  // Centre hole
+  const hole = document.createElementNS(SVG_NS, "circle");
+  hole.setAttribute("cx", String(CX));
+  hole.setAttribute("cy", String(CY));
+  hole.setAttribute("r", String(R_IN));
+  hole.setAttribute("fill", "var(--bg2)");
+  svg.appendChild(hole);
+
+  // Centre labels
   const topSec = sectorData[0];
-  const centre = `
-    <text x="${CX}" y="${CY - 14}" text-anchor="middle" font-size="10" fill="var(--muted)" font-family="DM Mono,monospace">TOP SECTOR</text>
-    <text x="${CX}" y="${CY + 4}"  text-anchor="middle" font-size="13" fill="${topSec?.color || "#d4a843"}" font-family="Syne,sans-serif" font-weight="700">${topSec?.label || "—"}</text>
-    <text x="${CX}" y="${CY + 20}" text-anchor="middle" font-size="11" fill="${topSec?.color || "#7d8590"}" font-family="DM Mono,monospace">${topSec ? topSec.pct.toFixed(1) + "%" : ""}</text>`;
 
-  // FIX: SVG only — tooltip lives on document.body via _getSwTooltip()
-  wrap.innerHTML = `
-    <svg viewBox="0 0 ${SIZE} ${SIZE}" width="${SIZE}" height="${SIZE}"
-         xmlns="http://www.w3.org/2000/svg" id="sw-svg">
-      ${paths}
-      <circle cx="${CX}" cy="${CY}" r="${R_IN}" fill="var(--bg2)"/>
-      ${centre}
-      ${labels}
-    </svg>`;
+  const lblTop = document.createElementNS(SVG_NS, "text");
+  lblTop.setAttribute("x", String(CX));
+  lblTop.setAttribute("y", String(CY - 14));
+  lblTop.setAttribute("text-anchor", "middle");
+  lblTop.setAttribute("font-size", "10");
+  lblTop.setAttribute("fill", "var(--muted)");
+  lblTop.setAttribute("font-family", "DM Mono,monospace");
+  lblTop.textContent = "TOP SECTOR";
+  svg.appendChild(lblTop);
 
-  // Ensure the tooltip element exists (creates it on first call)
+  const lblName = document.createElementNS(SVG_NS, "text");
+  lblName.setAttribute("x", String(CX));
+  lblName.setAttribute("y", String(CY + 4));
+  lblName.setAttribute("text-anchor", "middle");
+  lblName.setAttribute("font-size", "13");
+  lblName.setAttribute("fill", topSec?.color || "#d4a843");
+  lblName.setAttribute("font-family", "Syne,sans-serif");
+  lblName.setAttribute("font-weight", "700");
+  lblName.textContent = topSec?.label || "—";
+  svg.appendChild(lblName);
+
+  const lblPct = document.createElementNS(SVG_NS, "text");
+  lblPct.setAttribute("x", String(CX));
+  lblPct.setAttribute("y", String(CY + 20));
+  lblPct.setAttribute("text-anchor", "middle");
+  lblPct.setAttribute("font-size", "11");
+  lblPct.setAttribute("fill", topSec?.color || "#7d8590");
+  lblPct.setAttribute("font-family", "DM Mono,monospace");
+  lblPct.textContent = topSec ? topSec.pct.toFixed(1) + "%" : "";
+  svg.appendChild(lblPct);
+
+  // Replace existing content
+  wrap.innerHTML = "";
+  wrap.appendChild(svg);
+
+  // Ensure the tooltip element exists
   _getSwTooltip();
 }
 
 // ── Wheel interaction ─────────────────────────────────────────
-// FIX: reads _swSectorData (module-level) instead of window._swSectorData
 function swHighlight(el, sectorKey) {
   document.querySelectorAll(".sw-segment").forEach(s => {
     s.style.opacity = s.dataset.sector === sectorKey ? "1" : "0.35";
@@ -347,15 +385,34 @@ function swHighlight(el, sectorKey) {
   const tt = _getSwTooltip();
   if (!s || !tt) return;
 
-  tt.innerHTML = `
-    <div style="font-weight:700;color:${s.color};margin-bottom:6px;font-size:13px">${s.icon} ${s.label}</div>
-    <div style="color:var(--muted);margin-bottom:3px">Total exposure: <span style="color:var(--text);font-weight:600">${s.pct.toFixed(2)}%</span></div>
-    <div style="color:var(--muted);margin-bottom:3px">Amount: <span style="color:var(--gold);font-weight:600">${fmtL(Math.round(s.val))}</span></div>
-    ${s.mfV > 0 ? `<div style="color:var(--muted);margin-bottom:2px">Via MF: <span style="color:#58a6ff">${fmtL(Math.round(s.mfV))}</span></div>` : ""}
-    ${s.stV > 0 ? `<div style="color:var(--muted);margin-bottom:4px">Direct: <span style="color:#a371f7">${fmtL(Math.round(s.stV))}</span></div>` : ""}
-    <div style="font-size:9px;font-weight:700;color:${s.signal.color};margin-top:6px;padding:3px 0;border-top:1px solid var(--border)">
-      ${s.signal.arrow} ${s.signal.label}
-    </div>`;
+  // Build tooltip via DOM, not innerHTML, to avoid XSS from fund/sector names
+  tt.innerHTML = "";
+  const title = document.createElement("div");
+  title.style.cssText = `font-weight:700;color:${s.color};margin-bottom:6px;font-size:13px`;
+  title.textContent = s.icon + " " + s.label;
+  tt.appendChild(title);
+
+  const makeRow = (label, val, valColor) => {
+    const row = document.createElement("div");
+    row.style.cssText = "color:var(--muted);margin-bottom:3px";
+    const lspan = document.createTextNode(label + ": ");
+    const vspan = document.createElement("span");
+    vspan.style.cssText = `color:${valColor || "var(--text)"};font-weight:600`;
+    vspan.textContent = val;
+    row.append(lspan, vspan);
+    return row;
+  };
+
+  tt.appendChild(makeRow("Total exposure", s.pct.toFixed(2) + "%"));
+  tt.appendChild(makeRow("Amount", fmtL(Math.round(s.val)), "var(--gold)"));
+  if (s.mfV > 0) tt.appendChild(makeRow("Via MF", fmtL(Math.round(s.mfV)), "#58a6ff"));
+  if (s.stV > 0) tt.appendChild(makeRow("Direct", fmtL(Math.round(s.stV)), "#a371f7"));
+
+  const sig = document.createElement("div");
+  sig.style.cssText = `font-size:9px;font-weight:700;color:${s.signal.color};margin-top:6px;padding:3px 0;border-top:1px solid var(--border)`;
+  sig.textContent = s.signal.arrow + " " + s.signal.label;
+  tt.appendChild(sig);
+
   tt.style.display = "block";
 
   const svgWrap = document.getElementById("sw-svg-wrap");
@@ -373,7 +430,6 @@ function swUnhighlight() {
 }
 
 // ── Radar chart ───────────────────────────────────────────────
-// FIX: uses scheduleChart() for consistent lifecycle management
 function _drawSectorRadar(sectorData, equalWeight) {
   scheduleChart("chart-sector-radar", 60, el => {
     if (!window.Chart) return null;

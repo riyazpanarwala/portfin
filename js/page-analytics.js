@@ -1027,9 +1027,14 @@ function buildFundAnalysis() {
 }
 
 let bmPeriod = "5y";
+// FIX #7: Do NOT clear _fundAnalysisCache when the period chip changes.
+// Per-fund analysis uses each fund's actual holdDays, not bmPeriod.
+// Only the bar chart changes; renderBenchmark() handles that directly from
+// BM_ANNUAL lookup — no need to re-run the expensive buildFundAnalysis().
+ 
 function setBMPeriod(p) {
   bmPeriod = p;
-  _fundAnalysisCache = null;
+  // Intentionally NOT clearing _fundAnalysisCache here (see FIX #7)
   renderBenchmark();
 }
 

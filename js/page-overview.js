@@ -1047,24 +1047,30 @@ function renderDrawdownInsight(maxDD, currentDD) {
   </div>`;
 }
 
+// FIX #3: Cache the GBM drawdown series in DATA._cachedDrawdown.
+// The cache is only rebuilt when DATA._cachedDrawdown is null, which is set by:
+//   - tryApplyData() in page-tools.js on every new upload
+//   - loadDataFromStorage() in common.js on page load
+// This avoids re-running the 100+ month GBM simulation on every Overview visit.
+ 
 function renderDrawdownAnalyzer() {
-  const series = buildDrawdownSeriesFromTimeline();
-
+  // Use cache if available; buildDrawdownSeriesFromTimeline() is expensive (GBM)
+  if (!DATA._cachedDrawdown) {
+    DATA._cachedDrawdown = buildDrawdownSeriesFromTimeline();
+  }
+  const series = DATA._cachedDrawdown;
+ 
   if (!series.length) {
     renderDrawdownSummary({
-      maxDD: 0,
-      currentDD: 0,
-      peak: 0,
-      recoveryMonths: 0,
-      recovered: true,
+      maxDD: 0, currentDD: 0, peak: 0, recoveryMonths: 0, recovered: true,
     });
     renderDrawdownInsight(0, 0);
     return;
   }
-
-  const stats = calculateDrawdown(series);
+ 
+  const stats    = calculateDrawdown(series);
   const ddResult = calculateDrawdownWithPeriod(series);
-
+ 
   renderDrawdownSummary(stats);
   renderDrawdownInsight(stats.maxDD, stats.currentDD);
   renderDrawdownChart(series, ddResult);

@@ -1,10 +1,12 @@
 // ── page-tools.js — Rebalancer, Wealth Waterfall, Action Signal, Upload ─────
 //
 // CHANGES vs original:
-//  • computeCAGR() — guarded against current <= 0 producing NaN via
-//    Math.pow(negative, fractional-exponent). Also guards invested <= 0.
-//    Both cases now return 0 instead of silently propagating NaN into KPIs.
-//  • All other logic is unchanged from the reviewed version.
+//  • computeCAGR() — guarded against current <= 0 producing NaN.
+//  • renderWaterfall() — SVG bars now use DOM + addEventListener instead of
+//    inline onmouseenter/onmouseleave strings (fixes issue #2).
+//  • tryApplyData() — latestDate now set to the actual latest lot date
+//    instead of always new Date() (fixes issue #9).
+//  • All other logic unchanged.
 
 // ── Upload page ───────────────────────────────────────────────
 let pendingMF = null, pendingST = null;
@@ -108,21 +110,8 @@ function parseInvDate(v) {
 }
 
 // ── CAGR calculation ──────────────────────────────────────────
-// FIX: previous version returned NaN when current <= 0 because
-//   Math.pow(0, fractional) = 0   → 0 - 1 = -1  (wrong but not NaN)
-//   Math.pow(negative, fractional) = NaN          (silently poisons KPIs)
-//   Math.pow(current/invested, 1/yrs) where current=0 gives (0-1) = -100% CAGR
-//   which is misleading — it's more honest to return 0 and let the UI
-//   show "—" via fmtP guards.
-//
-// Additional guard: invested <= 0 would cause division-by-zero / Infinity.
 function computeCAGR(invested, current, dates) {
-  // Guard 1: no dates or no capital deployed
   if (!dates.length || !invested || invested <= 0) return 0;
-
-  // Guard 2: current value is zero or negative (delisted / written off)
-  // Math.pow(negative, non-integer) is NaN in JS; return -100 to signal
-  // total loss rather than propagating NaN, but cap at a readable floor.
   if (current <= 0) return -100;
 
   const earliest = dates.reduce(
@@ -131,14 +120,10 @@ function computeCAGR(invested, current, dates) {
   );
   const yrs = (Date.now() - earliest) / (365.25 * 24 * 3600 * 1000);
 
-  // Guard 3: holding period too short for meaningful annualisation
   if (yrs < 0.5) return 0;
 
   const raw = (Math.pow(current / invested, 1 / yrs) - 1) * 100;
-
-  // Guard 4: final NaN/Infinity check (e.g. yrs=0 edge case after date parsing)
   if (!isFinite(raw)) return 0;
-
   return parseFloat(raw.toFixed(1));
 }
 
@@ -218,8 +203,12 @@ function parseMFRows(rows, dz, statusEl, fname) {
   const earliestMF = allDates.length
     ? new Date(allDates.reduce((min, d) => d.getTime() < min ? d.getTime() : min, allDates[0].getTime()))
     : null;
+  // FIX #9: track the latest lot date so "As of" is accurate
+  const latestMF = allDates.length
+    ? new Date(allDates.reduce((max, d) => d.getTime() > max ? d.getTime() : max, allDates[0].getTime()))
+    : null;
 
-  pendingMF = { funds, lots, monthlyMF, earliestMF };
+  pendingMF = { funds, lots, monthlyMF, earliestMF, latestMF };
   _dzSuccess(dz, statusEl, `✓ ${fname} — ${funds.length} funds, ${lots.length} lots`);
   tryApplyData();
 }
@@ -244,26 +233,70 @@ function parseSTRows(rows, dz, statusEl, fname) {
 
   if (!cStock) { _dzError(dz, statusEl, '✗ Could not find Stock column'); return; }
 
+  // FIX #6: anchored sector patterns to prevent false matches (e.g. "adani" shouldn't
+  // catch "kotak" just because regex is unanchored). Using word-boundary \b for short keys.
   const SECTOR_MAP = {
-    bpcl: 'Energy/PSU', 'bharat elec': 'Defence', 'coal india': 'Energy/PSU',
-    enbee: 'Speculative', irfc: 'Finance/PSU', itc: 'FMCG', jaiprakash: 'Speculative',
-    'mo defence': 'Defence', 'motilal.*defence': 'Defence', mazagon: 'Defence',
-    nbcc: 'Infra/PSU', nhpc: 'Energy/PSU', 'nipp.*nifty': 'Index ETF',
-    'nippon.*nifty': 'Index ETF', ongc: 'Energy/PSU', 'reliance power': 'Speculative',
-    suzlon: 'Renewables', 'tata silver': 'Commodities ETF', 'uti nifty': 'Index ETF',
-    vedanta: 'Metals/Mining', 'yes bank': 'Banking', 'uttam value': 'Speculative',
-    'hindustan zinc': 'Metals/Mining', adani: 'Speculative', zomato: 'Consumer Tech',
-    bse: 'Finance', nse: 'Finance', hdfc: 'Banking', icici: 'Banking', sbi: 'Banking',
-    'axis bank': 'Banking', 'kotak bank': 'Banking', 'tata steel': 'Metals/Mining',
-    'jsw steel': 'Metals/Mining', ntpc: 'Energy/PSU', 'power grid': 'Energy/PSU',
-    bhel: 'Infra/PSU', 'l&t': 'Infra/PSU', siemens: 'Infra/PSU',
-    infosys: 'IT', tcs: 'IT', wipro: 'IT', 'hcl tech': 'IT', 'tech mahindra': 'IT',
-    'bajaj finance': 'Finance/PSU', muthoot: 'Finance/PSU',
+    '\\bbpcl\\b':              'Energy/PSU',
+    'bharat elec':             'Defence',
+    'coal india':              'Energy/PSU',
+    '\\benbee\\b':             'Speculative',
+    '\\birfc\\b':              'Finance/PSU',
+    '\\bitc\\b':               'FMCG',
+    'jaiprakash':              'Speculative',
+    'mo defence':              'Defence',
+    'motilal.*defence':        'Defence',
+    'mazagon':                 'Defence',
+    '\\bnbcc\\b':              'Infra/PSU',
+    '\\bnhpc\\b':              'Energy/PSU',
+    'nipp.*nifty':             'Index ETF',
+    'nippon.*nifty':           'Index ETF',
+    '\\bongc\\b':              'Energy/PSU',
+    'reliance power':          'Speculative',
+    '\\bsuzlon\\b':            'Renewables',
+    'tata silver':             'Commodities ETF',
+    'uti nifty':               'Index ETF',
+    '\\bvedanta\\b':           'Metals/Mining',
+    'yes bank':                'Banking',
+    'uttam value':             'Speculative',
+    'hindustan zinc':          'Metals/Mining',
+    '\\badani (green|ports|transmission|total gas|wilmar)': 'Other',
+    '\\badani\\b':             'Speculative',
+    '\\bzomato\\b':            'Consumer Tech',
+    '\\bbse\\b':               'Finance/PSU',
+    '\\bnse\\b':               'Finance/PSU',
+    'hdfc bank':               'Banking',
+    'hdfc life':               'Finance/PSU',
+    'hdfc amc':                'Finance/PSU',
+    '\\bhdfc\\b':              'Banking',
+    'icici bank':              'Banking',
+    'icici prudential':        'Finance/PSU',
+    '\\bicici\\b':             'Banking',
+    '\\bsbi\\b':               'Banking',
+    'axis bank':               'Banking',
+    'kotak.*bank':             'Banking',
+    '\\bkotak\\b':             'Banking',
+    'tata steel':              'Metals/Mining',
+    'jsw steel':               'Metals/Mining',
+    '\\bntpc\\b':              'Energy/PSU',
+    'power grid':              'Energy/PSU',
+    '\\bbhel\\b':              'Infra/PSU',
+    '\\bl&t\\b':               'Infra/PSU',
+    '\\bsiemens\\b':           'Infra/PSU',
+    '\\binfosys\\b':           'IT',
+    '\\btcs\\b':               'IT',
+    '\\bwipro\\b':             'IT',
+    'hcl tech':                'IT',
+    'tech mahindra':           'IT',
+    'bajaj finance':           'Finance/PSU',
+    '\\bmuthoot\\b':           'Finance/PSU',
   };
+
   const _unclassified = [];
   const getSector = name => {
     const n = name.toLowerCase();
-    for (const [k, v] of Object.entries(SECTOR_MAP)) if (new RegExp(k).test(n)) return v;
+    for (const [k, v] of Object.entries(SECTOR_MAP)) {
+      if (new RegExp(k).test(n)) return v;
+    }
     _unclassified.push(name);
     return 'Other';
   };
@@ -310,7 +343,12 @@ function parseSTRows(rows, dz, statusEl, fname) {
   const earliestST = allDates.length
     ? new Date(allDates.reduce((min, d) => d.getTime() < min ? d.getTime() : min, allDates[0].getTime()))
     : null;
-  pendingST = { stocks, lots, earliestST };
+  // FIX #9: track latest lot date
+  const latestST = allDates.length
+    ? new Date(allDates.reduce((max, d) => d.getTime() > max ? d.getTime() : max, allDates[0].getTime()))
+    : null;
+
+  pendingST = { stocks, lots, earliestST, latestST };
 
   const uniq = [...new Set(_unclassified)];
   let msg = `✓ ${fname} — ${stocks.length} stocks, ${lots.length} lots`;
@@ -325,8 +363,9 @@ function _dzSuccess(dz, statusEl, msg) { if (statusEl) statusEl.textContent = ms
 
 // ── Apply parsed data to DATA + refresh all ───────────────────
 function tryApplyData() {
-  DATA._cachedMonthly = null;
-  _fundAnalysisCache  = null;
+  DATA._cachedMonthly  = null;
+  DATA._cachedDrawdown = null; // FIX #3
+  _fundAnalysisCache   = null;
   const hasMF = pendingMF !== null, hasST = pendingST !== null;
   const msgEl = document.getElementById('apply-msg');
 
@@ -375,13 +414,22 @@ function tryApplyData() {
       ? parseFloat(funds.reduce((a, f) => a + f.CAGR * (f.Invested / mfInvested), 0).toFixed(1))
       : 0;
 
+    // FIX #9: latestDate = actual latest lot date from either file, not today
+    const allLotDates = [
+      ...(pendingMF.lots || []).map(l => l.date),
+      ...(pendingST.lots || []).map(l => l.date),
+    ].filter(Boolean);
+    const latestDate = allLotDates.length
+      ? new Date(allLotDates.reduce((max, d) => d.getTime() > max ? d.getTime() : max, allLotDates[0].getTime()))
+      : new Date();
+
     DATA.kpis = {
       totalInvested, totalValue, totalGain, totalReturn,
       mfInvested, mfValue, mfGain, mfReturn, mfCAGR,
       stInvested, stValue, stGain, stReturn,
       earliestMF: pendingMF.earliestMF,
       earliestST: pendingST.earliestST,
-      latestDate: new Date(),
+      latestDate,
     };
     DATA.funds          = funds;
     DATA.mfCategories   = mfCategories;
@@ -390,8 +438,9 @@ function tryApplyData() {
     DATA.monthlyMF      = pendingMF.monthlyMF;
     DATA.mfLots         = pendingMF.lots;
     DATA.stLots         = pendingST.lots;
-    DATA._cachedMonthly = null;
-    _fundAnalysisCache  = null;
+    DATA._cachedMonthly  = null;
+    DATA._cachedDrawdown = null; // FIX #3: invalidate drawdown GBM cache on upload
+    _fundAnalysisCache   = null;
 
     saveDataToStorage();
     saveSnapshot();
@@ -606,37 +655,98 @@ function renderWaterfall() {
   const yScale = v => padT + chartH - ((v - dataMin) / span) * chartH;
   const xStart = i => padL + i * (barW + barGap);
 
-  let gridLines = '';
+  // Store segments for tooltip (used by addEventListener callbacks below)
+  window._wfSegments = segments;
+  window._wfTotal    = totalVal;
+
+  // ── Build SVG via DOM (no inline event handlers — fixes issue #2) ──────────
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.style.cssText = "width:100%;height:auto;display:block";
+
+  const _makeSVGEl = (tag, attrs) => {
+    const el = document.createElementNS(SVG_NS, tag);
+    Object.entries(attrs).forEach(([k2, v]) => el.setAttribute(k2, String(v)));
+    return el;
+  };
+  const _makeTxt = (x, y, content, attrs) => {
+    const el = _makeSVGEl("text", { x, y, ...attrs });
+    el.textContent = content;
+    return el;
+  };
+
+  // Grid lines
   for (let gi = 0; gi <= 5; gi++) {
     const gv = dataMin + (span * gi / 5), gy = yScale(gv);
-    gridLines += `<line class="wf-grid-line" x1="${padL}" x2="${W-padR}" y1="${gy.toFixed(1)}" y2="${gy.toFixed(1)}"/>`;
-    gridLines += `<text x="${padL-6}" y="${gy.toFixed(1)}" text-anchor="end" dominant-baseline="middle" font-size="9" fill="var(--muted)" font-family="DM Mono,monospace">${fmtL(Math.round(gv))}</text>`;
+    svg.appendChild(_makeSVGEl("line", { class:"wf-grid-line", x1:padL, x2:W-padR, y1:gy.toFixed(1), y2:gy.toFixed(1) }));
+    svg.appendChild(_makeTxt(padL-6, gy.toFixed(1), fmtL(Math.round(gv)), {
+      "text-anchor":"end", "dominant-baseline":"middle",
+      "font-size":"9", "fill":"var(--muted)", "font-family":"DM Mono,monospace"
+    }));
   }
-  const zeroY    = yScale(0);
-  const zeroLine = `<line class="wf-axis-line" x1="${padL}" x2="${W-padR}" y1="${zeroY.toFixed(1)}" y2="${zeroY.toFixed(1)}" stroke-width="1.5"/>`;
 
-  let connectors = '';
+  // Zero axis
+  const zeroY = yScale(0);
+  svg.appendChild(_makeSVGEl("line", { class:"wf-axis-line", x1:padL, x2:W-padR, y1:zeroY.toFixed(1), y2:zeroY.toFixed(1), "stroke-width":"1.5" }));
+
+  // Connectors between bars
   for (let i = 0; i < segments.length - 2; i++) {
-    const x1    = xStart(i) + barW, x2 = xStart(i + 1);
+    const x1c    = xStart(i) + barW, x2c = xStart(i + 1);
     const lineY = segments[i].value >= 0 ? yScale(tops[i]) : yScale(baselines[i]);
-    connectors += `<line class="wf-connector" x1="${x1}" x2="${x2}" y1="${lineY.toFixed(1)}" y2="${lineY.toFixed(1)}"/>`;
+    svg.appendChild(_makeSVGEl("line", { class:"wf-connector", x1:x1c, x2:x2c, y1:lineY.toFixed(1), y2:lineY.toFixed(1) }));
   }
 
-  let bars = '', topLabels = '', botLabels = '';
+  // Bars + labels (addEventListener replaces inline onmouseenter/onmouseleave)
   segments.forEach((seg, i) => {
     const x = xStart(i), yTop = yScale(Math.max(baselines[i], tops[i])), yBot = yScale(Math.min(baselines[i], tops[i]));
     const bH     = Math.max(2, yBot - yTop);
     const isTotal = seg.type === 'total';
-    bars      += `<rect ${isTotal ? 'class="wf-total-glow"' : ''} class="wf-bar-base" data-idx="${i}" x="${x}" y="${yTop.toFixed(1)}" width="${barW}" height="${bH.toFixed(1)}" fill="${seg.color}" opacity="${isTotal ? '1' : '0.85'}" rx="3" onmouseenter="wfShowTip(event,${i})" onmouseleave="wfHideTip()"/>`;
-    topLabels += `<text class="wf-label-top" x="${(x + barW / 2).toFixed(1)}" y="${(yTop - 6).toFixed(1)}" text-anchor="middle" font-size="9.5" fill="${seg.color}" font-weight="600">${fmtL(Math.abs(seg.value))}</text>`;
-    botLabels += `<text class="wf-label-bot" x="${(x + barW / 2).toFixed(1)}" y="${(H - padB + 12).toFixed(1)}" text-anchor="middle" font-size="10" fill="var(--muted)">${esc(seg.label)}</text>`;
-    if (seg.type === 'gain' || seg.type === 'loss')
-      topLabels += `<text x="${(x + barW / 2).toFixed(1)}" y="${(yTop - 18).toFixed(1)}" text-anchor="middle" font-size="8" fill="${seg.color}">${seg.type === 'gain' ? '▲' : '▼'}</text>`;
+
+    const rect = _makeSVGEl("rect", {
+      x, y: yTop.toFixed(1), width: barW, height: bH.toFixed(1),
+      fill: seg.color, opacity: isTotal ? '1' : '0.85', rx: '3',
+      class: isTotal ? 'wf-bar-base wf-total-glow' : 'wf-bar-base',
+    });
+    // FIX #2: addEventListener instead of inline onmouseenter string
+    const idx = i;
+    rect.addEventListener('mouseenter', e => wfShowTip(e, idx));
+    rect.addEventListener('mouseleave', wfHideTip);
+    svg.appendChild(rect);
+
+    // Top value label
+    const topLbl = _makeTxt(
+      (x + barW / 2).toFixed(1), (yTop - 6).toFixed(1),
+      fmtL(Math.abs(seg.value)),
+      { "class":"wf-label-top", "text-anchor":"middle", "font-size":"9.5", "fill":seg.color, "font-weight":"600" }
+    );
+    svg.appendChild(topLbl);
+
+    // Bottom axis label
+    const botLbl = _makeTxt(
+      (x + barW / 2).toFixed(1), (H - padB + 12).toFixed(1),
+      seg.label,
+      { "class":"wf-label-bot", "text-anchor":"middle", "font-size":"10", "fill":"var(--muted)" }
+    );
+    svg.appendChild(botLbl);
+
+    // Arrow indicator for gain/loss
+    if (seg.type === 'gain' || seg.type === 'loss') {
+      const arrow = _makeTxt(
+        (x + barW / 2).toFixed(1), (yTop - 18).toFixed(1),
+        seg.type === 'gain' ? '▲' : '▼',
+        { "text-anchor":"middle", "font-size":"8", "fill":seg.color }
+      );
+      svg.appendChild(arrow);
+    }
   });
 
-  document.getElementById('wf-svg-wrap').innerHTML = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block">${gridLines}${zeroLine}${connectors}${bars}${topLabels}${botLabels}<line class="wf-axis-line" x1="${padL}" x2="${W-padR}" y1="${(H-padB).toFixed(1)}" y2="${(H-padB).toFixed(1)}"/></svg>`;
-  window._wfSegments = segments;
-  window._wfTotal    = totalVal;
+  // Bottom axis line
+  svg.appendChild(_makeSVGEl("line", { class:"wf-axis-line", x1:padL, x2:W-padR, y1:(H-padB).toFixed(1), y2:(H-padB).toFixed(1) }));
+
+  const svgWrap = document.getElementById('wf-svg-wrap');
+  svgWrap.innerHTML = '';
+  svgWrap.appendChild(svg);
 
   document.getElementById('wf-breakdown').innerHTML = '<div class="wf-breakdown-card">' + segments.map(seg => {
     const pct    = totalVal > 0 ? ((Math.abs(seg.value) / totalVal) * 100).toFixed(1) : 0;

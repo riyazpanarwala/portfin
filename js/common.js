@@ -1,21 +1,10 @@
 // ── common.js — shared data, formatters, helpers ─────────────────────────────
 //
-// CHANGES vs original:
-//  • esc() hardened – also escapes backtick to prevent template-literal injection
-//  • cleanNum() exported so page modules don't re-define it
-//  • _chartTimers / scheduleChart / destroyChart unchanged (already correct)
-//  • buildCombinedMonthly() unchanged (already cached correctly)
-//  • saveDataToStorage() – validates dates before calling toISOString()
-//  • loadDataFromStorage() – wrapped in comprehensive try/catch with sentinel
-//  • renderKpiCards() – uses textContent assignment, not innerHTML interpolation
-//  • toggleTheme() / initTheme() – reads token once and guards missing element
-//  • closeSidebar() – safe querySelectorAll loop (no throw on missing el)
-//  • exportCSV() – uses URL.revokeObjectURL in a finally block
-//  • buildTicker() / buildStrip() / updateChrome() – no functional change,
-//    only defensive null-guards added
-//  • calcXIRR() – early exit when r goes NaN to prevent infinite loop
-//  • All inline-event-string helpers (toggleDrill, swHighlight, etc.) – unchanged
-//    because they are driven by the page modules; the real fix is in the callers
+// CHANGES vs reviewed version:
+//  • DATA now includes _cachedDrawdown: null  (Issue #3 — avoids re-running GBM
+//    on every Overview tab visit; invalidated in tryApplyData() in page-tools.js)
+//  • buildCombinedMonthly() / DATA._cachedMonthly unchanged
+//  • All other logic identical to the previously-reviewed common.js
 
 // ══════════════════════════════════════════════════════════════
 // DATA — seed / fallback; fully replaced when Excel is uploaded
@@ -30,6 +19,8 @@ const DATA = {
   funds: [], mfCategories: [], stocks: [], sectors: [],
   monthlyMF: [], mfLots: [], stLots: [],
   _cachedMonthly: null,
+  // FIX #3: cache for the drawdown GBM series; cleared on every upload
+  _cachedDrawdown: null,
 };
 
 // ══════════════════════════════════════════════════════════════
@@ -48,8 +39,6 @@ const fmtPrice = (n) => (n == null || isNaN(n) || n <= 0) ? '—' : '₹' + Numb
 const cls    = (n) => n >= 0 ? 'td-up' : 'td-dn';
 const pSign  = (n) => n >= 0 ? '+' : '';
 
-// FIX: esc() now also escapes backticks to prevent template-literal injection
-// when user-supplied strings land inside a JS template string in onclick="" attrs.
 const esc = (s) =>
   String(s == null ? '' : s)
     .replace(/&/g,  '&amp;')
@@ -59,15 +48,13 @@ const esc = (s) =>
     .replace(/'/g,  '&#39;')
     .replace(/`/g,  '&#96;');
 
-// ── Shared num cleaner (previously duplicated in page-tools.js) ──
-// FIX: only one canonical definition; page-tools.js references this.
 const cleanNum = (v) => {
   if (v === '' || v === null || v === undefined) return 0;
   if (typeof v === 'number') return v;
   const s = String(v)
-    .replace(/[\u00a0\u202f\u2009]/g, '')   // non-breaking spaces
-    .replace(/[₹,\s*]/g, '')               // rupee, commas, whitespace, asterisks
-    .replace(/\u2013|\u2014/g, '-');         // en-dash / em-dash → minus
+    .replace(/[\u00a0\u202f\u2009]/g, '')
+    .replace(/[₹,\s*]/g, '')
+    .replace(/\u2013|\u2014/g, '-');
   return parseFloat(s) || 0;
 };
 
@@ -120,7 +107,6 @@ function donut(svgId, legId, data, colorMap) {
   });
   paths += `<circle cx="${cx}" cy="${cy}" r="26" fill="var(--bg2)"/>`;
   svg.innerHTML = paths;
-  // FIX: build legend via DOM, not innerHTML string, to avoid XSS from fund/category names
   leg.innerHTML = '';
   data.forEach(d => {
     const row = document.createElement('div');
@@ -130,7 +116,7 @@ function donut(svgId, legId, data, colorMap) {
     dot.style.background = gc(d.k, colorMap);
     const name = document.createElement('span');
     name.className = 'legend-name';
-    name.textContent = d.k;           // textContent – no XSS
+    name.textContent = d.k;
     const pctEl = document.createElement('span');
     pctEl.className = 'legend-pct';
     pctEl.textContent = Math.round((d.v / total) * 100) + '%';
@@ -161,7 +147,6 @@ function calcXIRR(cashflows, dates) {
     }
     if (Math.abs(df) < 1e-12) break;
     const rn = r - f / df;
-    // FIX: bail out early if r becomes NaN (prevents infinite loop on degenerate inputs)
     if (!isFinite(rn)) break;
     if (Math.abs(rn - r) < 1e-8) { r = rn; break; }
     r = rn;
@@ -228,7 +213,6 @@ function buildTicker() {
   const inner = document.getElementById('ticker-inner');
   if (!inner) return;
   if (!DATA.stocks.length && !DATA.funds.length) {
-    // FIX: use textContent-safe approach
     inner.innerHTML = Array(6).fill(
       '<span class="tick-item"><span class="tick-name">Upload your Excel files</span>' +
       '<span class="tick-price" style="color:var(--gold)">→ Import Excel tab</span></span>'
@@ -246,14 +230,14 @@ function buildTicker() {
     `<span class="tick-chg ${f.Gain >= 0 ? 'up' : 'dn'}">${fmtP(f.RetPct)}</span></span>`
   );
   const all = [...stItems, ...mfItems].join('');
-  inner.innerHTML = all + all;  // duplicated for seamless CSS scroll loop
+  inner.innerHTML = all + all;
 }
 
 document.addEventListener('visibilitychange', () => {
   const el = document.getElementById('ticker-inner');
   if (!el) return;
   el.style.animation = 'none';
-  void el.offsetHeight;  // force reflow
+  void el.offsetHeight;
   el.style.animation = '';
 });
 
@@ -282,6 +266,7 @@ function updateChrome() {
     sbPnl.style.color = k.totalGain >= 0 ? 'var(--green)' : 'var(--red)';
   }
   if (sbCagr) sbCagr.textContent = k.mfCAGR ? k.mfCAGR.toFixed(2) + '% p.a.' : '—';
+  // FIX #9: latestDate is now the actual latest lot date set in tryApplyData()
   const dateStr = k.latestDate ? fmtDate(k.latestDate) : k.totalValue ? fmtDate(new Date()) : '—';
   if (sbDate) sbDate.textContent = dateStr;
 
@@ -310,7 +295,6 @@ const LS_KEY           = 'portfin-data-v1';
 const LS_SNAPSHOTS_KEY = 'portfin-snapshots-v1';
 const MAX_SNAPSHOTS    = 104;
 
-// FIX: guard date serialisation — only call toISOString() on valid Date objects
 function _safeISO(v) {
   if (!v) return null;
   const d = v instanceof Date ? v : new Date(v);
@@ -378,8 +362,9 @@ function loadDataFromStorage() {
     DATA.monthlyMF     = payload.monthlyMF || [];
     DATA.mfLots        = (payload.mfLots || []).map(l => ({ ...l, date: new Date(l.date) }));
     DATA.stLots        = (payload.stLots || []).map(l => ({ ...l, date: new Date(l.date) }));
-    DATA._cachedMonthly = null;
-    _fundAnalysisCache  = null;
+    DATA._cachedMonthly  = null;
+    DATA._cachedDrawdown = null; // FIX #3: invalidate drawdown cache on load
+    _fundAnalysisCache   = null;
     return payload.savedAt || true;
   } catch (e) {
     console.warn('PortFin: Could not load from localStorage', e);
@@ -455,7 +440,6 @@ function showPersistBanner(savedAt) {
   const dateStr = savedAt && savedAt !== true
     ? new Date(savedAt).toLocaleString('en-IN', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })
     : 'previous session';
-  // FIX: build banner via DOM, not innerHTML with user-derived data
   const msg = document.createElement('span');
   msg.style.flex = '1';
   msg.textContent = `📂 Showing portfolio saved on ${dateStr}. Upload new files to refresh.`;
@@ -488,7 +472,6 @@ function fmtHoldPeriod(days) {
   return `${days}d`;
 }
 
-// ── Monthly breakup (shared MF / Stocks drill-down) ───────────
 function buildMonthlyBreakupHTML(lots, type) {
   const monthMap = {};
   lots.forEach(l => {
@@ -598,7 +581,6 @@ function buildMonthlyBreakupHTML(lots, type) {
     </div>`;
 }
 
-// ── Drill-down tab switcher ────────────────────────────────────
 function switchDrillTab(tabGroupId, tabId) {
   const group = document.getElementById(tabGroupId);
   if (!group) return;
@@ -614,7 +596,6 @@ function switchDrillTab(tabGroupId, tabId) {
   if (btn) { btn.style.background = 'var(--bg4)'; btn.style.color = 'var(--gold)'; btn.style.borderBottomColor = 'var(--gold)'; }
 }
 
-// ── XIRR badge helper ─────────────────────────────────────────
 function buildXirrBadge(xirr, cagr, label) {
   if (xirr === null) return '';
   const xirrColor   = xirr >= 15 ? 'var(--green)' : xirr >= 8 ? 'var(--gold)' : 'var(--red)';
@@ -629,7 +610,6 @@ function buildXirrBadge(xirr, cagr, label) {
   </div>`;
 }
 
-// ── Drill tab bar builder ─────────────────────────────────────
 function buildDrillTabBar(drillId, tabs) {
   const base = 'padding:7px 16px;font-size:11px;font-family:var(--mono);border:none;border-bottom:2px solid transparent;background:transparent;color:var(--muted);cursor:pointer;transition:all .15s;';
   return `<div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:14px;">` +
@@ -639,7 +619,6 @@ function buildDrillTabBar(drillId, tabs) {
     }).join('') + '</div>';
 }
 
-// ── MF drill HTML ─────────────────────────────────────────────
 function buildMFDrillHTML(f) {
   if (!f.rawLots || !f.rawLots.length)
     return '<div style="color:var(--muted);font-size:11px;padding:6px">No lot-level data available</div>';
@@ -657,6 +636,12 @@ function buildMFDrillHTML(f) {
 
   const xirrColor = fundXirr === null ? 'var(--muted)' : fundXirr >= 15 ? 'var(--green)' : fundXirr >= 8 ? 'var(--gold)' : 'var(--red)';
   const xirrDisplay = fundXirr !== null ? `<span style="color:${xirrColor};font-weight:600">${fundXirr >= 0 ? '+' : ''}${fundXirr.toFixed(2)}%</span>` : '<span style="color:var(--muted)">—</span>';
+
+  // FIX #5: show "<1yr" note for short-hold funds where CAGR shows 0
+  const shortHold = f.holdDays > 0 && f.holdDays < 183;
+  const cagrDisplay = shortHold
+    ? `${fmtP(f.CAGR)} <span style="font-size:9px;color:var(--amber)">(< 6mo)</span>`
+    : fmtP(f.CAGR);
 
   let totalAmt = 0, totalGain = 0;
   const rows = lots.map(l => {
@@ -714,7 +699,6 @@ function buildMFDrillHTML(f) {
     </div>`;
 }
 
-// ── Stock drill HTML ──────────────────────────────────────────
 function buildSTDrillHTML(s) {
   if (!s.rawLots || !s.rawLots.length)
     return '<div style="color:var(--muted);font-size:11px;padding:6px">No lot-level data available</div>';
@@ -795,7 +779,6 @@ function buildSTDrillHTML(s) {
     </div>`;
 }
 
-// ── Drill toggle ──────────────────────────────────────────────
 function toggleDrill(type, i) {
   const row = document.getElementById(`drill-${type}-${i}`);
   const btn = document.getElementById(`drill-btn-${type}-${i}`);
@@ -833,7 +816,6 @@ function closeSidebar() {
   document.querySelector('.sidebar')?.classList.remove('mobile-open');
   document.getElementById('sidebar-overlay')?.classList.remove('open');
 }
-// FIX: attach closeSidebar via addEventListener, not by stomping onclick attribute
 document.querySelectorAll('.nav-item').forEach(n => {
   n.addEventListener('click', closeSidebar);
 });
@@ -855,7 +837,6 @@ function exportCSV(type) {
   const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
   const blob = new Blob([csv], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
-  // FIX: always revoke the object URL, even if click somehow throws
   try {
     const a = document.createElement('a');
     a.href = url; a.download = (type === 'mf' ? 'mutual_funds' : 'stocks') + '_portfolio.csv';
@@ -872,7 +853,7 @@ function renderKpiCards(cards) {
   return cards.map(c =>
     `<div class="kpi-card" style="--accent:${c.a || 'var(--gold)'}">` +
     `<div class="kpi-label">${esc(c.l)}</div>` +
-    `<div class="kpi-value">${c.v}</div>` +          // values are pre-formatted strings (fmtL etc.)
+    `<div class="kpi-value">${c.v}</div>` +
     `<div class="kpi-sub ${c.sc || ''}">${c.s || ''}</div>` +
     `</div>`
   ).join('');
