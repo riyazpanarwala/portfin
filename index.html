@@ -751,9 +751,19 @@
 <!-- db.js MUST be first: opens IndexedDB and migrates localStorage data -->
 <script src="js/db.js"></script>
 <!-- common.js first: DATA, formatters, helpers, state -->
-<script src="js/common.js"></script>
+<script src="js/common/01-data-store.js"></script>
+<script src="js/common/02-formatters.js"></script>
+<script src="js/common/03-ui-helpers.js"></script>
+<script src="js/common/04-chart-lifecycle.js"></script>
+<script src="js/common/05-storage.js"></script>
+<script src="js/common/06-drill-builders.js"></script>
+<script src="js/common/07-chrome.js"></script>
 <!-- page modules — order among these doesn't matter -->
-<script src="js/page-overview.js"></script>
+<script src="js/page-overview/01-render-overview.js"></script>
+<script src="js/page-overview/02-health-score.js"></script>
+<script src="js/page-overview/03-risk-return.js"></script>
+<script src="js/page-overview/04-sip-reminder.js"></script>
+<script src="js/page-overview/05-drawdown-analyzer.js"></script>
 <script src="js/page-mf.js"></script>
 <script src="js/page-stocks.js"></script>
 <script src="js/page-analytics/01-render-analytics.js"></script>
