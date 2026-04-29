@@ -195,4 +195,6 @@ function renderAnalytics() {
 
   // Benchmark comparison
   renderBenchmark();
+  
+  renderPortfolioAlpha();
 }
