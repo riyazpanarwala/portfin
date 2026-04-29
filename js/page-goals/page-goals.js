@@ -35,7 +35,7 @@ function updateGoal() {
   const remaining = Math.max(0, corpus - fvCurrent);
   const sipNeeded =
     remaining > 0 && rM > 0
-      ? Math.round((remaining * rM) / (Math.pow(1 + rM, n) - 1))
+      ? Math.round((remaining * rM) / ((Math.pow(1 + rM, n) - 1) * (1 + rM)))
       : 0;
 
   const allMonths = buildCombinedMonthly();
@@ -47,7 +47,7 @@ function updateGoal() {
   const fvWithSip =
     currentVal * Math.pow(1 + r, yrsLeft) +
     (avgMonthly > 0
-      ? avgMonthly * ((Math.pow(1 + rM, n) - 1) / rM) * (1 + rM)
+      ? avgMonthly * ((Math.pow(1 + rM, n) - 1) / rM)
       : 0);
   const onTrack = fvWithSip >= corpus;
   const gap = corpus - fvWithSip;
@@ -64,22 +64,21 @@ function updateGoal() {
       </div>
     </div>
     <div style="font-size:11px;color:${onTrack ? "var(--green)" : "var(--amber)"}">
-      ${
-        onTrack
-          ? `✓ On track! Your current avg SIP of ${fmtL(avgMonthly)}/mo will reach ${fmtL(Math.round(fvWithSip))} by ${year} — ${fmtL(Math.round(fvWithSip - corpus))} surplus.`
-          : `You need to increase SIP by ${fmtL(Math.max(0, sipNeeded - avgMonthly))}/mo. Current trajectory falls short by ${fmtL(Math.round(gap))}.`
-      }
+      ${onTrack
+      ? `✓ On track! Your current avg SIP of ${fmtL(avgMonthly)}/mo will reach ${fmtL(Math.round(fvWithSip))} by ${year} — ${fmtL(Math.round(fvWithSip - corpus))} surplus.`
+      : `You need to increase SIP by ${fmtL(Math.max(0, sipNeeded - avgMonthly))}/mo. Current trajectory falls short by ${fmtL(Math.round(gap))}.`
+    }
     </div>`;
 
   renderGoalChart(corpus, year, rate, currentVal, avgMonthly, sipNeeded);
 
   document.getElementById("goal-summary-kpis").innerHTML = renderKpiCards([
-    { l: "Goal Corpus",      v: fmtL(corpus),                                          s: "Target by " + year,        a: "#d4a843" },
-    { l: "Current Portfolio",v: fmtL(currentVal),                                      s: "As of today",              a: "#58a6ff" },
-    { l: "Years Remaining",  v: yrsLeft.toFixed(1) + "y",                              s: "To target date",           a: "#a371f7" },
-    { l: "SIP Required",     v: sipNeeded > 0 ? fmtL(sipNeeded) + "/mo" : "On track!",s: "At " + rate + "% p.a.",   a: sipNeeded > 0 ? "#f85149" : "#3fb950" },
-    { l: "Projected Value",  v: fmtL(Math.round(fvWithSip)),                           s: onTrack ? "Exceeds goal" : "Below goal", a: onTrack ? "#3fb950" : "#f85149" },
-    { l: "Avg Current SIP",  v: avgMonthly ? fmtL(avgMonthly) + "/mo" : "—",          s: "Historical monthly avg",   a: "#7d8590" },
+    { l: "Goal Corpus", v: fmtL(corpus), s: "Target by " + year, a: "#d4a843" },
+    { l: "Current Portfolio", v: fmtL(currentVal), s: "As of today", a: "#58a6ff" },
+    { l: "Years Remaining", v: yrsLeft.toFixed(1) + "y", s: "To target date", a: "#a371f7" },
+    { l: "SIP Required", v: sipNeeded > 0 ? fmtL(sipNeeded) + "/mo" : "On track!", s: "At " + rate + "% p.a.", a: sipNeeded > 0 ? "#f85149" : "#3fb950" },
+    { l: "Projected Value", v: fmtL(Math.round(fvWithSip)), s: onTrack ? "Exceeds goal" : "Below goal", a: onTrack ? "#3fb950" : "#f85149" },
+    { l: "Avg Current SIP", v: avgMonthly ? fmtL(avgMonthly) + "/mo" : "—", s: "Historical monthly avg", a: "#7d8590" },
   ]);
 
   const rates = [8, 10, 12, 15, 18];
