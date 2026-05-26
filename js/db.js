@@ -35,6 +35,10 @@ const PortFinDB = (() => {
   // Prefix keys (checklist weeks) — migrated by prefix scan
   const MIGRATE_PREFIXES = ['pas-checklist-week-'];
 
+  function _isPortFinKey(key) {
+    return MIGRATE_KEYS.includes(key) || MIGRATE_PREFIXES.some(prefix => key.startsWith(prefix));
+  }
+
   // ── Internal state ──────────────────────────────────────────
   let _db     = null;   // IDBDatabase once open
   let _failed = false;  // true if IDB is unavailable → fall back to localStorage
@@ -113,6 +117,47 @@ const PortFinDB = (() => {
     });
   }
 
+  function _idbEntries() {
+    return new Promise((resolve) => {
+      const rows = [];
+      try {
+        const req = _tx('readonly').openCursor();
+        req.onsuccess = () => {
+          const cursor = req.result;
+          if (!cursor) {
+            resolve(rows);
+            return;
+          }
+          const row = cursor.value;
+          if (row && typeof row.k === 'string' && _isPortFinKey(row.k)) {
+            rows.push({ k: row.k, v: typeof row.v === 'string' ? row.v : String(row.v ?? '') });
+          }
+          cursor.continue();
+        };
+        req.onerror = () => resolve(rows);
+      } catch (_) { resolve(rows); }
+    });
+  }
+
+  function _idbImportEntries(rows) {
+    return new Promise((resolve) => {
+      try {
+        const tx = _db.transaction(STORE, 'readwrite');
+        const store = tx.objectStore(STORE);
+        let count = 0;
+        rows.filter(({ k }) => _isPortFinKey(k)).forEach(({ k, v }) => {
+          store.put({ k, v });
+          count++;
+        });
+        tx.oncomplete = () => resolve({ ok: true, count });
+        tx.onerror = () => resolve({ ok: false, count: 0 });
+        tx.onabort = () => resolve({ ok: false, count: 0 });
+      } catch (_) {
+        resolve({ ok: false, count: 0 });
+      }
+    });
+  }
+
   // ── Migration: copy localStorage → IndexedDB, then clear LS ─
   async function _migrate() {
     if (_failed) return; // IDB not available — nothing to do
@@ -179,6 +224,45 @@ const PortFinDB = (() => {
     return _idbRemove(key);
   }
 
+  /**
+   * Returns all PortFin-owned kv records for backup export.
+   */
+  async function entries() {
+    await ready;
+    if (_failed) {
+      const rows = [];
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && _isPortFinKey(k)) rows.push({ k, v: localStorage.getItem(k) ?? '' });
+        }
+      } catch (_) {}
+      return rows;
+    }
+    return _idbEntries();
+  }
+
+  /**
+   * Imports PortFin-owned kv records from a backup payload.
+   */
+  async function importEntries(rows) {
+    await ready;
+    const cleanRows = (Array.isArray(rows) ? rows : [])
+      .filter(row => row && typeof row.k === 'string' && _isPortFinKey(row.k))
+      .map(row => ({ k: row.k, v: typeof row.v === 'string' ? row.v : JSON.stringify(row.v ?? null) }));
+
+    if (!cleanRows.length) return { ok: false, count: 0 };
+
+    if (_failed) {
+      let count = 0;
+      for (const { k, v } of cleanRows) {
+        if (_lsSet(k, v)) count++;
+      }
+      return { ok: count === cleanRows.length, count };
+    }
+    return _idbImportEntries(cleanRows);
+  }
+
   // Convenience: read a JSON value (returns parsed object or null)
   async function getJSON(key) {
     const raw = await get(key);
@@ -195,5 +279,5 @@ const PortFinDB = (() => {
     }
   }
 
-  return { ready, get, set, remove, getJSON, setJSON };
+  return { ready, get, set, remove, entries, importEntries, getJSON, setJSON };
 })();
