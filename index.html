@@ -660,7 +660,13 @@
         <button class="export-btn" id="idb-export-btn" type="button">⬇ Export JSON</button>
         <button class="export-btn" id="idb-import-btn" type="button">↑ Import JSON</button>
         <input type="file" id="idb-import-file" accept="application/json,.json" style="display:none">
-        <span id="idb-backup-status" style="font-size:11px;color:var(--muted);font-family:var(--mono)"></span>
+        <span
+          id="idb-backup-status"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          style="font-size:11px;color:var(--muted);font-family:var(--mono)"
+        ></span>
       </div>
     </div>
   </div>

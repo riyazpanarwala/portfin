@@ -3,6 +3,9 @@
 
 const PORTFIN_BACKUP_PREFIX = "portfin-indexeddb-backup";
 
+/**
+ * Wires the IndexedDB backup controls on the upload page.
+ */
 function initIndexedDBBackupListeners() {
   const exportBtn = document.getElementById("idb-export-btn");
   const importBtn = document.getElementById("idb-import-btn");
@@ -13,6 +16,9 @@ function initIndexedDBBackupListeners() {
   if (fileInput) fileInput.addEventListener("change", handleIndexedDBBackupFile);
 }
 
+/**
+ * Replaces the backup status live-region text with a tone-aware message.
+ */
 function setIndexedDBBackupStatus(message, tone = "muted") {
   const el = document.getElementById("idb-backup-status");
   if (!el) return;
@@ -26,6 +32,9 @@ function setIndexedDBBackupStatus(message, tone = "muted") {
   el.textContent = message;
 }
 
+/**
+ * Downloads all PortFin-owned IndexedDB records as a JSON backup.
+ */
 async function exportIndexedDBBackup() {
   try {
     setIndexedDBBackupStatus("Preparing backup...", "amber");
@@ -55,6 +64,9 @@ async function exportIndexedDBBackup() {
   }
 }
 
+/**
+ * Validates and converts a parsed backup payload into kv-store records.
+ */
 function normaliseIndexedDBBackup(parsed) {
   const rows = Array.isArray(parsed) ? parsed : parsed?.entries;
   if (!Array.isArray(rows)) {
@@ -75,6 +87,9 @@ function normaliseIndexedDBBackup(parsed) {
   return cleanRows;
 }
 
+/**
+ * Reads a selected JSON backup file, restores its records, and reloads the app.
+ */
 function handleIndexedDBBackupFile(event) {
   const file = event.target.files && event.target.files[0];
   event.target.value = "";
