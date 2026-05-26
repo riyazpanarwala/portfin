@@ -56,6 +56,9 @@ function renderUpload() {
 function initUploadListeners() {
   _bindDropZone("drop-zone-mf", "file-input-mf", "mf");
   _bindDropZone("drop-zone-st", "file-input-st", "st");
+  if (typeof initIndexedDBBackupListeners === "function") {
+    initIndexedDBBackupListeners();
+  }
 }
 
 function _bindDropZone(zoneId, inputId, type) {
@@ -78,4 +81,4 @@ function _bindDropZone(zoneId, inputId, type) {
     handleExcel(e.dataTransfer.files[0], type);
   });
   fi.addEventListener("change", (e) => handleExcel(e.target.files[0], type));
-}
+}
