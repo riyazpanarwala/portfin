@@ -3,29 +3,38 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Portfolio Tracker — Personal Dashboard</title>
+<title>PortFin – Personal Investment & Portfolio Tracker Dashboard</title>
+
+<!-- Canonical Link -->
+<link rel="canonical" href="https://portfin.panarwala.in/">
+
 <!-- Primary Meta Tags -->
-<meta name="title" content="PortFin – Portfolio Tracker Dashboard">
-<meta name="description" content="Personal portfolio dashboard to track stocks and mutual funds with analytics like CAGR, allocation insights, tax harvesting, SIP planning, and action signals.">
-<meta name="keywords" content="portfolio tracker, stock dashboard India, mutual fund tracker, investment analytics, CAGR calculator, SIP planner, portfolio analysis tool">
+<meta name="title" content="PortFin – Personal Investment & Portfolio Tracker Dashboard">
+<meta name="description" content="Personal investment & portfolio tracker dashboard for stocks and mutual funds with CAGR, tax harvesting, SIP planning, XIRR, and risk-return analytics.">
+<meta name="keywords" content="portfolio tracker, stock dashboard India, mutual fund tracker, investment analytics, CAGR calculator, SIP planner, portfolio analysis tool, tax harvesting India, XIRR calculator, asset rebalancer">
 <meta name="author" content="Riyaz Panarwala">
 
 <!-- Open Graph / WhatsApp / LinkedIn -->
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://riyazpanarwala.github.io/portfin/">
-<meta property="og:title" content="PortFin – Portfolio Tracker Dashboard">
-<meta property="og:description" content="Track stocks & mutual funds with powerful analytics, action signals, and portfolio insights.">
-<meta property="og:image" content="images/preview.png">
+<meta property="og:url" content="https://portfin.panarwala.in/">
+<meta property="og:title" content="PortFin – Personal Investment & Portfolio Tracker Dashboard">
+<meta property="og:description" content="Track stocks & mutual funds with powerful analytics, action signals, tax harvesting, and portfolio insights.">
+<meta property="og:image" content="https://portfin.panarwala.in/images/preview.png">
+<meta property="og:site_name" content="PortFin">
+<meta property="og:locale" content="en_IN">
 
 <!-- Twitter -->
 <meta property="twitter:card" content="summary_large_image">
-<meta property="twitter:url" content="https://riyazpanarwala.github.io/portfin/">
-<meta property="twitter:title" content="PortFin – Portfolio Tracker Dashboard">
-<meta property="twitter:description" content="Personal investment dashboard with insights, signals, and analytics.">
-<meta property="twitter:image" content="images/preview.png">
+<meta property="twitter:url" content="https://portfin.panarwala.in/">
+<meta property="twitter:title" content="PortFin – Personal Investment & Portfolio Tracker Dashboard">
+<meta property="twitter:description" content="Personal investment dashboard with insights, signals, tax harvesting, and analytics.">
+<meta property="twitter:image" content="https://portfin.panarwala.in/images/preview.png">
 
 <!-- Theme Color -->
 <meta name="theme-color" content="#0d1117">
+
+<!-- Web Manifest -->
+<link rel="manifest" href="images/site.webmanifest">
 
 <!-- Mobile App Feel -->
 <meta name="application-name" content="PortFin">
@@ -33,14 +42,14 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
-<!-- Allow indexing (keep this since it's your public project) -->
+<!-- Search Engine Indexing -->
 <meta name="robots" content="index, follow">
 
 <!-- Standard favicon -->
 <link rel="icon" type="image/png" sizes="16x16" href="images/favicon-16x16.png">
 <link rel="icon" type="image/png" sizes="32x32" href="images/favicon-32x32.png">
 
-<!-- Fallback (optional) -->
+<!-- Fallback -->
 <link rel="icon" href="images/favicon.ico">
 
 <!-- Apple devices -->
@@ -49,10 +58,52 @@
 <!-- Android / Chrome -->
 <link rel="icon" type="image/png" sizes="192x192" href="images/android-chrome-192x192.png">
 <link rel="icon" type="image/png" sizes="512x512" href="images/android-chrome-512x512.png">
+
+<!-- Preconnect & Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
+
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/diff-panel.css">
 <link rel="stylesheet" href="css/step-wheel.css">
+
+<!-- Schema.org Structured Data (JSON-LD) -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebApplication",
+      "@id": "https://portfin.panarwala.in/#webapp",
+      "url": "https://portfin.panarwala.in/",
+      "name": "PortFin",
+      "headline": "Personal Investment & Portfolio Tracker Dashboard",
+      "description": "A privacy-first personal investment dashboard to track, analyze, and optimize mutual funds and stocks with live analytics, CAGR, SIP planning, tax harvesting, and portfolio rebalancing.",
+      "applicationCategory": "FinanceApplication",
+      "operatingSystem": "All",
+      "browserRequirements": "Requires HTML5 and JavaScript",
+      "softwareVersion": "1.0",
+      "author": {
+        "@type": "Person",
+        "name": "Riyaz Panarwala"
+      },
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "INR"
+      }
+    },
+    {
+      "@type": "FinancialProduct",
+      "@id": "https://portfin.panarwala.in/#product",
+      "name": "PortFin Portfolio Analytics & Tracker",
+      "description": "Comprehensive portfolio analytics tool for Indian equity stocks and mutual funds.",
+      "url": "https://portfin.panarwala.in/"
+    }
+  ]
+}
+</script>
 
 </head>
 <body>
@@ -87,14 +138,15 @@
   </div>
 </aside>
 
-<div class="main">
+<main class="main" id="main-content">
+<h1 class="sr-only">PortFin – Personal Investment & Portfolio Tracker Dashboard</h1>
 <div class="ticker"><div class="ticker-inner" id="ticker-inner"></div></div>
 
 <div class="topbar">
   <div style="display:flex;align-items:center;gap:10px">
     <button class="hamburger" id="hamburger-btn" onclick="toggleSidebar()" aria-label="Menu">☰</button>
     <div>
-      <div class="topbar-title" id="page-title">Portfolio Overview</div>
+      <h1 class="topbar-title" id="page-title">Portfolio Overview</h1>
       <div class="topbar-meta" id="topbar-meta">Upload your Excel files to load live data</div>
     </div>
   </div>
@@ -109,11 +161,11 @@
   <div class="kpi-grid" id="kpi-overview"></div>
   <div class="grid2">
     <div class="card">
-      <div class="sec-head"><div class="sec-title">MF vs Stocks allocation</div></div>
+      <div class="sec-head"><h2 class="sec-title">MF vs Stocks allocation</h2></div>
       <div id="alloc-split"></div>
     </div>
     <div class="card">
-      <div class="sec-head"><div class="sec-title">MF category mix</div></div>
+      <div class="sec-head"><h2 class="sec-title">MF category mix</h2></div>
       <div class="donut-wrap">
         <svg id="donut-mf" width="110" height="110" viewBox="0 0 110 110"></svg>
         <div class="donut-legend" id="legend-mf"></div>
@@ -121,8 +173,8 @@
     </div>
   </div>
   <div class="grid2">
-    <div class="card"><div class="sec-head"><div class="sec-title">Top MF performers</div></div><div id="top-mf"></div></div>
-    <div class="card"><div class="sec-head"><div class="sec-title">Top stock gainers</div></div><div id="top-st"></div></div>
+    <div class="card"><div class="sec-head"><h2 class="sec-title">Top MF performers</h2></div><div id="top-mf"></div></div>
+    <div class="card"><div class="sec-head"><h2 class="sec-title">Top stock gainers</h2></div><div id="top-st"></div></div>
   </div>
   <div class="alert-box">
     <div class="alert-title">⚠ Risk concentration alerts</div>
@@ -136,11 +188,11 @@
   <!-- Health Score -->
   <div class="grid2" id="health-score-wrap">
     <div class="card">
-      <div class="sec-head"><div class="sec-title">Portfolio health score</div></div>
+      <div class="sec-head"><h2 class="sec-title">Portfolio health score</h2></div>
       <div id="health-score-display" style="display:flex;align-items:center;gap:24px;min-height:130px;overflow:visible"></div>
     </div>
     <div class="card">
-      <div class="sec-head"><div class="sec-title">Score breakdown</div></div>
+      <div class="sec-head"><h2 class="sec-title">Score breakdown</h2></div>
       <div id="health-score-breakdown"></div>
     </div>
   </div>
@@ -148,7 +200,7 @@
   <!-- Portfolio Risk-Return Classification Card ═════════════════════ -->
   <div class="card" id="risk-return-card" style="margin-bottom:20px">
     <div class="sec-head">
-      <div class="sec-title">📊 Portfolio Risk-Return Profile</div>
+      <h2 class="sec-title">📊 Portfolio Risk-Return Profile</h2>
       <div style="font-size:10px;color:var(--muted)" id="risk-return-subtitle">Based on your actual holdings and historical returns</div>
     </div>
     
@@ -162,7 +214,7 @@
   <!-- ══ Drawdown Analyzer ══════════════════════════════════════ -->
   <div class="card" id="drawdown-card" style="margin-bottom:20px">
     <div class="sec-head">
-      <div class="sec-title">Drawdown Analyzer</div>
+      <h2 class="sec-title">Drawdown Analyzer</h2>
       <div style="font-size:10px;color:var(--muted)" id="dd-subtitle">How far your portfolio fell from its peak — and how fast it recovered</div>
     </div>
 
@@ -261,7 +313,7 @@
   <!-- Tax Harvesting -->
   <div class="card" style="margin-bottom:20px">
     <div class="sec-head">
-      <div class="sec-title">Tax harvesting assistant</div>
+      <h2 class="sec-title">Tax harvesting assistant</h2>
       <div style="font-size:10px;color:var(--muted)">FY Indian equity tax — LTCG 12.5% (held &gt;1yr, gains &gt;₹1.25L) · STCG 20% (held &lt;1yr)</div>
     </div>
     <div id="tax-kpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px"></div>
@@ -273,21 +325,21 @@
 <div class="page" id="page-analytics">
   <div class="grid2">
     <div class="card">
-      <div class="sec-head"><div class="sec-title">Monthly MF investment flow</div></div>
+      <div class="sec-head"><h2 class="sec-title">Monthly MF investment flow</h2></div>
       <div class="chart-box"><canvas id="chart-monthly"></canvas></div>
     </div>
     <div class="card">
-      <div class="sec-head"><div class="sec-title">Stock sector P&L</div></div>
+      <div class="sec-head"><h2 class="sec-title">Stock sector P&L</h2></div>
       <div id="sector-pl"></div>
     </div>
   </div>
   <div class="grid2">
     <div class="card">
-      <div class="sec-head"><div class="sec-title">Portfolio ratios</div></div>
+      <div class="sec-head"><h2 class="sec-title">Portfolio ratios</h2></div>
       <div id="ratios"></div>
     </div>
     <div class="card">
-      <div class="sec-head"><div class="sec-title">XIRR estimate</div></div>
+      <div class="sec-head"><h2 class="sec-title">XIRR estimate</h2></div>
       <p style="font-size:11px;color:var(--muted);line-height:1.7;margin-bottom:10px">Money-weighted return computed from your actual lot dates and amounts:</p>
       <div id="xirr-display"></div>
     </div>
@@ -296,7 +348,7 @@
   <!-- Holding Period Distribution -->
 	<div class="card" style="margin-bottom:16px">
 	  <div class="sec-head">
-		<div class="sec-title">Holding period distribution</div>
+		<h2 class="sec-title">Holding period distribution</h2>
 		<div style="font-size:10px;color:var(--muted)">LTCG (held >1yr, 12.5% tax) vs STCG (held <1yr, 20% tax) · Capital deployed per bucket</div>
 	  </div>
 	  <div id="holding-period-chart-wrap"></div>
@@ -305,7 +357,7 @@
 	<!-- Portfolio Overlap Detector -->
   <div class="card" style="margin-bottom:16px">
     <div class="sec-head">
-      <div class="sec-title">Portfolio overlap detector</div>
+      <h2 class="sec-title">Portfolio overlap detector</h2>
       <div style="font-size:10px;color:var(--muted)">Where your MF holdings and direct stocks are exposed to the same sectors — double concentration risk</div>
     </div>
     <div id="overlap-detector-wrap"></div>
@@ -314,7 +366,7 @@
   <!-- ══ SECTOR ROTATION WHEEL ══ -->
   <div class="card" style="margin-bottom:16px">
   <div class="sec-head">
-    <div class="sec-title">Sector Rotation Wheel</div>
+    <h2 class="sec-title">Sector Rotation Wheel</h2>
     <div style="font-size:10px;color:var(--muted)">
       Combined MF implied + direct stock sector exposure · overweight / neutral / underweight vs equal-weight benchmark
     </div>
@@ -325,7 +377,7 @@
   <!-- Benchmark Comparison -->
   <div class="card" style="margin-bottom:16px">
     <div class="sec-head">
-      <div class="sec-title">Benchmark comparison</div>
+      <h2 class="sec-title">Benchmark comparison</h2>
       <div style="font-size:10px;color:var(--muted)">Historical average CAGR — your portfolio vs market benchmarks &nbsp;·&nbsp; <span style="color:var(--amber)">⚠ Benchmark figures as of Jan 2025 — may diverge from current index returns</span></div>
     </div>
     <!-- KPI verdict strip -->
@@ -335,7 +387,7 @@
     <!-- Main bar chart -->
     <div class="chart-box" style="height:280px;margin-bottom:20px"><canvas id="chart-benchmark"></canvas></div>
     <!-- Per-fund vs benchmark table -->
-    <div class="sec-head" style="margin-top:4px"><div class="sec-title">Your funds vs category benchmark</div></div>
+    <div class="sec-head" style="margin-top:4px"><h2 class="sec-title">Your funds vs category benchmark</h2></div>
     <div style="overflow-x:auto"><div id="bm-fund-table"></div></div>
     <!-- Alpha summary -->
     <div id="bm-alpha-summary" style="margin-top:16px"></div>
@@ -344,7 +396,7 @@
   <!-- Portfolio Alpha -->
 <div class="card" style="margin-bottom:16px">
   <div class="sec-head">
-    <div class="sec-title">Portfolio Alpha (Estimated)</div>
+    <h2 class="sec-title">Portfolio Alpha (Estimated)</h2>
     <div style="font-size:10px;color:var(--muted)">
       CAPM heuristic · proxy beta · not true regression-based Jensen's Alpha
     </div>
@@ -365,7 +417,7 @@
   <!-- Heatmap calendar -->
   <div class="card" style="margin-bottom:16px">
     <div class="sec-head">
-      <div class="sec-title">Monthly investment heatmap</div>
+      <h2 class="sec-title">Monthly investment heatmap</h2>
       <div id="tl-heatmap-legend" style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--muted)"></div>
     </div>
     <div id="tl-heatmap" style="overflow-x:auto"></div>
@@ -374,12 +426,12 @@
   <!-- Yearly summary bars + monthly table side by side -->
   <div class="grid2">
     <div class="card">
-      <div class="sec-head"><div class="sec-title">Yearly investment totals</div></div>
+      <div class="sec-head"><h2 class="sec-title">Yearly investment totals</h2></div>
       <div id="tl-yearly-bars"></div>
     </div>
     <div class="card">
       <div class="sec-head">
-        <div class="sec-title">Monthly breakdown</div>
+        <h2 class="sec-title">Monthly breakdown</h2>
         <div id="tl-month-select" style="display:flex;gap:4px;flex-wrap:wrap"></div>
       </div>
       <div id="tl-monthly-table"></div>
@@ -388,7 +440,7 @@
 
   <!-- Cumulative invested line chart -->
   <div class="card" style="margin-bottom:16px">
-    <div class="sec-head"><div class="sec-title">Cumulative invested over time (MF + Stocks)</div></div>
+    <div class="sec-head"><h2 class="sec-title">Cumulative invested over time (MF + Stocks)</h2></div>
     <div class="chart-box" style="height:220px"><canvas id="chart-cumulative"></canvas></div>
   </div>
 
@@ -402,7 +454,7 @@
   <div class="kpi-grid" id="goal-summary-kpis"></div>
   <div class="grid2">
     <div class="card">
-      <div class="sec-head"><div class="sec-title">Set your goal</div></div>
+      <div class="sec-head"><h2 class="sec-title">Set your goal</h2></div>
       <div style="display:flex;flex-direction:column;gap:14px">
         <div>
           <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Target corpus</div>
@@ -432,25 +484,25 @@
       </div>
     </div>
     <div class="card">
-      <div class="sec-head"><div class="sec-title">Wealth projection</div></div>
+      <div class="sec-head"><h2 class="sec-title">Wealth projection</h2></div>
       <div class="chart-box" style="height:260px"><canvas id="chart-goal"></canvas></div>
     </div>
   </div>
   <!-- Scenario comparison -->
   <div class="card" style="margin-bottom:16px">
-    <div class="sec-head"><div class="sec-title">SIP scenarios — monthly amount needed to reach goal</div></div>
+    <div class="sec-head"><h2 class="sec-title">SIP scenarios — monthly amount needed to reach goal</h2></div>
     <div id="goal-scenarios"></div>
   </div>
   <!-- Milestone tracker -->
   <div class="card">
-    <div class="sec-head"><div class="sec-title">Milestone tracker</div></div>
+    <div class="sec-head"><h2 class="sec-title">Milestone tracker</h2></div>
     <div id="goal-milestones"></div>
   </div>
 
   <!-- Monte Carlo probability display -->
   <div class="card" style="margin-bottom:16px">
     <div class="sec-head">
-      <div class="sec-title">Monte Carlo SIP simulator</div>
+      <h2 class="sec-title">Monte Carlo SIP simulator</h2>
       <div style="font-size:10px;color:var(--muted)">
         500 randomised market paths · P10 / P50 / P90 probability corridors · 18% annualised volatility
       </div>
@@ -492,7 +544,7 @@
 <div class="grid2" style="margin-bottom:16px">
   <!-- Sliders -->
   <div class="card">
-    <div class="sec-head"><div class="sec-title">Configure step-up</div></div>
+    <div class="sec-head"><h2 class="sec-title">Configure step-up</h2></div>
     <div style="display:flex;flex-direction:column;gap:16px">
 
       <div>
@@ -547,7 +599,7 @@
 
   <!-- Corpus growth chart -->
   <div class="card">
-    <div class="sec-head"><div class="sec-title">Corpus growth — flat vs step-up</div></div>
+    <div class="sec-head"><h2 class="sec-title">Corpus growth — flat vs step-up</h2></div>
     <div class="chart-box" style="height:300px"><canvas id="chart-stepup-growth"></canvas></div>
   </div>
 </div>
@@ -556,7 +608,7 @@
 <div class="grid2" style="margin-bottom:16px">
   <div class="card">
     <div class="sec-head">
-      <div class="sec-title">Monthly SIP over time</div>
+      <h2 class="sec-title">Monthly SIP over time</h2>
       <div style="font-size:10px;color:var(--muted)">Step-up vs flat — see how the burden grows</div>
     </div>
     <div class="chart-box" style="height:220px"><canvas id="chart-stepup-compare"></canvas></div>
@@ -564,7 +616,7 @@
 
   <div class="card">
     <div class="sec-head">
-      <div class="sec-title">Step-up rate scenarios</div>
+      <h2 class="sec-title">Step-up rate scenarios</h2>
       <div style="font-size:10px;color:var(--muted)">Final corpus comparison across annual escalation rates</div>
     </div>
     <div id="su-scenarios"></div>
@@ -574,7 +626,7 @@
 <!-- Year-by-year schedule -->
 <div class="card" style="margin-bottom:20px">
   <div class="sec-head">
-    <div class="sec-title">SIP escalation schedule</div>
+    <h2 class="sec-title">SIP escalation schedule</h2>
     <div style="font-size:10px;color:var(--muted)">Your SIP amount, cumulative investment, and projected corpus at each milestone year</div>
   </div>
   <div style="overflow-x:auto" id="su-schedule"></div>
@@ -586,7 +638,7 @@
   <div class="kpi-grid" id="reb-kpi-strip"></div>
   <div class="grid2" style="margin-bottom:20px">
     <div class="card">
-      <div class="sec-head"><div class="sec-title">Target allocation</div><div style="font-size:10px;color:var(--muted)">Set your ideal portfolio mix</div></div>
+      <div class="sec-head"><h2 class="sec-title">Target allocation</h2><div style="font-size:10px;color:var(--muted)">Set your ideal portfolio mix</div></div>
       <div style="display:flex;flex-direction:column;gap:16px" id="reb-sliders">
         <div>
           <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px"><span style="color:var(--muted)">Mutual Funds (MF)</span><span id="reb-mf-val" style="color:var(--gold);font-weight:700">70%</span></div>
@@ -607,16 +659,16 @@
       </div>
     </div>
     <div class="card">
-      <div class="sec-head"><div class="sec-title">Current vs target</div></div>
+      <div class="sec-head"><h2 class="sec-title">Current vs target</h2></div>
       <div id="reb-comparison"></div>
     </div>
   </div>
   <div class="card" style="margin-bottom:20px">
-    <div class="sec-head"><div class="sec-title">Rebalancing action plan</div><div style="font-size:10px;color:var(--muted)">Exact moves to reach your target allocation</div></div>
+    <div class="sec-head"><h2 class="sec-title">Rebalancing action plan</h2><div style="font-size:10px;color:var(--muted)">Exact moves to reach your target allocation</div></div>
     <div id="reb-actions"></div>
   </div>
   <div class="card">
-    <div class="sec-head"><div class="sec-title">How rebalancing works</div></div>
+    <div class="sec-head"><h2 class="sec-title">How rebalancing works</h2></div>
     <div style="font-size:11px;color:var(--muted);line-height:1.9">
       Rebalancing restores your intended risk profile by selling overweight assets and buying underweight ones. It enforces discipline by locking in gains from outperformers and deploying into laggards at lower prices. Aim to rebalance when any class drifts more than ±5% from target, or at least once per year. Note: selling in India attracts STCG (20%) or LTCG (12.5%) — factor this in before executing. Consider rebalancing via new SIP deployment into underweight assets first, to minimise taxable events.
     </div>
@@ -626,7 +678,7 @@
 <!-- IMPORT -->
 <div class="page" id="page-upload">
   <div style="max-width:640px;margin:0 auto;padding-top:10px">
-    <div class="sec-head"><div class="sec-title">Import new Excel data</div></div>
+    <div class="sec-head"><h2 class="sec-title">Import new Excel data</h2></div>
     <p style="font-size:12px;color:var(--muted);margin-bottom:20px;line-height:1.8">Drop your broker-exported Excel files below — the dashboard updates instantly with no Python or server required.</p>
     <div class="card" style="margin-bottom:16px"><div id="steps-list"></div></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
@@ -653,7 +705,7 @@
     <div id="diff-panel-container"></div>
     <div class="card" style="margin-top:16px">
       <div class="sec-head">
-        <div class="sec-title">IndexedDB backup</div>
+        <h2 class="sec-title">IndexedDB backup</h2>
         <div style="font-size:10px;color:var(--muted)">Export or restore saved dashboard data</div>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
@@ -683,7 +735,7 @@
   <!-- Main waterfall chart card -->
   <div class="card" style="margin-bottom:16px">
     <div class="sec-head">
-      <div class="sec-title">Wealth waterfall — where your money came from</div>
+      <h2 class="sec-title">Wealth waterfall — where your money came from</h2>
       <div style="font-size:10px;color:var(--muted)">Starting capital → SIPs added → MF gains → Stock gains → Current portfolio value</div>
     </div>
     <div class="wf-chart-wrap">
@@ -701,11 +753,11 @@
   <!-- Breakdown + insight grid -->
   <div class="grid2" style="margin-bottom:20px">
     <div class="card">
-      <div class="sec-head"><div class="sec-title">Waterfall breakdown</div></div>
+      <div class="sec-head"><h2 class="sec-title">Waterfall breakdown</h2></div>
       <div id="wf-breakdown"></div>
     </div>
     <div class="card">
-      <div class="sec-head"><div class="sec-title">Wealth composition insight</div></div>
+      <div class="sec-head"><h2 class="sec-title">Wealth composition insight</h2></div>
       <div id="wf-composition"></div>
     </div>
   </div>
@@ -731,7 +783,7 @@
   <!-- 7-day calendar strip -->
   <div class="card" style="margin-bottom:16px">
     <div class="sec-head">
-      <div class="sec-title">This week at a glance</div>
+      <h2 class="sec-title">This week at a glance</h2>
       <div style="font-size:10px;color:var(--muted)">Key portfolio events in the next 7 days</div>
     </div>
     <div class="pas-calendar-strip" id="pas-calendar"></div>
@@ -739,7 +791,7 @@
 
   <!-- Action cards grid -->
   <div class="sec-head">
-    <div class="sec-title">Action items</div>
+    <h2 class="sec-title">Action items</h2>
     <div id="pas-action-count" style="font-size:10px;color:var(--muted)"></div>
   </div>
   <div class="pas-action-grid" id="pas-action-grid"></div>
@@ -747,7 +799,7 @@
   <!-- Weekly checklist -->
   <div class="card" style="margin-bottom:20px">
     <div class="sec-head">
-      <div class="sec-title">Weekly investor checklist</div>
+      <h2 class="sec-title">Weekly investor checklist</h2>
       <div style="font-size:10px;color:var(--muted)">Tap to mark done — resets each week</div>
     </div>
     <div id="pas-checklist"></div>
@@ -761,7 +813,7 @@
   <div id="snap-kpis"></div>
 </div>
 
-</div><!-- /main -->
+</main><!-- /main -->
 </div><!-- /shell -->
 
 <script

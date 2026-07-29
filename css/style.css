@@ -98,7 +98,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 
 /* ── Topbar ──────────────────────────────────────────────────── */
 .topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:0;z-index:50}
-.topbar-title{font-family:var(--sans);font-size:16px;font-weight:600;color:var(--text)}
+.topbar-title{font-family:var(--sans);font-size:16px;font-weight:600;color:var(--text);margin:0;padding:0}
 .topbar-meta{font-size:11px;color:var(--muted)}
 
 /* ── Badges ──────────────────────────────────────────────────── */
@@ -126,8 +126,12 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 
 /* ── Section headings ────────────────────────────────────────── */
 .sec-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)}
-.sec-title{font-family:var(--sans);font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:8px}
+.sec-title{font-family:var(--sans);font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:8px;margin:0;padding:0}
 .sec-title::before{content:'';display:inline-block;width:3px;height:14px;background:var(--gold);border-radius:2px}
+
+/* Accessibility helper for SEO & Screen readers */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
 
 /* ── Controls / Filter chips ─────────────────────────────────── */
 .controls{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;align-items:center}

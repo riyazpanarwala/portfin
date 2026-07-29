@@ -1,0 +1,5 @@
+# PortFin Robots File
+User-agent: *
+Allow: /
+
+Sitemap: https://portfin.panarwala.in/sitemap.xml
