@@ -1,4 +1,4 @@
-# PortFin — Personal Investment Dashboard
+# PortFin by Panarwala — Personal Investment Dashboard
 
 A powerful, **no-backend personal finance dashboard** to track, analyze, and optimize your investments across **Mutual Funds and Stocks** — built using pure HTML, CSS, and JavaScript.
 
@@ -296,7 +296,7 @@ portfin/
 
 ## 🚀 Live Demo
 
-👉 https://riyazpanarwala.github.io/portfin/
+👉 https://portfin.panarwala.in/
 
 ---
 
@@ -323,7 +323,7 @@ Contributions, ideas, and suggestions are welcome!
 
 ## 👨‍💻 Author
 
-**Riyaz Panarwala**
+**Panarwala** (Riyaz Panarwala)
 
 ---
 
